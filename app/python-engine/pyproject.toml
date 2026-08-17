@@ -1,0 +1,13 @@
+[project]
+name = "video-translator-engine"
+version = "0.1.0"
+description = "Local processing engine for Video Translator"
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

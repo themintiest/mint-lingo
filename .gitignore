@@ -1,0 +1,118 @@
+# ============================================================
+# IDEs / Editors
+# ============================================================
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code - remove this if shared workspace settings are desired
+.vscode/
+
+
+# ============================================================
+# Operating System
+# ============================================================
+
+.DS_Store
+.AppleDouble
+.LSOverride
+
+Thumbs.db
+Desktop.ini
+
+
+# ============================================================
+# Flutter / Dart
+# ============================================================
+
+**/.dart_tool/
+**/.pub/
+**/.pub-cache/
+**/build/
+**/coverage/
+
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+
+# Generated Flutter desktop files
+**/linux/flutter/ephemeral/
+**/windows/flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+
+# Flutter build symbols / maps
+**/app.*.symbols
+**/app.*.map.json
+
+
+# ============================================================
+# Python
+# ============================================================
+
+**/.venv/
+**/venv/
+**/env/
+
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/.coverage.*
+**/htmlcov/
+
+**/*.egg-info/
+**/.eggs/
+**/dist/
+**/wheelhouse/
+
+
+# ============================================================
+# Environment / Secrets
+# ============================================================
+
+.env
+.env.*
+!.env.example
+
+*.key
+*.pem
+
+
+# ============================================================
+# Logs / Temporary files
+# ============================================================
+
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+tmp/
+temp/
+logs/
+
+
+# ============================================================
+# Local AI / Model Artifacts
+# ============================================================
+
+models/
+model-cache/
+.cache/
+
+
+# ============================================================
+# Local application output
+# ============================================================
+
+output/
+outputs/
+
+docs/
