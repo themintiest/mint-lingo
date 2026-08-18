@@ -203,6 +203,37 @@ void main() {
     expect(error.message, contains('Select a target language'));
   });
 
+  test('reports only a missing source video', () {
+    cubit.configure(
+      ProjectDraft(
+        targetLanguage: Language(code: 'vi', displayName: 'Vietnamese'),
+      ),
+    );
+
+    expect(cubit.validateForProcessing(), isFalse);
+
+    final error =
+        (cubit.state as ProjectSetupError).error as ProjectSetupValidationError;
+    expect(error.issues, [ProjectSetupValidationIssue.sourceRequired]);
+  });
+
+  test('reports only a missing target language', () {
+    cubit.configure(
+      const ProjectDraft(
+        source: ProjectSourceReference(
+          path: '/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+      ),
+    );
+
+    expect(cubit.validateForProcessing(), isFalse);
+
+    final error =
+        (cubit.state as ProjectSetupError).error as ProjectSetupValidationError;
+    expect(error.issues, [ProjectSetupValidationIssue.targetLanguageRequired]);
+  });
+
   test('allows processing only after the source and target are selected', () {
     cubit.configure(
       ProjectDraft(

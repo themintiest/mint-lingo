@@ -91,6 +91,47 @@ void main() {
     expect(find.text('Source language'), findsOneWidget);
     expect(find.text('Target language'), findsOneWidget);
   });
+
+  testWidgets('accepts a fully configured project setup', (
+    WidgetTester tester,
+  ) async {
+    final cubit = ProjectSetupCubit(
+      sourceVideoPicker: _FakeSourceVideoPicker([
+        const ProjectSourceReference(
+          path: '/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+      ]),
+    );
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(
+      VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
+    );
+
+    await tester.tap(find.text('Open video'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Auto-detect'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Manual'));
+    await tester.pumpAndSettle();
+    await _enterLanguage(tester, code: 'en', displayName: 'English');
+
+    await tester.ensureVisible(find.text('Select target language'));
+    await tester.tap(find.text('Select target language'));
+    await tester.pumpAndSettle();
+    await _enterLanguage(tester, code: 'vi', displayName: 'Vietnamese');
+
+    await tester.ensureVisible(find.text('Check setup'));
+    await tester.tap(find.text('Check setup'));
+    await tester.pump();
+
+    expect(find.text('Project setup is complete.'), findsOneWidget);
+    expect(
+      (cubit.state as ProjectSetupConfigured).draft.source?.fileName,
+      'source.mp4',
+    );
+  });
 }
 
 final class _FakeSourceVideoPicker implements SourceVideoPicker {
@@ -101,4 +142,18 @@ final class _FakeSourceVideoPicker implements SourceVideoPicker {
   @override
   Future<ProjectSourceReference?> pickSourceVideo() async =>
       _sources.removeAt(0);
+}
+
+Future<void> _enterLanguage(
+  WidgetTester tester, {
+  required String code,
+  required String displayName,
+}) async {
+  await tester.enterText(find.byKey(const Key('language-code-field')), code);
+  await tester.enterText(
+    find.byKey(const Key('language-display-name-field')),
+    displayName,
+  );
+  await tester.tap(find.text('Use language'));
+  await tester.pumpAndSettle();
 }
