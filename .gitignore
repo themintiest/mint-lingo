@@ -107,6 +107,12 @@ models/
 model-cache/
 .cache/
 
+# Flutter domain models are source code, not local AI artifacts.
+!app/flutter/lib/common/models/
+!app/flutter/lib/common/models/**
+!app/flutter/test/common/models/
+!app/flutter/test/common/models/**
+
 
 # ============================================================
 # Local application output
