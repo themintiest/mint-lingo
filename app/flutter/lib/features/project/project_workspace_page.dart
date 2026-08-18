@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:video_translator/app/engine/engine_connection_cubit.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
 
 class ProjectWorkspacePage extends StatelessWidget {
@@ -30,10 +32,26 @@ class ProjectWorkspacePage extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyLarge,
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: AppSpacing.lg),
+              BlocBuilder<EngineConnectionCubit, EngineConnectionState>(
+                builder: (context, state) {
+                  return Text('Engine: ${_engineStatusText(state.status)}');
+                },
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _engineStatusText(EngineConnectionStatus status) {
+    return switch (status) {
+      EngineConnectionStatus.stopped => 'stopped',
+      EngineConnectionStatus.starting => 'starting',
+      EngineConnectionStatus.ready => 'ready',
+      EngineConnectionStatus.unavailable => 'unavailable',
+      EngineConnectionStatus.crashed => 'crashed',
+    };
   }
 }

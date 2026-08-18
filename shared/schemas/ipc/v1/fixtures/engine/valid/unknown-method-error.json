@@ -1,0 +1,16 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "unknown-001",
+  "error": {
+    "code": -32601,
+    "message": "Method not found",
+    "data": {
+      "engineCode": "engine.method_not_found",
+      "safeDetails": {
+        "reason": "unsupported_method",
+        "retryable": false
+      }
+    }
+  }
+}

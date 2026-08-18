@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "shutdown-001",
+  "result": {
+    "accepted": true
+  }
+}

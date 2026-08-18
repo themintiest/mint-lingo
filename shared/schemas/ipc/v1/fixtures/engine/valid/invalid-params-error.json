@@ -1,0 +1,16 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "invalid-params-001",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "engineCode": "engine.invalid_params",
+      "safeDetails": {
+        "reason": "invalid_parameters",
+        "retryable": false
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "get-info-001",
+  "result": {
+    "engineVersion": "0.1.0",
+    "protocolVersion": "1.0"
+  }
+}

@@ -5,7 +5,9 @@ import 'package:video_translator/app/theme/app_colors.dart';
 
 void main() {
   testWidgets('shows the empty project workspace', (WidgetTester tester) async {
-    await tester.pumpWidget(const VideoTranslatorApp());
+    await tester.pumpWidget(
+      const VideoTranslatorApp(startEngineOnLaunch: false),
+    );
 
     expect(find.text('Video Translator'), findsOneWidget);
     expect(find.text('No video is open'), findsOneWidget);
@@ -17,5 +19,6 @@ void main() {
     final context = tester.element(find.text('No video is open'));
     expect(Theme.of(context).colorScheme.primary, AppColors.primary);
     expect(Theme.of(context).brightness, Brightness.light);
+    expect(find.text('Engine: stopped'), findsOneWidget);
   });
 }
