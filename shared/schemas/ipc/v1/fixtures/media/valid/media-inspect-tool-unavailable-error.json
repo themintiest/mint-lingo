@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "media-inspect-001",
+  "error": {
+    "code": -32011,
+    "message": "Media inspection tool is unavailable.",
+    "data": {
+      "toolCode": "media.ffprobe_unavailable",
+      "retryable": false
+    }
+  }
+}

@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:video-translator:ipc:v1:media-inspection",
+  "title": "Video Translator IPC v1 media inspection messages",
+  "oneOf": [
+    { "$ref": "#/$defs/inspectRequest" },
+    { "$ref": "#/$defs/inspectResponse" },
+    { "$ref": "#/$defs/validationErrorResponse" },
+    { "$ref": "#/$defs/toolErrorResponse" }
+  ],
+  "$defs": {
+    "id": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "integer" }
+      ]
+    },
+    "protocol": {
+      "type": "object",
+      "required": ["jsonrpc", "protocolVersion", "id"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "protocolVersion": { "const": "1.0" },
+        "id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "stream": {
+      "type": "object",
+      "required": ["index", "kind", "codec"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "kind": {
+          "enum": ["video", "audio", "subtitle", "data", "attachment", "unknown"]
+        },
+        "codec": { "type": "string", "minLength": 1 },
+        "dimensions": { "$ref": "#/$defs/dimensions" }
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["durationMicroseconds", "streams", "hasAudio"],
+      "properties": {
+        "durationMicroseconds": { "type": "integer", "minimum": 0 },
+        "streams": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stream" }
+        },
+        "hasAudio": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "inspectRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/protocol" },
+        {
+          "type": "object",
+          "required": ["method", "params"],
+          "properties": {
+            "method": { "const": "media.inspect" },
+            "params": {
+              "type": "object",
+              "required": ["sourcePath"],
+              "properties": {
+                "sourcePath": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "inspectResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/protocol" },
+        {
+          "type": "object",
+          "required": ["result"],
+          "properties": {
+            "result": {
+              "type": "object",
+              "required": ["metadata"],
+              "properties": { "metadata": { "$ref": "#/$defs/metadata" } },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "validationErrorResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/protocol" },
+        {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": {
+              "type": "object",
+              "required": ["code", "message", "data"],
+              "properties": {
+                "code": { "const": -32010 },
+                "message": { "type": "string", "minLength": 1 },
+                "data": {
+                  "type": "object",
+                  "required": ["mediaCode", "retryable"],
+                  "properties": {
+                    "mediaCode": {
+                      "enum": [
+                        "media.source_not_found",
+                        "media.source_not_readable",
+                        "media.unsupported_media",
+                        "media.metadata_unavailable",
+                        "media.audio_stream_missing"
+                      ]
+                    },
+                    "retryable": { "type": "boolean" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "toolErrorResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/protocol" },
+        {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": {
+              "type": "object",
+              "required": ["code", "message", "data"],
+              "properties": {
+                "code": { "const": -32011 },
+                "message": { "const": "Media inspection tool is unavailable." },
+                "data": {
+                  "type": "object",
+                  "required": ["toolCode", "retryable"],
+                  "properties": {
+                    "toolCode": {
+                      "enum": [
+                        "media.ffprobe_unsupported_platform",
+                        "media.ffprobe_unavailable"
+                      ]
+                    },
+                    "retryable": { "const": false }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

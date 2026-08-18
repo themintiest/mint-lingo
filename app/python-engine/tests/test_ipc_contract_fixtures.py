@@ -82,6 +82,60 @@ def _is_engine_error_data(value: Any) -> bool:
     )
 
 
+def _is_media_inspection_message(value: Any) -> bool:
+    if not _is_envelope(value) or not isinstance(value, dict):
+        return False
+    if value.get("method") == "media.inspect":
+        params = value.get("params")
+        return (
+            isinstance(params, dict)
+            and set(params) == {"sourcePath"}
+            and isinstance(params["sourcePath"], str)
+            and bool(params["sourcePath"])
+        )
+
+    result = value.get("result")
+    if isinstance(result, dict):
+        metadata = result.get("metadata")
+        return (
+            set(result) == {"metadata"}
+            and isinstance(metadata, dict)
+            and set(metadata) == {"durationMicroseconds", "streams", "hasAudio"}
+            and isinstance(metadata["durationMicroseconds"], int)
+            and not isinstance(metadata["durationMicroseconds"], bool)
+            and metadata["durationMicroseconds"] >= 0
+            and isinstance(metadata["streams"], list)
+            and bool(metadata["streams"])
+            and isinstance(metadata["hasAudio"], bool)
+        )
+
+    error = value.get("error")
+    if not isinstance(error, dict) or not isinstance(error.get("data"), dict):
+        return False
+    data = error["data"]
+    if error.get("code") == -32010:
+        return (
+            set(data) == {"mediaCode", "retryable"}
+            and data["mediaCode"]
+            in {
+                "media.source_not_found",
+                "media.source_not_readable",
+                "media.unsupported_media",
+                "media.metadata_unavailable",
+                "media.audio_stream_missing",
+            }
+            and isinstance(data["retryable"], bool)
+        )
+    return (
+        error.get("code") == -32011
+        and error.get("message") == "Media inspection tool is unavailable."
+        and set(data) == {"toolCode", "retryable"}
+        and data["toolCode"]
+        in {"media.ffprobe_unsupported_platform", "media.ffprobe_unavailable"}
+        and data["retryable"] is False
+    )
+
+
 class IpcContractFixtureTest(unittest.TestCase):
     def test_generic_envelope_fixtures(self) -> None:
         for expected, directory in (
@@ -125,3 +179,13 @@ class IpcContractFixtureTest(unittest.TestCase):
             ).read_text(encoding="utf-8")
         )
         self.assertFalse(_is_engine_error_data(unsafe_error_data))
+
+    def test_media_inspection_fixtures(self) -> None:
+        for expected, directory in (
+            (True, CONTRACT_ROOT / "fixtures" / "media" / "valid"),
+            (False, CONTRACT_ROOT / "fixtures" / "media" / "invalid"),
+        ):
+            for fixture in directory.glob("*.json"):
+                with self.subTest(fixture=fixture.name):
+                    value = json.loads(fixture.read_text(encoding="utf-8"))
+                    self.assertIs(_is_media_inspection_message(value), expected)
