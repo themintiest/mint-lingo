@@ -6,15 +6,25 @@ normalized media metadata is deferred to MEDIA-04.
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import timedelta
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
+
+from video_translator_engine.media import (
+    MediaDimensions,
+    MediaMetadata,
+    MediaStream,
+    MediaStreamKind,
+)
 
 
 class MediaToolResolutionMode(str, Enum):
@@ -140,6 +150,10 @@ class FfprobeProcessResult:
             raise TypeError("stdout and stderr must be strings")
 
 
+class FfprobeMetadataParseError(ValueError):
+    """Raised when FFprobe JSON cannot produce normalized metadata."""
+
+
 class FfprobeProcessRunner(Protocol):
     """The substitutable boundary for external FFprobe process execution."""
 
@@ -199,6 +213,77 @@ class MediaProbe:
                 str(source),
             ),
         )
+
+
+def parse_ffprobe_metadata(output: str) -> MediaMetadata:
+    """Transform one successful FFprobe JSON document into normalized metadata."""
+
+    if not isinstance(output, str):
+        raise TypeError("output must be a string")
+    try:
+        document = json.loads(output)
+    except json.JSONDecodeError as error:
+        raise FfprobeMetadataParseError("FFprobe output is not valid JSON") from error
+
+    if not isinstance(document, dict):
+        raise FfprobeMetadataParseError("FFprobe output must be a JSON object")
+    format_data = document.get("format")
+    streams_data = document.get("streams")
+    if not isinstance(format_data, dict) or not isinstance(streams_data, list):
+        raise FfprobeMetadataParseError(
+            "FFprobe output must contain format and streams objects"
+        )
+
+    try:
+        duration = _parse_duration(format_data.get("duration"))
+        streams = tuple(_parse_stream(stream) for stream in streams_data)
+        return MediaMetadata(duration=duration, streams=streams)
+    except (TypeError, ValueError) as error:
+        raise FfprobeMetadataParseError("FFprobe metadata has an invalid shape") from error
+
+
+def _parse_duration(value: object) -> timedelta:
+    if not isinstance(value, str) or not value or value.strip() != value:
+        raise ValueError("format duration must be a non-empty string")
+    try:
+        seconds = Decimal(value)
+    except InvalidOperation as error:
+        raise ValueError("format duration must be numeric") from error
+    if not seconds.is_finite() or seconds < 0:
+        raise ValueError("format duration must be finite and non-negative")
+
+    microseconds = (seconds * Decimal(1_000_000)).to_integral_value(
+        rounding=ROUND_HALF_UP
+    )
+    return timedelta(microseconds=int(microseconds))
+
+
+def _parse_stream(value: object) -> MediaStream:
+    if not isinstance(value, dict):
+        raise ValueError("each stream must be an object")
+    index = value.get("index")
+    codec = value.get("codec_name")
+    kind = _stream_kind(value.get("codec_type"))
+    dimensions = _parse_dimensions(value) if kind is MediaStreamKind.VIDEO else None
+    return MediaStream(
+        index=index,
+        kind=kind,
+        codec=codec,
+        dimensions=dimensions,
+    )
+
+
+def _stream_kind(value: object) -> MediaStreamKind:
+    if not isinstance(value, str):
+        raise ValueError("stream codec_type must be a string")
+    try:
+        return MediaStreamKind(value)
+    except ValueError:
+        return MediaStreamKind.UNKNOWN
+
+
+def _parse_dimensions(stream: Mapping[str, Any]) -> MediaDimensions:
+    return MediaDimensions(width=stream.get("width"), height=stream.get("height"))
 
 
 def _platform_tag(system_name: str, machine_name: str) -> str | None:

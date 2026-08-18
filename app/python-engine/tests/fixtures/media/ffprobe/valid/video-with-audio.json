@@ -1,0 +1,25 @@
+{
+  "format": {
+    "duration": "95.500000",
+    "format_name": "mov,mp4,m4a,3gp,3g2,mj2"
+  },
+  "streams": [
+    {
+      "index": 0,
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "index": 1,
+      "codec_name": "aac",
+      "codec_type": "audio"
+    },
+    {
+      "index": 2,
+      "codec_name": "subrip",
+      "codec_type": "subtitle"
+    }
+  ]
+}
