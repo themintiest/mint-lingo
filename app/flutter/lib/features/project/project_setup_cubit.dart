@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:video_translator/common/models/language.dart';
 import 'package:video_translator/features/project/project_draft.dart';
 import 'package:video_translator/features/project/source_video_picker.dart';
 
@@ -111,6 +112,26 @@ final class ProjectSetupCubit extends Cubit<ProjectSetupState> {
     emit(ProjectSetupConfigured(draft));
   }
 
+  void selectAutomaticSourceLanguage() {
+    configure(
+      _draftForConfiguration.withSourceLanguage(
+        const SourceLanguageSelection.autoDetect(),
+      ),
+    );
+  }
+
+  void selectManualSourceLanguage(Language language) {
+    configure(
+      _draftForConfiguration.withSourceLanguage(
+        SourceLanguageSelection.manual(language),
+      ),
+    );
+  }
+
+  void selectTargetLanguage(Language language) {
+    configure(_draftForConfiguration.withTargetLanguage(language));
+  }
+
   void reportError(Object error) {
     emit(ProjectSetupError(error: error, draft: state.draft));
   }
@@ -126,4 +147,7 @@ final class ProjectSetupCubit extends Cubit<ProjectSetupState> {
     }
     configure(draft);
   }
+
+  ProjectDraft get _draftForConfiguration =>
+      state.draft ?? const ProjectDraft();
 }

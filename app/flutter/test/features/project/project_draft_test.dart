@@ -52,4 +52,21 @@ void main() {
     expect(first, second);
     expect(first.hashCode, second.hashCode);
   });
+
+  test('copies language selections without changing the source reference', () {
+    const source = ProjectSourceReference(
+      path: '/videos/source.mp4',
+      fileName: 'source.mp4',
+    );
+    final sourceLanguage = Language(code: 'en', displayName: 'English');
+    final targetLanguage = Language(code: 'vi', displayName: 'Vietnamese');
+
+    final draft = const ProjectDraft(source: source)
+        .withSourceLanguage(SourceLanguageSelection.manual(sourceLanguage))
+        .withTargetLanguage(targetLanguage);
+
+    expect(draft.source, source);
+    expect(draft.sourceLanguage, ExplicitSourceLanguage(sourceLanguage));
+    expect(draft.targetLanguage, targetLanguage);
+  });
 }

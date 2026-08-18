@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/engine/engine_connection_cubit.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
+import 'package:video_translator/features/project/project_language_controls.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 
 class ProjectWorkspacePage extends StatelessWidget {
@@ -60,6 +61,8 @@ class ProjectWorkspacePage extends StatelessWidget {
                           : 'Replace video',
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const ProjectLanguageControls(),
                   const SizedBox(height: AppSpacing.lg),
                   BlocBuilder<EngineConnectionCubit, EngineConnectionState>(
                     builder: (context, state) {
