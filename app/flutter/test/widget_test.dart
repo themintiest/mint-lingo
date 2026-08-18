@@ -70,6 +70,27 @@ void main() {
     expect(find.textContaining('Select a source video'), findsOneWidget);
     expect(find.textContaining('Select a target language'), findsOneWidget);
   });
+
+  testWidgets('keeps project setup usable at a narrow desktop width', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(480, 500));
+    tester.binding.platformDispatcher.textScaleFactorTestValue = 1.5;
+    addTearDown(() async {
+      tester.binding.platformDispatcher.clearTextScaleFactorTestValue();
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    await tester.pumpWidget(
+      const VideoTranslatorApp(startEngineOnLaunch: false),
+    );
+
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.text('Open video'), findsOneWidget);
+    await tester.ensureVisible(find.text('Select target language'));
+    expect(find.text('Source language'), findsOneWidget);
+    expect(find.text('Target language'), findsOneWidget);
+  });
 }
 
 final class _FakeSourceVideoPicker implements SourceVideoPicker {
