@@ -68,7 +68,9 @@ void main() {
       expect(isValidIpcEnvelope(message), isTrue, reason: fixture.path);
       expect(_isMediaInspectionMessage(message), isTrue, reason: fixture.path);
     }
-    for (final fixture in _jsonFixtures(contractRoot.resolve('media/invalid/'))) {
+    for (final fixture in _jsonFixtures(
+      contractRoot.resolve('media/invalid/'),
+    )) {
       final message = _readJson(fixture) as Map<String, dynamic>;
       expect(isValidIpcEnvelope(message), isTrue, reason: fixture.path);
       expect(_isMediaInspectionMessage(message), isFalse, reason: fixture.path);
@@ -122,9 +124,11 @@ bool _isMediaInspectionMessage(Map<String, dynamic> message) {
     final metadata = result['metadata'];
     return result.length == 1 &&
         metadata is Map<String, dynamic> &&
-        metadata.keys.toSet().containsAll(
-          const {'durationMicroseconds', 'streams', 'hasAudio'},
-        ) &&
+        metadata.keys.toSet().containsAll(const {
+          'durationMicroseconds',
+          'streams',
+          'hasAudio',
+        }) &&
         metadata.length == 3 &&
         metadata['durationMicroseconds'] is int &&
         metadata['durationMicroseconds'] is! bool &&
@@ -134,7 +138,8 @@ bool _isMediaInspectionMessage(Map<String, dynamic> message) {
   }
 
   final error = message['error'];
-  if (error is! Map<String, dynamic> || error['data'] is! Map<String, dynamic>) {
+  if (error is! Map<String, dynamic> ||
+      error['data'] is! Map<String, dynamic>) {
     return false;
   }
   final data = error['data'] as Map<String, dynamic>;

@@ -41,6 +41,8 @@ class EngineConnectionCubit extends Cubit<EngineConnectionState> {
   final EngineClient _client;
   late final StreamSubscription<Object> _failureSubscription;
 
+  EngineClient get client => _client;
+
   Future<void> start() async {
     if (state.status == EngineConnectionStatus.starting ||
         state.status == EngineConnectionStatus.ready) {

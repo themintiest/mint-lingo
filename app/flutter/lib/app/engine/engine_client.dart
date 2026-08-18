@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:video_translator/app/engine/media_inspection.dart';
+
 const _protocolVersion = '1.0';
 
 typedef WorkerStarter = Future<Process> Function();
@@ -107,10 +109,11 @@ class EngineProtocolException implements Exception {
 }
 
 class EngineRpcException implements Exception {
-  const EngineRpcException(this.code, this.message);
+  const EngineRpcException(this.code, this.message, {this.data});
 
   final int code;
   final String message;
+  final Map<String, Object?>? data;
 
   @override
   String toString() => 'JSON-RPC $code: $message';
@@ -164,6 +167,32 @@ class EngineClient {
   Future<EngineInfo> getInfo() async {
     final result = await request('engine.getInfo');
     return EngineInfo.fromJson(result);
+  }
+
+  /// Inspects one source path through the existing path-only media IPC method.
+  Future<MediaInspectionMetadata> inspectMedia(String sourcePath) async {
+    try {
+      final result = await request(
+        'media.inspect',
+        params: {'sourcePath': sourcePath},
+      );
+      final metadata = result['metadata'];
+      if (result.length != 1 || metadata is! Map<String, dynamic>) {
+        throw const EngineProtocolException('Invalid media.inspect result.');
+      }
+      return MediaInspectionMetadata.fromJson(
+        Map<String, Object?>.from(metadata),
+      );
+    } on EngineRpcException catch (error) {
+      try {
+        throw MediaInspectionException.fromResponse(
+          responseCode: error.code,
+          data: error.data,
+        );
+      } on FormatException {
+        throw error;
+      }
+    }
   }
 
   Future<Map<String, Object?>> request(
@@ -252,7 +281,16 @@ class EngineClient {
             'Malformed engine error response.',
           );
         }
-        completer.completeError(EngineRpcException(code, text));
+        final data = error['data'];
+        completer.completeError(
+          EngineRpcException(
+            code,
+            text,
+            data: data is Map<String, dynamic>
+                ? Map<String, Object?>.from(data)
+                : null,
+          ),
+        );
         return;
       }
       final result = message['result'];
