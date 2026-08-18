@@ -1,9 +1,9 @@
 # IPC protocol v1
 
 This directory is the authoritative, runtime-neutral contract for version 1 of
-the Flutter-to-Python IPC boundary. It defines framing, JSON-RPC envelopes, and
-the inert engine-handshake messages only. It does not define processing jobs,
-media, AI providers, or product-feature payloads.
+the Flutter-to-Python IPC boundary. It defines framing, JSON-RPC envelopes,
+engine-handshake messages, and media inspection. It does not define processing
+jobs, AI providers, or other product-feature payloads.
 
 ## Version
 
@@ -87,6 +87,18 @@ only engine methods in M1:
 
 These methods are limited to readiness and orderly shutdown. They do not load
 models, inspect media, start jobs, or disclose configuration.
+
+## Media inspection messages
+
+[`media-inspection.schema.json`](media-inspection.schema.json) defines
+`media.inspect`. It accepts exactly one parameter, `sourcePath`; media bytes,
+base64 payloads, and data URLs are not permitted. A successful result contains
+normalized duration, streams, dimensions, codecs, and audio presence.
+
+Expected validation failures use JSON-RPC code `-32010` with a stable
+`error.data.mediaCode`; unavailable FFprobe tooling uses `-32011` with
+`error.data.toolCode`. Neither error payload may contain the supplied source
+path. The media fixtures live under `fixtures/media`.
 
 ## Engine errors
 

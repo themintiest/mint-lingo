@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "media-inspect-001",
+  "method": "media.inspect",
+  "params": {
+    "sourcePath": "C:\\videos\\source.mp4"
+  }
+}

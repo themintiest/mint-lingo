@@ -1,0 +1,27 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "media-inspect-001",
+  "result": {
+    "metadata": {
+      "durationMicroseconds": 95500000,
+      "streams": [
+        {
+          "index": 0,
+          "kind": "video",
+          "codec": "h264",
+          "dimensions": {
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "index": 1,
+          "kind": "audio",
+          "codec": "aac"
+        }
+      ],
+      "hasAudio": true
+    }
+  }
+}

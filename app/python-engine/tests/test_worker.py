@@ -2,7 +2,22 @@ import json
 import subprocess
 import sys
 import unittest
+from datetime import timedelta
 from pathlib import Path
+
+from video_translator_engine.media import (
+    MediaDimensions,
+    MediaMetadata,
+    MediaStream,
+    MediaStreamKind,
+    MediaValidationError,
+    MediaValidationErrorCode,
+)
+from video_translator_engine.media_validation import (
+    MediaValidationFailure,
+    MediaValidationSuccess,
+)
+from video_translator_engine.worker import handle_message
 
 
 class WorkerProtocolTest(unittest.TestCase):
@@ -118,3 +133,100 @@ class WorkerProtocolTest(unittest.TestCase):
             invalid_params["error"]["data"]["engineCode"],
             "engine.invalid_params",
         )
+
+
+class MediaInspectionWorkerTest(unittest.TestCase):
+    def test_returns_shared_success_shape_for_validated_metadata(self) -> None:
+        validator = _FakeMediaValidator(
+            MediaValidationSuccess(
+                MediaMetadata(
+                    duration=timedelta(seconds=95.5),
+                    streams=(
+                        MediaStream(
+                            index=0,
+                            kind=MediaStreamKind.VIDEO,
+                            codec="h264",
+                            dimensions=MediaDimensions(width=1920, height=1080),
+                        ),
+                        MediaStream(
+                            index=1,
+                            kind=MediaStreamKind.AUDIO,
+                            codec="aac",
+                        ),
+                    ),
+                )
+            )
+        )
+
+        response, should_shutdown = handle_message(
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "media-inspect-001",
+                "method": "media.inspect",
+                "params": {"sourcePath": r"C:\videos\source.mp4"},
+            },
+            media_validator=validator,  # type: ignore[arg-type]
+        )
+
+        self.assertFalse(should_shutdown)
+        self.assertEqual(
+            response,
+            _media_fixture("media-inspect-success-response.json"),
+        )
+        self.assertEqual(validator.sources, [Path(r"C:\videos\source.mp4")])
+
+    def test_returns_shared_validation_error_without_echoing_the_source_path(self) -> None:
+        validator = _FakeMediaValidator(
+            MediaValidationFailure(
+                MediaValidationError(
+                    code=MediaValidationErrorCode.AUDIO_STREAM_MISSING,
+                    message="The source media does not contain an audio stream.",
+                )
+            )
+        )
+
+        response, _ = handle_message(
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "media-inspect-001",
+                "method": "media.inspect",
+                "params": {"sourcePath": r"C:\private\source.mp4"},
+            },
+            media_validator=validator,  # type: ignore[arg-type]
+        )
+
+        self.assertEqual(response, _media_fixture("media-inspect-no-audio-error.json"))
+        self.assertNotIn("C:\\private\\source.mp4", json.dumps(response))
+
+    def test_rejects_params_that_include_media_content(self) -> None:
+        response, _ = handle_message(_media_fixture("media-inspect-with-bytes.json"))
+
+        self.assertEqual(response["error"]["code"], -32602)
+
+
+class _FakeMediaValidator:
+    def __init__(self, result: MediaValidationSuccess | MediaValidationFailure) -> None:
+        self._result = result
+        self.sources: list[Path] = []
+
+    def validate(self, source: Path) -> MediaValidationSuccess | MediaValidationFailure:
+        self.sources.append(source)
+        return self._result
+
+
+def _media_fixture(name: str) -> dict[str, object]:
+    return json.loads(
+        (
+            Path(__file__).parents[3]
+            / "shared"
+            / "schemas"
+            / "ipc"
+            / "v1"
+            / "fixtures"
+            / "media"
+            / ("invalid" if name == "media-inspect-with-bytes.json" else "valid")
+            / name
+        ).read_text(encoding="utf-8")
+    )
