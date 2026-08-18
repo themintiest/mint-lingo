@@ -189,6 +189,34 @@ void main() {
     expect(draft.sourceLanguage, const SourceLanguageSelection.autoDetect());
     expect(draft.targetLanguage, targetLanguage);
   });
+
+  test('blocks processing with actionable missing-value messages', () {
+    expect(cubit.validateForProcessing(), isFalse);
+
+    final error = (cubit.state as ProjectSetupError).error;
+    expect(error, isA<ProjectSetupValidationError>());
+    expect((error as ProjectSetupValidationError).issues, [
+      ProjectSetupValidationIssue.sourceRequired,
+      ProjectSetupValidationIssue.targetLanguageRequired,
+    ]);
+    expect(error.message, contains('Select a source video'));
+    expect(error.message, contains('Select a target language'));
+  });
+
+  test('allows processing only after the source and target are selected', () {
+    cubit.configure(
+      ProjectDraft(
+        source: const ProjectSourceReference(
+          path: '/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+        targetLanguage: Language(code: 'vi', displayName: 'Vietnamese'),
+      ),
+    );
+
+    expect(cubit.validateForProcessing(), isTrue);
+    expect(cubit.state, isA<ProjectSetupConfigured>());
+  });
 }
 
 final class _FakeSourceVideoPicker implements SourceVideoPicker {

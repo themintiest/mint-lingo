@@ -56,6 +56,20 @@ void main() {
     expect(find.text('second.mp4'), findsOneWidget);
     expect(find.text('first.mp4'), findsNothing);
   });
+
+  testWidgets('shows actionable setup messages before processing', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const VideoTranslatorApp(startEngineOnLaunch: false),
+    );
+
+    await tester.tap(find.text('Check setup'));
+    await tester.pump();
+
+    expect(find.textContaining('Select a source video'), findsOneWidget);
+    expect(find.textContaining('Select a target language'), findsOneWidget);
+  });
 }
 
 final class _FakeSourceVideoPicker implements SourceVideoPicker {
