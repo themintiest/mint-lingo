@@ -8,6 +8,7 @@ import 'package:video_translator/app/theme/app_theme.dart';
 import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/features/project/project_workspace_page.dart';
+import 'package:video_translator/features/video/video_player_cubit.dart';
 
 class VideoTranslatorApp extends StatefulWidget {
   const VideoTranslatorApp({
@@ -16,12 +17,14 @@ class VideoTranslatorApp extends StatefulWidget {
     this.engineConnectionCubit,
     this.projectSetupCubit,
     this.mediaInspectionCubit,
+    this.videoPlayerCubit,
   });
 
   final bool startEngineOnLaunch;
   final EngineConnectionCubit? engineConnectionCubit;
   final ProjectSetupCubit? projectSetupCubit;
   final MediaInspectionCubit? mediaInspectionCubit;
+  final VideoPlayerCubit? videoPlayerCubit;
 
   @override
   State<VideoTranslatorApp> createState() => _VideoTranslatorAppState();
@@ -34,6 +37,8 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
   late final bool _ownsProjectSetupCubit;
   late final MediaInspectionCubit _mediaInspectionCubit;
   late final bool _ownsMediaInspectionCubit;
+  late final VideoPlayerCubit _videoPlayerCubit;
+  late final bool _ownsVideoPlayerCubit;
 
   @override
   void initState() {
@@ -49,6 +54,8 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
         MediaInspectionCubit(
           inspectMedia: _engineConnectionCubit.client.inspectMedia,
         );
+    _ownsVideoPlayerCubit = widget.videoPlayerCubit == null;
+    _videoPlayerCubit = widget.videoPlayerCubit ?? VideoPlayerCubit();
     if (widget.startEngineOnLaunch) {
       unawaited(_engineConnectionCubit.start());
     }
@@ -65,17 +72,20 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
     if (_ownsMediaInspectionCubit) {
       unawaited(_mediaInspectionCubit.close());
     }
+    if (_ownsVideoPlayerCubit) {
+      unawaited(_videoPlayerCubit.close());
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
-
       providers: [
         BlocProvider.value(value: _engineConnectionCubit),
         BlocProvider.value(value: _projectSetupCubit),
         BlocProvider.value(value: _mediaInspectionCubit),
+        BlocProvider.value(value: _videoPlayerCubit),
       ],
       child: MaterialApp(
         title: 'Video Translator',

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/engine/engine_connection_cubit.dart';
@@ -6,6 +8,7 @@ import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/media_inspection_panel.dart';
 import 'package:video_translator/features/project/project_language_controls.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
+import 'package:video_translator/features/video/video_player_cubit.dart';
 
 class ProjectWorkspacePage extends StatelessWidget {
   const ProjectWorkspacePage({super.key});
@@ -30,6 +33,15 @@ class ProjectWorkspacePage extends StatelessWidget {
               final inspectionCubit = context.read<MediaInspectionCubit>();
               if (inspectionCubit.state.source != state.draft?.source) {
                 inspectionCubit.clear();
+              }
+              final videoPlayerCubit = context.read<VideoPlayerCubit>();
+              final source = state.draft?.source;
+              if (videoPlayerCubit.state.source != source) {
+                if (source == null) {
+                  unawaited(videoPlayerCubit.clear());
+                } else {
+                  unawaited(videoPlayerCubit.open(source));
+                }
               }
               if (state is ProjectSetupError) {
                 ScaffoldMessenger.of(context).showSnackBar(
