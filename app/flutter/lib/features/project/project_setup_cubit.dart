@@ -9,6 +9,29 @@ sealed class ProjectSetupState {
   ProjectDraft? get draft;
 }
 
+enum ProjectSetupValidationIssue {
+  sourceRequired('Select a source video before processing.'),
+  targetLanguageRequired('Select a target language before processing.');
+
+  const ProjectSetupValidationIssue(this.message);
+
+  final String message;
+}
+
+/// Describes the missing project values that prevent processing from starting.
+final class ProjectSetupValidationError implements Exception {
+  ProjectSetupValidationError(Iterable<ProjectSetupValidationIssue> issues)
+    : issues = List.unmodifiable(issues) {
+    if (this.issues.isEmpty) {
+      throw ArgumentError.value(issues, 'issues', 'must not be empty');
+    }
+  }
+
+  final List<ProjectSetupValidationIssue> issues;
+
+  String get message => issues.map((issue) => issue.message).join('\n');
+}
+
 final class ProjectSetupEmpty extends ProjectSetupState {
   const ProjectSetupEmpty();
 
@@ -70,8 +93,8 @@ final class ProjectSetupError extends ProjectSetupState {
 
 /// Coordinates the in-memory project setup flow without performing file I/O.
 ///
-/// A draft is considered configured when one is supplied. Required-value and
-/// media validation are intentionally deferred to their dedicated tasks.
+/// A draft is considered configured when one is supplied. It may still be
+/// incomplete until [validateForProcessing] confirms required setup values.
 final class ProjectSetupCubit extends Cubit<ProjectSetupState> {
   ProjectSetupCubit({SourceVideoPicker? sourceVideoPicker})
     : _sourceVideoPicker =
@@ -130,6 +153,29 @@ final class ProjectSetupCubit extends Cubit<ProjectSetupState> {
 
   void selectTargetLanguage(Language language) {
     configure(_draftForConfiguration.withTargetLanguage(language));
+  }
+
+  /// Verifies the required setup values before processing can begin.
+  ///
+  /// Media validation remains a later Python-owned responsibility.
+  bool validateForProcessing() {
+    final draft = state.draft;
+    final issues = <ProjectSetupValidationIssue>[
+      if (draft?.source == null) ProjectSetupValidationIssue.sourceRequired,
+      if (draft?.targetLanguage == null)
+        ProjectSetupValidationIssue.targetLanguageRequired,
+    ];
+    if (issues.isEmpty) {
+      return true;
+    }
+
+    emit(
+      ProjectSetupError(
+        error: ProjectSetupValidationError(issues),
+        draft: draft,
+      ),
+    );
+    return false;
   }
 
   void reportError(Object error) {
