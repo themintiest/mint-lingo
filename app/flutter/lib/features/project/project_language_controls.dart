@@ -25,16 +25,13 @@ class ProjectLanguageControls extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.record_voice_over_outlined),
-              title: const Text('Source language'),
-              subtitle: Text(
-                manualSourceLanguage == null
-                    ? 'Automatic detection'
-                    : _languageLabel(manualSourceLanguage),
-              ),
-              trailing: Row(
+            _LanguageControlRow(
+              icon: Icons.record_voice_over_outlined,
+              title: 'Source language',
+              description: manualSourceLanguage == null
+                  ? 'Automatic detection'
+                  : _languageLabel(manualSourceLanguage),
+              control: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButton<_SourceLanguageMode>(
@@ -78,16 +75,14 @@ class ProjectLanguageControls extends StatelessWidget {
                 ],
               ),
             ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.translate_outlined),
-              title: const Text('Target language'),
-              subtitle: Text(
-                draft.targetLanguage == null
-                    ? 'No target language selected'
-                    : _languageLabel(draft.targetLanguage!),
-              ),
-              trailing: OutlinedButton(
+            const SizedBox(height: AppSpacing.md),
+            _LanguageControlRow(
+              icon: Icons.translate_outlined,
+              title: 'Target language',
+              description: draft.targetLanguage == null
+                  ? 'No target language selected'
+                  : _languageLabel(draft.targetLanguage!),
+              control: OutlinedButton(
                 onPressed: () => _selectTargetLanguage(
                   context,
                   initialLanguage: draft.targetLanguage,
@@ -134,6 +129,67 @@ class ProjectLanguageControls extends StatelessWidget {
 }
 
 enum _SourceLanguageMode { automatic, manual }
+
+class _LanguageControlRow extends StatelessWidget {
+  const _LanguageControlRow({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.control,
+  });
+
+  static const _compactWidth = 520.0;
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Widget control;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final details = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(description),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        if (constraints.maxWidth < _compactWidth) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              details,
+              const SizedBox(height: AppSpacing.sm),
+              Align(alignment: Alignment.centerRight, child: control),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: details),
+            const SizedBox(width: AppSpacing.lg),
+            control,
+          ],
+        );
+      },
+    );
+  }
+}
 
 Future<Language?> _showLanguageEntryDialog(
   BuildContext context, {

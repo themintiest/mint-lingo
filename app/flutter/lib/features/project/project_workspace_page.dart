@@ -8,99 +8,131 @@ import 'package:video_translator/features/project/project_setup_cubit.dart';
 class ProjectWorkspacePage extends StatelessWidget {
   const ProjectWorkspacePage({super.key});
 
+  static const _maxContentWidth = 720.0;
+  static const _compactWidth = 600.0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Video Translator')),
-      body: BlocListener<ProjectSetupCubit, ProjectSetupState>(
-        listener: (context, state) {
-          if (state is! ProjectSetupError) {
-            return;
-          }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_setupErrorMessage(state.error))),
-          );
-        },
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: BlocBuilder<ProjectSetupCubit, ProjectSetupState>(
-              builder: (context, state) {
-                final source = state.draft?.source;
-                final isSelecting = state is ProjectSetupSelecting;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.video_file_outlined,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      source == null ? 'No video is open' : source.fileName,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      source == null
-                          ? 'Open a video to begin a translation project.'
-                          : 'This video is ready for project setup.',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: isSelecting
-                              ? null
-                              : () => context
-                                    .read<ProjectSetupCubit>()
-                                    .selectSourceVideo(),
-                          icon: isSelecting
-                              ? const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.folder_open_outlined),
-                          label: Text(
-                            isSelecting
-                                ? 'Selecting video...'
-                                : source == null
-                                ? 'Open video'
-                                : 'Replace video',
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        TextButton.icon(
-                          onPressed: isSelecting
-                              ? null
-                              : () => _checkSetup(context),
-                          icon: const Icon(Icons.check_circle_outline),
-                          label: const Text('Check setup'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const ProjectLanguageControls(),
-                    const SizedBox(height: AppSpacing.lg),
-                    BlocBuilder<EngineConnectionCubit, EngineConnectionState>(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontalPadding = constraints.maxWidth < _compactWidth
+              ? AppSpacing.lg
+              : AppSpacing.xl;
+          return BlocListener<ProjectSetupCubit, ProjectSetupState>(
+            listener: (context, state) {
+              if (state is! ProjectSetupError) {
+                return;
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(_setupErrorMessage(state.error))),
+              );
+            },
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: AppSpacing.xl,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: BlocBuilder<ProjectSetupCubit, ProjectSetupState>(
                       builder: (context, state) {
-                        return Text(
-                          'Engine: ${_engineStatusText(state.status)}',
+                        final source = state.draft?.source;
+                        final isSelecting = state is ProjectSetupSelecting;
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Center(
+                              child: Icon(
+                                Icons.video_file_outlined,
+                                size: 64,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            Text(
+                              source == null
+                                  ? 'No video is open'
+                                  : source.fileName,
+                              style: Theme.of(context).textTheme.headlineSmall,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              source == null
+                                  ? 'Open a video to begin a translation project.'
+                                  : 'This video is ready for project setup.',
+                              style: Theme.of(context).textTheme.bodyLarge,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: AppSpacing.sm,
+                              runSpacing: AppSpacing.sm,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: isSelecting
+                                      ? null
+                                      : () => context
+                                            .read<ProjectSetupCubit>()
+                                            .selectSourceVideo(),
+                                  icon: isSelecting
+                                      ? const SizedBox.square(
+                                          dimension: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.folder_open_outlined),
+                                  label: Text(
+                                    isSelecting
+                                        ? 'Selecting video...'
+                                        : source == null
+                                        ? 'Open video'
+                                        : 'Replace video',
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  onPressed: isSelecting
+                                      ? null
+                                      : () => _checkSetup(context),
+                                  icon: const Icon(Icons.check_circle_outline),
+                                  label: const Text('Check setup'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            const ProjectLanguageControls(),
+                            const SizedBox(height: AppSpacing.lg),
+                            Center(
+                              child:
+                                  BlocBuilder<
+                                    EngineConnectionCubit,
+                                    EngineConnectionState
+                                  >(
+                                    builder: (context, state) {
+                                      return Text(
+                                        'Engine: ${_engineStatusText(state.status)}',
+                                      );
+                                    },
+                                  ),
+                            ),
+                          ],
                         );
                       },
                     ),
-                  ],
-                );
-              },
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
