@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/features/project/project_draft.dart';
+import 'package:video_translator/features/project/source_video_picker.dart';
 
 sealed class ProjectSetupState {
   const ProjectSetupState();
@@ -71,10 +72,39 @@ final class ProjectSetupError extends ProjectSetupState {
 /// A draft is considered configured when one is supplied. Required-value and
 /// media validation are intentionally deferred to their dedicated tasks.
 final class ProjectSetupCubit extends Cubit<ProjectSetupState> {
-  ProjectSetupCubit() : super(const ProjectSetupEmpty());
+  ProjectSetupCubit({SourceVideoPicker? sourceVideoPicker})
+    : _sourceVideoPicker =
+          sourceVideoPicker ?? const FileSelectorSourceVideoPicker(),
+      super(const ProjectSetupEmpty());
+
+  final SourceVideoPicker _sourceVideoPicker;
 
   void beginSourceSelection() {
     emit(ProjectSetupSelecting(draft: state.draft));
+  }
+
+  Future<void> selectSourceVideo() async {
+    if (state is ProjectSetupSelecting) {
+      return;
+    }
+
+    final existingDraft = state.draft;
+    beginSourceSelection();
+    try {
+      final source = await _sourceVideoPicker.pickSourceVideo();
+      if (isClosed) {
+        return;
+      }
+      if (source == null) {
+        _restoreDraft(existingDraft);
+        return;
+      }
+      configure((existingDraft ?? const ProjectDraft()).withSource(source));
+    } on Object catch (error) {
+      if (!isClosed) {
+        reportError(error);
+      }
+    }
   }
 
   void configure(ProjectDraft draft) {
@@ -87,5 +117,13 @@ final class ProjectSetupCubit extends Cubit<ProjectSetupState> {
 
   void clear() {
     emit(const ProjectSetupEmpty());
+  }
+
+  void _restoreDraft(ProjectDraft? draft) {
+    if (draft == null) {
+      clear();
+      return;
+    }
+    configure(draft);
   }
 }
