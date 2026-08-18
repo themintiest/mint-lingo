@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_translator/app/app.dart';
@@ -7,6 +9,8 @@ import 'package:video_translator/features/project/project_draft.dart';
 import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/features/project/source_video_picker.dart';
+import 'package:video_translator/features/video/video_player_cubit.dart';
+import 'package:video_translator/features/video/video_player_surface.dart';
 
 void main() {
   testWidgets('shows the empty project workspace', (WidgetTester tester) async {
@@ -53,10 +57,67 @@ void main() {
     expect(find.text('first.mp4'), findsOneWidget);
     expect(find.text('Replace video'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Replace video'));
     await tester.tap(find.text('Replace video'));
     await tester.pumpAndSettle();
     expect(find.text('second.mp4'), findsOneWidget);
     expect(find.text('first.mp4'), findsNothing);
+  });
+
+  testWidgets('reserves a responsive preview viewport for a selected source', (
+    WidgetTester tester,
+  ) async {
+    final cubit = ProjectSetupCubit(
+      sourceVideoPicker: _FakeSourceVideoPicker([
+        const ProjectSourceReference(
+          path: '/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+      ]),
+    );
+    final playbackFactory = _FakeVideoPlaybackControllerFactory();
+    final videoCubit = VideoPlayerCubit(controllerFactory: playbackFactory);
+    addTearDown(cubit.close);
+    addTearDown(videoCubit.close);
+
+    await tester.pumpWidget(
+      VideoTranslatorApp(
+        startEngineOnLaunch: false,
+        projectSetupCubit: cubit,
+        videoPlayerCubit: videoCubit,
+      ),
+    );
+
+    await tester.tap(find.text('Open video'));
+    await tester.pump();
+    await tester.pump();
+
+    final size = tester.getSize(find.byKey(VideoPlayerSurface.surfaceKey));
+    expect(size.width / size.height, closeTo(16 / 9, 0.01));
+    expect(find.text('Preparing video preview...'), findsOneWidget);
+    expect(find.byTooltip('Play video'), findsOneWidget);
+
+    playbackFactory.controller.durationEvents.add(const Duration(minutes: 2));
+    playbackFactory.controller.positionEvents.add(const Duration(seconds: 5));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('00:05 / 02:00'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Play video'));
+    await tester.tap(find.byTooltip('Play video'));
+    expect(playbackFactory.controller.playCount, 1);
+
+    playbackFactory.controller.playingEvents.add(true);
+    await tester.pump();
+    expect(find.byTooltip('Pause video'), findsOneWidget);
+    await tester.tap(find.byTooltip('Pause video'));
+    expect(playbackFactory.controller.pauseCount, 1);
+
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    slider.onChangeEnd!(30 * 1000);
+    expect(playbackFactory.controller.seekPositions, [
+      const Duration(seconds: 30),
+    ]);
   });
 
   testWidgets('shows actionable setup messages before processing', (
@@ -113,6 +174,7 @@ void main() {
 
     await tester.tap(find.text('Open video'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Auto-detect'));
     await tester.tap(find.text('Auto-detect'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Manual'));
@@ -178,6 +240,7 @@ void main() {
 
     await tester.tap(find.text('Open video'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Inspect video'));
     await tester.tap(find.text('Inspect video'));
     await tester.pumpAndSettle();
 
@@ -220,6 +283,7 @@ void main() {
 
     await tester.tap(find.text('Open video'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Inspect video'));
     await tester.tap(find.text('Inspect video'));
     await tester.pumpAndSettle();
 
@@ -240,6 +304,53 @@ final class _FakeSourceVideoPicker implements SourceVideoPicker {
   @override
   Future<ProjectSourceReference?> pickSourceVideo() async =>
       _sources.removeAt(0);
+}
+
+final class _FakeVideoPlaybackControllerFactory
+    implements VideoPlaybackControllerFactory {
+  final controller = _FakeVideoPlaybackController();
+
+  @override
+  VideoPlaybackController create() => controller;
+}
+
+final class _FakeVideoPlaybackController implements VideoPlaybackController {
+  final durationEvents = StreamController<Duration>.broadcast();
+  final playingEvents = StreamController<bool>.broadcast();
+  final positionEvents = StreamController<Duration>.broadcast();
+  int pauseCount = 0;
+  int playCount = 0;
+  final seekPositions = <Duration>[];
+
+  @override
+  Stream<Duration> get duration => durationEvents.stream;
+
+  @override
+  Stream<bool> get isPlaying => playingEvents.stream;
+
+  @override
+  Stream<Duration> get position => positionEvents.stream;
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<void> open(String sourcePath) async {}
+
+  @override
+  Future<void> pause() async {
+    pauseCount++;
+  }
+
+  @override
+  Future<void> play() async {
+    playCount++;
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    seekPositions.add(position);
+  }
 }
 
 Future<void> _enterLanguage(

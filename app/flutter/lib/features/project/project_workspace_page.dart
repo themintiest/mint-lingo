@@ -9,6 +9,7 @@ import 'package:video_translator/features/project/media_inspection_panel.dart';
 import 'package:video_translator/features/project/project_language_controls.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/features/video/video_player_cubit.dart';
+import 'package:video_translator/features/video/video_player_surface.dart';
 
 class ProjectWorkspacePage extends StatelessWidget {
   const ProjectWorkspacePage({super.key});
@@ -90,6 +91,10 @@ class ProjectWorkspacePage extends StatelessWidget {
                               style: Theme.of(context).textTheme.bodyLarge,
                               textAlign: TextAlign.center,
                             ),
+                            if (source != null) ...[
+                              const SizedBox(height: AppSpacing.lg),
+                              const VideoPlayerSurface(),
+                            ],
                             const SizedBox(height: AppSpacing.lg),
                             Wrap(
                               alignment: WrapAlignment.center,
