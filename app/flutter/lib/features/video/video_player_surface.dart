@@ -1,78 +1,214 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:video_translator/app/theme/app_radius.dart';
 import 'package:video_translator/features/video/video_player_cubit.dart';
 
-/// Renders the one active media-kit video output without adding controls.
-///
-/// Playback interaction remains at the Cubit boundary until a dedicated
-/// controls task consumes its play, pause, and seek commands.
-class VideoPlayerSurface extends StatelessWidget {
+/// Renders the one active media-kit video output and Cubit-owned controls.
+class VideoPlayerSurface extends StatefulWidget {
   const VideoPlayerSurface({super.key});
 
   static const surfaceKey = Key('video-player-surface');
   static const _aspectRatio = 16 / 9;
 
   @override
+  State<VideoPlayerSurface> createState() => _VideoPlayerSurfaceState();
+}
+
+class _VideoPlayerSurfaceState extends State<VideoPlayerSurface> {
+  final _videoKey = GlobalKey<VideoState>();
+  late final VideoPlayerCubit _videoPlayerCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _videoPlayerCubit = context.read<VideoPlayerCubit>();
+    _videoPlayerCubit.setFullscreenToggler(_toggleFullscreen);
+  }
+
+  @override
+  void dispose() {
+    _videoPlayerCubit.setFullscreenToggler(null);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocBuilder<VideoPlayerCubit, VideoPlayerState>(
-      buildWhen: (previous, current) =>
-          previous is! VideoPlayerReady || current is! VideoPlayerReady,
-      builder: (context, state) {
-        return switch (state) {
-          VideoPlayerIdle() => const SizedBox.shrink(),
-          VideoPlayerOpening() => _PlayerViewport(
-            child: const _PlayerStatus(
-              icon: Icons.hourglass_top_outlined,
-              message: 'Opening video preview...',
-              showProgress: true,
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: BlocBuilder<VideoPlayerCubit, VideoPlayerState>(
+        buildWhen: (previous, current) =>
+            previous is! VideoPlayerReady || current is! VideoPlayerReady,
+        builder: (context, state) {
+          return switch (state) {
+            VideoPlayerIdle() => const SizedBox.shrink(),
+            VideoPlayerOpening() => _PlayerViewport(
+              child: const _PlayerStatus(
+                icon: Icons.hourglass_top_outlined,
+                message: 'Opening video preview...',
+                showProgress: true,
+              ),
             ),
-          ),
-          VideoPlayerFailure() => _PlayerViewport(
-            child: const _PlayerStatus(
-              icon: Icons.error_outline,
-              message: 'Video preview is unavailable.',
+            VideoPlayerFailure() => _PlayerViewport(
+              child: const _PlayerStatus(
+                icon: Icons.error_outline,
+                message: 'Video preview is unavailable.',
+              ),
             ),
-          ),
-          VideoPlayerReady() => _readySurface(context),
-        };
-      },
+            VideoPlayerReady() => _readySurface(context),
+          };
+        },
+      ),
     );
   }
 
   Widget _readySurface(BuildContext context) {
     final controller = context.read<VideoPlayerCubit>().videoController;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (controller == null)
+    if (controller == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           _PlayerViewport(
             child: const _PlayerStatus(
               icon: Icons.hourglass_top_outlined,
               message: 'Preparing video preview...',
               showProgress: true,
             ),
-          )
-        else
-          _PlayerViewport(
-            child: Video(
-              controller: controller,
-              controls: NoVideoControls,
-              fit: BoxFit.contain,
+          ),
+          const SizedBox(height: 8),
+          const _VideoPlaybackControls(),
+        ],
+      );
+    }
+
+    return _PlayerViewport(
+      child: Video(
+        key: _videoKey,
+        controller: controller,
+        controls: (_) => const _MouseActivatedVideoControls(),
+        fit: BoxFit.contain,
+      ),
+    );
+  }
+
+  Future<bool> _toggleFullscreen() async {
+    final videoState = _videoKey.currentState;
+    if (videoState == null) {
+      return false;
+    }
+    await videoState.toggleFullscreen();
+    return true;
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final currentState = _videoPlayerCubit.state;
+    final playback = switch (currentState) {
+      VideoPlayerReady() => currentState.playback,
+      _ => null,
+    };
+    final shouldToggle =
+        event.logicalKey == LogicalKeyboardKey.f11 ||
+        (event.logicalKey == LogicalKeyboardKey.escape &&
+            playback?.isFullscreen == true);
+    if (!shouldToggle) {
+      return KeyEventResult.ignored;
+    }
+
+    unawaited(_videoPlayerCubit.toggleFullscreen());
+    return KeyEventResult.handled;
+  }
+}
+
+class _MouseActivatedVideoControls extends StatefulWidget {
+  const _MouseActivatedVideoControls();
+
+  @override
+  State<_MouseActivatedVideoControls> createState() =>
+      _MouseActivatedVideoControlsState();
+}
+
+class _MouseActivatedVideoControlsState
+    extends State<_MouseActivatedVideoControls> {
+  static const _hideDelay = Duration(seconds: 3);
+
+  Timer? _hideTimer;
+  bool _isVisible = false;
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: _show,
+      onHover: _show,
+      onExit: (_) => _scheduleHide(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 12,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: IgnorePointer(
+                ignoring: !_isVisible,
+                child: AnimatedOpacity(
+                  opacity: _isVisible ? 1 : 0,
+                  duration: const Duration(milliseconds: 150),
+                  child: MouseRegion(
+                    onEnter: _show,
+                    onHover: _show,
+                    onExit: (_) => _scheduleHide(),
+                    child: const _VideoPlaybackControls(compact: true),
+                  ),
+                ),
+              ),
             ),
           ),
-        const SizedBox(height: 8),
-        const _VideoPlaybackControls(),
-      ],
+        ],
+      ),
     );
+  }
+
+  void _show(PointerEvent _) {
+    _hideTimer?.cancel();
+    if (!_isVisible) {
+      setState(() {
+        _isVisible = true;
+      });
+    }
+    _scheduleHide();
+  }
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(_hideDelay, () {
+      if (mounted) {
+        setState(() {
+          _isVisible = false;
+        });
+      }
+    });
   }
 }
 
 class _VideoPlaybackControls extends StatelessWidget {
-  const _VideoPlaybackControls();
+  const _VideoPlaybackControls({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -89,27 +225,96 @@ class _VideoPlaybackControls extends StatelessWidget {
         if (playback == null) {
           return const SizedBox.shrink();
         }
-        return _ControlsContent(playback: playback);
+        return _ControlsContent(playback: playback, compact: compact);
       },
     );
   }
 }
 
 class _ControlsContent extends StatelessWidget {
-  const _ControlsContent({required this.playback});
+  const _ControlsContent({required this.playback, required this.compact});
 
   final VideoPlayerPlaybackState playback;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final durationMilliseconds = playback.duration.inMilliseconds;
-    final canSeek = durationMilliseconds > 0;
-    final positionMilliseconds = playback.position.inMilliseconds
-        .clamp(0, durationMilliseconds)
-        .toDouble();
     final durationText = _formatDuration(playback.duration);
     final positionText = _formatDuration(playback.position);
     final cubit = context.read<VideoPlayerCubit>();
+
+    if (compact) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: Material(
+          color: const Color(0xD9101114),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _VideoSeekBar(
+                  playback: playback,
+                  onSeek: cubit.seek,
+                  dark: true,
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Skip back 10 seconds',
+                      color: Colors.white,
+                      onPressed: () => unawaited(cubit.skipBackward()),
+                      icon: const Icon(Icons.replay_10),
+                    ),
+                    IconButton(
+                      tooltip: playback.isPlaying
+                          ? 'Pause video'
+                          : 'Play video',
+                      color: Colors.white,
+                      onPressed: () {
+                        if (playback.isPlaying) {
+                          unawaited(cubit.pause());
+                        } else {
+                          unawaited(cubit.play());
+                        }
+                      },
+                      icon: Icon(
+                        playback.isPlaying ? Icons.pause : Icons.play_arrow,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Skip forward 10 seconds',
+                      color: Colors.white,
+                      onPressed: () => unawaited(cubit.skipForward()),
+                      icon: const Icon(Icons.forward_10),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '$positionText / $durationText',
+                      style: Theme.of(context).textTheme.labelMedium
+                          ?.copyWith(color: Colors.white),
+                    ),
+                    IconButton(
+                      tooltip: playback.isFullscreen
+                          ? 'Exit fullscreen'
+                          : 'Enter fullscreen',
+                      color: Colors.white,
+                      onPressed: () => unawaited(cubit.toggleFullscreen()),
+                      icon: Icon(
+                        playback.isFullscreen
+                            ? Icons.fullscreen_exit
+                            : Icons.fullscreen,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerLowest,
@@ -118,6 +323,11 @@ class _ControlsContent extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
           children: [
+            IconButton(
+              tooltip: 'Skip back 10 seconds',
+              onPressed: () => unawaited(cubit.skipBackward()),
+              icon: const Icon(Icons.replay_10),
+            ),
             IconButton(
               tooltip: playback.isPlaying ? 'Pause video' : 'Play video',
               onPressed: () {
@@ -129,19 +339,26 @@ class _ControlsContent extends StatelessWidget {
               },
               icon: Icon(playback.isPlaying ? Icons.pause : Icons.play_arrow),
             ),
+            IconButton(
+              tooltip: 'Skip forward 10 seconds',
+              onPressed: () => unawaited(cubit.skipForward()),
+              icon: const Icon(Icons.forward_10),
+            ),
             Expanded(
-              child: Slider(
-                value: positionMilliseconds,
-                max: canSeek ? durationMilliseconds.toDouble() : 1,
-                onChanged: canSeek ? (_) {} : null,
-                onChangeEnd: canSeek
-                    ? (value) => unawaited(
-                        cubit.seek(Duration(milliseconds: value.round())),
-                      )
-                    : null,
-              ),
+              child: _VideoSeekBar(playback: playback, onSeek: cubit.seek),
             ),
             Text('$positionText / $durationText'),
+            IconButton(
+              tooltip: playback.isFullscreen
+                  ? 'Exit fullscreen'
+                  : 'Enter fullscreen',
+              onPressed: () => unawaited(cubit.toggleFullscreen()),
+              icon: Icon(
+                playback.isFullscreen
+                    ? Icons.fullscreen_exit
+                    : Icons.fullscreen,
+              ),
+            ),
           ],
         ),
       ),
@@ -157,6 +374,86 @@ class _ControlsContent extends StatelessWidget {
     return hours > 0
         ? '$hours:$minutesText:$secondsText'
         : '$minutesText:$secondsText';
+  }
+}
+
+/// Provides immediate visual feedback while dragging and seeks on release.
+class _VideoSeekBar extends StatefulWidget {
+  const _VideoSeekBar({
+    required this.playback,
+    required this.onSeek,
+    this.dark = false,
+  });
+
+  final VideoPlayerPlaybackState playback;
+  final Future<void> Function(Duration position) onSeek;
+  final bool dark;
+
+  @override
+  State<_VideoSeekBar> createState() => _VideoSeekBarState();
+}
+
+class _VideoSeekBarState extends State<_VideoSeekBar> {
+  Duration? _scrubbedPosition;
+  bool _isScrubbing = false;
+
+  @override
+  void didUpdateWidget(covariant _VideoSeekBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isScrubbing &&
+        oldWidget.playback.position != widget.playback.position) {
+      _scrubbedPosition = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = widget.playback.duration;
+    final canSeek = duration > Duration.zero;
+    final position = _scrubbedPosition ?? widget.playback.position;
+    final value = position.inMilliseconds
+        .clamp(0, duration.inMilliseconds)
+        .toDouble();
+
+    final slider = Slider(
+      value: value,
+      max: canSeek ? duration.inMilliseconds.toDouble() : 1,
+      onChangeStart: canSeek
+          ? (value) => setState(() {
+              _isScrubbing = true;
+              _scrubbedPosition = Duration(milliseconds: value.round());
+            })
+          : null,
+      onChanged: canSeek
+          ? (value) => setState(() {
+              _scrubbedPosition = Duration(milliseconds: value.round());
+            })
+          : null,
+      onChangeEnd: canSeek
+          ? (value) {
+              final position = Duration(milliseconds: value.round());
+              setState(() {
+                _isScrubbing = false;
+                _scrubbedPosition = position;
+              });
+              unawaited(widget.onSeek(position));
+            }
+          : null,
+    );
+
+    if (!widget.dark) {
+      return slider;
+    }
+    return SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        activeTrackColor: Colors.white,
+        inactiveTrackColor: Colors.white38,
+        thumbColor: Colors.white,
+        overlayColor: Colors.white24,
+        trackHeight: 3,
+      ),
+      child: slider,
+    );
   }
 }
 

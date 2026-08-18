@@ -107,21 +107,25 @@ final class VideoPlayerOpening extends VideoPlayerState {
 final class VideoPlayerPlaybackState {
   const VideoPlayerPlaybackState({
     this.isPlaying = false,
+    this.isFullscreen = false,
     this.position = Duration.zero,
     this.duration = Duration.zero,
   });
 
   final bool isPlaying;
+  final bool isFullscreen;
   final Duration position;
   final Duration duration;
 
   VideoPlayerPlaybackState copyWith({
     bool? isPlaying,
+    bool? isFullscreen,
     Duration? position,
     Duration? duration,
   }) {
     return VideoPlayerPlaybackState(
       isPlaying: isPlaying ?? this.isPlaying,
+      isFullscreen: isFullscreen ?? this.isFullscreen,
       position: position ?? this.position,
       duration: duration ?? this.duration,
     );
@@ -131,11 +135,12 @@ final class VideoPlayerPlaybackState {
   bool operator ==(Object other) =>
       other is VideoPlayerPlaybackState &&
       other.isPlaying == isPlaying &&
+      other.isFullscreen == isFullscreen &&
       other.position == position &&
       other.duration == duration;
 
   @override
-  int get hashCode => Object.hash(isPlaying, position, duration);
+  int get hashCode => Object.hash(isPlaying, isFullscreen, position, duration);
 }
 
 final class VideoPlayerReady extends VideoPlayerState {
@@ -176,16 +181,24 @@ final class VideoPlayerFailure extends VideoPlayerState {
   int get hashCode => Object.hash(runtimeType, source);
 }
 
+/// Requests a fullscreen change from the rendered video viewport.
+typedef VideoFullscreenToggler = Future<bool> Function();
+
 /// Owns one native player controller and releases it on replacement or close.
 final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
-  VideoPlayerCubit({VideoPlaybackControllerFactory? controllerFactory})
-    : _controllerFactory =
-          controllerFactory ?? const MediaKitVideoPlaybackControllerFactory(),
-      super(const VideoPlayerIdle());
+  VideoPlayerCubit({
+    VideoPlaybackControllerFactory? controllerFactory,
+    VideoFullscreenToggler? initialFullscreenToggler,
+  }) : _fullscreenToggler = initialFullscreenToggler,
+       _controllerFactory =
+           controllerFactory ?? const MediaKitVideoPlaybackControllerFactory(),
+       super(const VideoPlayerIdle());
 
   final VideoPlaybackControllerFactory _controllerFactory;
   VideoPlaybackController? _controller;
   final List<StreamSubscription<Object>> _playbackSubscriptions = [];
+  VideoFullscreenToggler? _fullscreenToggler;
+  static const skipInterval = Duration(seconds: 10);
   int _operation = 0;
 
   /// Available to VIDEO-04 after the player surface is introduced.
@@ -262,6 +275,43 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
   Future<void> seek(Duration position) =>
       _runPlaybackCommand((controller) => controller.seek(position));
 
+  /// Skips backward by the standard interval without seeking before zero.
+  Future<void> skipBackward() => _skipBy(-skipInterval);
+
+  /// Skips forward by the standard interval without seeking past duration.
+  Future<void> skipForward() => _skipBy(skipInterval);
+
+  /// Toggles the native video viewport between windowed and fullscreen modes.
+  Future<void> toggleFullscreen() async {
+    final controller = _controller;
+    final currentState = state;
+    final fullscreenToggler = _fullscreenToggler;
+    if (controller == null ||
+        currentState is! VideoPlayerReady ||
+        fullscreenToggler == null) {
+      return;
+    }
+
+    final operation = _operation;
+    try {
+      if (!await fullscreenToggler()) {
+        return;
+      }
+    } on Object {
+      return;
+    }
+    _updatePlaybackState(
+      controller,
+      operation,
+      (playback) => playback.copyWith(isFullscreen: !playback.isFullscreen),
+    );
+  }
+
+  /// Registers the rendered viewport's fullscreen operation for this player.
+  void setFullscreenToggler(VideoFullscreenToggler? fullscreenToggler) {
+    _fullscreenToggler = fullscreenToggler;
+  }
+
   @override
   Future<void> close() async {
     ++_operation;
@@ -326,6 +376,25 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
         return;
       }
     }
+  }
+
+  Future<void> _skipBy(Duration offset) {
+    final currentState = state;
+    if (currentState is! VideoPlayerReady) {
+      return Future.value();
+    }
+
+    final playback = currentState.playback;
+    final target = playback.position + offset;
+    final maxPosition = playback.duration > Duration.zero
+        ? playback.duration
+        : target;
+    final clamped = target < Duration.zero
+        ? Duration.zero
+        : target > maxPosition
+        ? maxPosition
+        : target;
+    return seek(clamped);
   }
 
   void _updatePlaybackState(
