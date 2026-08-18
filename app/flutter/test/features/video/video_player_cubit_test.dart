@@ -47,6 +47,46 @@ void main() {
     },
   );
 
+  test('skips within the known playback range', () async {
+    final controller = _FakeVideoPlaybackController();
+    final cubit = VideoPlayerCubit(
+      controllerFactory: _FakeVideoPlaybackControllerFactory([controller]),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.open(firstSource);
+    controller.durationEvents.add(const Duration(minutes: 1));
+    controller.positionEvents.add(const Duration(seconds: 5));
+
+    await cubit.skipBackward();
+    await cubit.skipForward();
+
+    expect(controller.seekPositions, [
+      Duration.zero,
+      const Duration(seconds: 15),
+    ]);
+  });
+
+  test('toggles fullscreen through the registered viewport', () async {
+    final controller = _FakeVideoPlaybackController();
+    final cubit = VideoPlayerCubit(
+      controllerFactory: _FakeVideoPlaybackControllerFactory([controller]),
+      initialFullscreenToggler: () async => true,
+    );
+    addTearDown(cubit.close);
+
+    await cubit.open(firstSource);
+    await cubit.toggleFullscreen();
+
+    expect(
+      cubit.state,
+      const VideoPlayerReady(
+        firstSource,
+        playback: VideoPlayerPlaybackState(isFullscreen: true),
+      ),
+    );
+  });
+
   test(
     'updates only the playback portion of ready state from controller streams',
     () async {

@@ -103,9 +103,18 @@ void main() {
     await tester.pump();
 
     expect(find.text('00:05 / 02:00'), findsOneWidget);
+    expect(find.byTooltip('Skip back 10 seconds'), findsOneWidget);
+    expect(find.byTooltip('Skip forward 10 seconds'), findsOneWidget);
+    expect(find.byTooltip('Enter fullscreen'), findsOneWidget);
     await tester.ensureVisible(find.byTooltip('Play video'));
+    await tester.tap(find.byTooltip('Skip back 10 seconds'));
+    await tester.tap(find.byTooltip('Skip forward 10 seconds'));
     await tester.tap(find.byTooltip('Play video'));
     expect(playbackFactory.controller.playCount, 1);
+    expect(playbackFactory.controller.seekPositions, [
+      Duration.zero,
+      const Duration(seconds: 15),
+    ]);
 
     playbackFactory.controller.playingEvents.add(true);
     await tester.pump();
@@ -116,6 +125,8 @@ void main() {
     final slider = tester.widget<Slider>(find.byType(Slider));
     slider.onChangeEnd!(30 * 1000);
     expect(playbackFactory.controller.seekPositions, [
+      Duration.zero,
+      const Duration(seconds: 15),
       const Duration(seconds: 30),
     ]);
   });
