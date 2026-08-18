@@ -137,6 +137,58 @@ void main() {
 
     expect(cubit.state, ProjectSetupError(error: error));
   });
+
+  test(
+    'sets a manual source language without changing the source or target',
+    () {
+      const source = ProjectSourceReference(
+        path: '/videos/source.mp4',
+        fileName: 'source.mp4',
+      );
+      final targetLanguage = Language(code: 'vi', displayName: 'Vietnamese');
+      final sourceLanguage = Language(code: 'en', displayName: 'English');
+      cubit.configure(
+        ProjectDraft(source: source, targetLanguage: targetLanguage),
+      );
+
+      cubit.selectManualSourceLanguage(sourceLanguage);
+
+      final draft = (cubit.state as ProjectSetupConfigured).draft;
+      expect(draft.source, source);
+      expect(draft.sourceLanguage, ExplicitSourceLanguage(sourceLanguage));
+      expect(draft.targetLanguage, targetLanguage);
+    },
+  );
+
+  test(
+    'returns source language to automatic detection without target changes',
+    () {
+      final sourceLanguage = Language(code: 'en', displayName: 'English');
+      final targetLanguage = Language(code: 'vi', displayName: 'Vietnamese');
+      cubit.configure(
+        ProjectDraft(
+          sourceLanguage: SourceLanguageSelection.manual(sourceLanguage),
+          targetLanguage: targetLanguage,
+        ),
+      );
+
+      cubit.selectAutomaticSourceLanguage();
+
+      final draft = (cubit.state as ProjectSetupConfigured).draft;
+      expect(draft.sourceLanguage, const SourceLanguageSelection.autoDetect());
+      expect(draft.targetLanguage, targetLanguage);
+    },
+  );
+
+  test('sets an explicit target language from an incomplete draft', () {
+    final targetLanguage = Language(code: 'ja', displayName: 'Japanese');
+
+    cubit.selectTargetLanguage(targetLanguage);
+
+    final draft = (cubit.state as ProjectSetupConfigured).draft;
+    expect(draft.sourceLanguage, const SourceLanguageSelection.autoDetect());
+    expect(draft.targetLanguage, targetLanguage);
+  });
 }
 
 final class _FakeSourceVideoPicker implements SourceVideoPicker {

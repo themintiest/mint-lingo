@@ -42,6 +42,19 @@ final class ProjectDraft {
     targetLanguage: targetLanguage,
   );
 
+  ProjectDraft withSourceLanguage(SourceLanguageSelection sourceLanguage) =>
+      ProjectDraft(
+        source: source,
+        sourceLanguage: sourceLanguage,
+        targetLanguage: targetLanguage,
+      );
+
+  ProjectDraft withTargetLanguage(Language targetLanguage) => ProjectDraft(
+    source: source,
+    sourceLanguage: sourceLanguage,
+    targetLanguage: targetLanguage,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is ProjectDraft &&
