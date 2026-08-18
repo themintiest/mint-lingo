@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:video-translator:ipc:v1:engine-lifecycle",
+  "title": "Video Translator IPC v1 engine lifecycle messages",
+  "oneOf": [
+    { "$ref": "#/$defs/getInfoRequest" },
+    { "$ref": "#/$defs/getInfoResponse" },
+    { "$ref": "#/$defs/shutdownRequest" },
+    { "$ref": "#/$defs/shutdownResponse" }
+  ],
+  "$defs": {
+    "id": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "integer" }
+      ]
+    },
+    "request": {
+      "type": "object",
+      "required": ["jsonrpc", "protocolVersion", "id", "method"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "protocolVersion": { "const": "1.0" },
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": ["jsonrpc", "protocolVersion", "id", "result"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "protocolVersion": { "const": "1.0" },
+        "id": { "$ref": "#/$defs/id" },
+        "result": {}
+      },
+      "additionalProperties": false
+    },
+    "getInfoRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/request" },
+        { "properties": { "method": { "const": "engine.getInfo" } } }
+      ]
+    },
+    "getInfoResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/response" },
+        {
+          "properties": {
+            "result": {
+              "type": "object",
+              "required": ["engineVersion", "protocolVersion"],
+              "properties": {
+                "engineVersion": {
+                  "type": "string",
+                  "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+                },
+                "protocolVersion": { "const": "1.0" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "shutdownRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/request" },
+        { "properties": { "method": { "const": "engine.shutdown" } } }
+      ]
+    },
+    "shutdownResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/response" },
+        {
+          "properties": {
+            "result": {
+              "type": "object",
+              "required": ["accepted"],
+              "properties": { "accepted": { "const": true } },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    }
+  }
+}

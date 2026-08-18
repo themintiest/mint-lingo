@@ -1,8 +1,8 @@
 # Video Translator Python engine
 
-The local processing runtime for Video Translator. This bootstrap package has
-no runtime dependencies and does not yet implement media processing, AI
-providers, or Flutter communication.
+The local processing runtime for Video Translator. It has no runtime
+dependencies and currently implements only the inert M1 JSON-RPC handshake;
+it does not implement media processing, AI providers, or product behavior.
 
 ## Development
 
@@ -18,3 +18,12 @@ Run the standard-library test suite with:
 ```sh
 python -m unittest discover -s tests
 ```
+
+To run the development worker after installation:
+
+```sh
+python -m video_translator_engine.worker
+```
+
+The worker receives and emits UTF-8 NDJSON JSON-RPC frames. Its standard output
+is protocol-only; diagnostics go to standard error.

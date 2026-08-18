@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "request-001",
+  "method": "example.method",
+  "params": {
+    "value": "example"
+  }
+}

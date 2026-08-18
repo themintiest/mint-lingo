@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "request-002",
+  "error": {
+    "code": -32600,
+    "message": "Invalid Request"
+  }
+}
