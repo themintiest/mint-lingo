@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_translator/features/project/project_draft.dart';
 import 'package:video_translator/features/video/video_player_cubit.dart';
@@ -24,6 +26,54 @@ void main() {
     expect(controller.openedPaths, [firstSource.path]);
     expect(cubit.state, const VideoPlayerReady(firstSource));
   });
+
+  test(
+    'forwards play, pause, and seek commands to the opened controller',
+    () async {
+      final controller = _FakeVideoPlaybackController();
+      final cubit = VideoPlayerCubit(
+        controllerFactory: _FakeVideoPlaybackControllerFactory([controller]),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.open(firstSource);
+      await cubit.play();
+      await cubit.pause();
+      await cubit.seek(const Duration(seconds: 42));
+
+      expect(controller.playCount, 1);
+      expect(controller.pauseCount, 1);
+      expect(controller.seekPositions, [const Duration(seconds: 42)]);
+    },
+  );
+
+  test(
+    'updates only the playback portion of ready state from controller streams',
+    () async {
+      final controller = _FakeVideoPlaybackController();
+      final cubit = VideoPlayerCubit(
+        controllerFactory: _FakeVideoPlaybackControllerFactory([controller]),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.open(firstSource);
+      controller.durationEvents.add(const Duration(minutes: 2));
+      controller.positionEvents.add(const Duration(seconds: 7));
+      controller.playingEvents.add(true);
+
+      expect(
+        cubit.state,
+        const VideoPlayerReady(
+          firstSource,
+          playback: VideoPlayerPlaybackState(
+            isPlaying: true,
+            position: Duration(seconds: 7),
+            duration: Duration(minutes: 2),
+          ),
+        ),
+      );
+    },
+  );
 
   test('disposes the old controller before replacing a source', () async {
     final firstController = _FakeVideoPlaybackController();
@@ -73,6 +123,58 @@ void main() {
 
     expect(controller.disposeCount, 1);
   });
+
+  test(
+    'cancels old playback streams so they cannot update a replacement',
+    () async {
+      final firstController = _FakeVideoPlaybackController();
+      final secondController = _FakeVideoPlaybackController();
+      final cubit = VideoPlayerCubit(
+        controllerFactory: _FakeVideoPlaybackControllerFactory([
+          firstController,
+          secondController,
+        ]),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.open(firstSource);
+      firstController.positionEvents.add(const Duration(seconds: 5));
+      await cubit.open(secondSource);
+      firstController.positionEvents.add(const Duration(seconds: 30));
+
+      expect(firstController.cancelledSubscriptionCount, 3);
+      expect(cubit.state, const VideoPlayerReady(secondSource));
+    },
+  );
+
+  test(
+    'ignores a delayed open completion after its source is replaced',
+    () async {
+      final firstOpenCompleter = Completer<void>();
+      final firstController = _FakeVideoPlaybackController(
+        openFuture: firstOpenCompleter.future,
+      );
+      final secondController = _FakeVideoPlaybackController();
+      final cubit = VideoPlayerCubit(
+        controllerFactory: _FakeVideoPlaybackControllerFactory([
+          firstController,
+          secondController,
+        ]),
+      );
+      addTearDown(cubit.close);
+
+      final firstOpen = cubit.open(firstSource);
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state, const VideoPlayerOpening(firstSource));
+
+      await cubit.open(secondSource);
+      firstOpenCompleter.complete();
+      await firstOpen;
+
+      expect(firstController.startedSubscriptionCount, 0);
+      expect(cubit.state, const VideoPlayerReady(secondSource));
+    },
+  );
 }
 
 final class _FakeVideoPlaybackControllerFactory
@@ -86,11 +188,45 @@ final class _FakeVideoPlaybackControllerFactory
 }
 
 final class _FakeVideoPlaybackController implements VideoPlaybackController {
-  _FakeVideoPlaybackController({this.openError});
+  _FakeVideoPlaybackController({this.openError, this.openFuture}) {
+    playingEvents = StreamController<bool>.broadcast(
+      sync: true,
+      onListen: _recordStartedSubscription,
+      onCancel: _recordCancelledSubscription,
+    );
+    positionEvents = StreamController<Duration>.broadcast(
+      sync: true,
+      onListen: _recordStartedSubscription,
+      onCancel: _recordCancelledSubscription,
+    );
+    durationEvents = StreamController<Duration>.broadcast(
+      sync: true,
+      onListen: _recordStartedSubscription,
+      onCancel: _recordCancelledSubscription,
+    );
+  }
 
   final Object? openError;
+  final Future<void>? openFuture;
   final List<String> openedPaths = [];
+  final List<Duration> seekPositions = [];
   int disposeCount = 0;
+  int playCount = 0;
+  int pauseCount = 0;
+  int cancelledSubscriptionCount = 0;
+  int startedSubscriptionCount = 0;
+  late final StreamController<bool> playingEvents;
+  late final StreamController<Duration> positionEvents;
+  late final StreamController<Duration> durationEvents;
+
+  @override
+  Stream<bool> get isPlaying => playingEvents.stream;
+
+  @override
+  Stream<Duration> get position => positionEvents.stream;
+
+  @override
+  Stream<Duration> get duration => durationEvents.stream;
 
   @override
   Future<void> dispose() async {
@@ -100,8 +236,32 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   @override
   Future<void> open(String sourcePath) async {
     openedPaths.add(sourcePath);
+    await openFuture;
     if (openError != null) {
       throw openError!;
     }
+  }
+
+  @override
+  Future<void> pause() async {
+    pauseCount++;
+  }
+
+  @override
+  Future<void> play() async {
+    playCount++;
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    seekPositions.add(position);
+  }
+
+  void _recordCancelledSubscription() {
+    cancelledSubscriptionCount++;
+  }
+
+  void _recordStartedSubscription() {
+    startedSubscriptionCount++;
   }
 }
