@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_translator/app/app.dart';
+import 'package:video_translator/app/engine/media_inspection.dart';
 import 'package:video_translator/app/theme/app_colors.dart';
 import 'package:video_translator/features/project/project_draft.dart';
+import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/features/project/source_video_picker.dart';
 
@@ -131,6 +133,102 @@ void main() {
       (cubit.state as ProjectSetupConfigured).draft.source?.fileName,
       'source.mp4',
     );
+  });
+
+  testWidgets('shows validated media metadata after inspection', (
+    WidgetTester tester,
+  ) async {
+    final setupCubit = ProjectSetupCubit(
+      sourceVideoPicker: _FakeSourceVideoPicker([
+        const ProjectSourceReference(
+          path: '/private/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+      ]),
+    );
+    final inspectionCubit = MediaInspectionCubit(
+      inspectMedia: (_) async => MediaInspectionMetadata(
+        duration: const Duration(seconds: 95, milliseconds: 500),
+        streams: const [
+          MediaStreamMetadata(
+            index: 0,
+            kind: MediaStreamKind.video,
+            codec: 'h264',
+            dimensions: MediaDimensions(width: 1920, height: 1080),
+          ),
+          MediaStreamMetadata(
+            index: 1,
+            kind: MediaStreamKind.audio,
+            codec: 'aac',
+          ),
+        ],
+        hasAudio: true,
+      ),
+    );
+    addTearDown(setupCubit.close);
+    addTearDown(inspectionCubit.close);
+
+    await tester.pumpWidget(
+      VideoTranslatorApp(
+        startEngineOnLaunch: false,
+        projectSetupCubit: setupCubit,
+        mediaInspectionCubit: inspectionCubit,
+      ),
+    );
+
+    await tester.tap(find.text('Open video'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Inspect video'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Duration: 01:35'), findsOneWidget);
+    expect(find.text('Audio: Present'), findsOneWidget);
+    expect(find.byType(SelectionArea), findsOneWidget);
+    expect(find.byKey(const Key('media-stream-0')), findsOneWidget);
+    expect(find.text('Video #0 · h264 · 1920 × 1080'), findsOneWidget);
+    expect(find.text('Audio #1 · aac'), findsOneWidget);
+  });
+
+  testWidgets('shows a safe structured media inspection error', (
+    WidgetTester tester,
+  ) async {
+    final setupCubit = ProjectSetupCubit(
+      sourceVideoPicker: _FakeSourceVideoPicker([
+        const ProjectSourceReference(
+          path: '/private/videos/missing-audio.mp4',
+          fileName: 'missing-audio.mp4',
+        ),
+      ]),
+    );
+    final inspectionCubit = MediaInspectionCubit(
+      inspectMedia: (_) async => throw const MediaInspectionException(
+        type: MediaInspectionErrorType.validation,
+        code: 'media.audio_stream_missing',
+        retryable: false,
+      ),
+    );
+    addTearDown(setupCubit.close);
+    addTearDown(inspectionCubit.close);
+
+    await tester.pumpWidget(
+      VideoTranslatorApp(
+        startEngineOnLaunch: false,
+        projectSetupCubit: setupCubit,
+        mediaInspectionCubit: inspectionCubit,
+      ),
+    );
+
+    await tester.tap(find.text('Open video'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Inspect video'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unable to inspect media'), findsOneWidget);
+    expect(
+      find.text('This video has no audio stream and cannot be translated.'),
+      findsOneWidget,
+    );
+    expect(find.text('/private/videos/missing-audio.mp4'), findsNothing);
   });
 }
 

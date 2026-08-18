@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/engine/engine_connection_cubit.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
+import 'package:video_translator/features/project/media_inspection_cubit.dart';
+import 'package:video_translator/features/project/media_inspection_panel.dart';
 import 'package:video_translator/features/project/project_language_controls.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 
@@ -21,13 +23,19 @@ class ProjectWorkspacePage extends StatelessWidget {
               ? AppSpacing.lg
               : AppSpacing.xl;
           return BlocListener<ProjectSetupCubit, ProjectSetupState>(
+            listenWhen: (previous, current) =>
+                previous.draft?.source != current.draft?.source ||
+                current is ProjectSetupError,
             listener: (context, state) {
-              if (state is! ProjectSetupError) {
-                return;
+              final inspectionCubit = context.read<MediaInspectionCubit>();
+              if (inspectionCubit.state.source != state.draft?.source) {
+                inspectionCubit.clear();
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(_setupErrorMessage(state.error))),
-              );
+              if (state is ProjectSetupError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(_setupErrorMessage(state.error))),
+                );
+              }
             },
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(
@@ -108,6 +116,9 @@ class ProjectWorkspacePage extends StatelessWidget {
                               ],
                             ),
                             const SizedBox(height: AppSpacing.lg),
+                            MediaInspectionPanel(source: source),
+                            if (source != null)
+                              const SizedBox(height: AppSpacing.lg),
                             const ProjectLanguageControls(),
                             const SizedBox(height: AppSpacing.lg),
                             Center(
