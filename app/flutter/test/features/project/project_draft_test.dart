@@ -12,24 +12,19 @@ void main() {
   });
 
   test('keeps source, source selection, and target language independent', () {
-    final targetLanguage = Language(code: 'vi', displayName: 'Vietnamese');
+    final targetLanguage = Language(tag: 'vi');
     final draft = ProjectDraft(
       source: const ProjectSourceReference(
         path: 'C:\\Videos\\source.mp4',
         fileName: 'source.mp4',
       ),
-      sourceLanguage: SourceLanguageSelection.manual(
-        Language(code: 'en', displayName: 'English'),
-      ),
+      sourceLanguage: SourceLanguageSelection.manual(Language(tag: 'en')),
       targetLanguage: targetLanguage,
     );
 
     expect(draft.source?.path, 'C:\\Videos\\source.mp4');
     expect(draft.sourceLanguage, isA<ExplicitSourceLanguage>());
-    expect(
-      (draft.sourceLanguage as ExplicitSourceLanguage).language.code,
-      'en',
-    );
+    expect((draft.sourceLanguage as ExplicitSourceLanguage).language.tag, 'en');
     expect(draft.targetLanguage, targetLanguage);
   });
 
@@ -39,14 +34,14 @@ void main() {
         path: '/videos/source.mp4',
         fileName: 'source.mp4',
       ),
-      targetLanguage: Language(code: 'ja', displayName: 'Japanese'),
+      targetLanguage: Language(tag: 'ja'),
     );
     final second = ProjectDraft(
       source: const ProjectSourceReference(
         path: '/videos/source.mp4',
         fileName: 'source.mp4',
       ),
-      targetLanguage: Language(code: 'ja', displayName: 'Japanese'),
+      targetLanguage: Language(tag: 'ja'),
     );
 
     expect(first, second);
@@ -58,8 +53,8 @@ void main() {
       path: '/videos/source.mp4',
       fileName: 'source.mp4',
     );
-    final sourceLanguage = Language(code: 'en', displayName: 'English');
-    final targetLanguage = Language(code: 'vi', displayName: 'Vietnamese');
+    final sourceLanguage = Language(tag: 'en');
+    final targetLanguage = Language(tag: 'vi');
 
     final draft = const ProjectDraft(source: source)
         .withSourceLanguage(SourceLanguageSelection.manual(sourceLanguage))

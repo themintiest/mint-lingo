@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:video_translator/app/engine/engine_client.dart';
 import 'package:video_translator/app/engine/engine_connection_cubit.dart';
 import 'package:video_translator/app/theme/app_theme.dart';
@@ -9,6 +10,31 @@ import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/features/project/project_workspace_page.dart';
 import 'package:video_translator/features/video/video_player_cubit.dart';
+import 'package:video_translator/l10n/generated/app_localizations.dart';
+
+/// Maps a system locale to one of the two UI locales supported by the app.
+///
+/// Project source and target language values are intentionally not involved in
+/// this resolution.
+Locale resolveAppLocale(
+  List<Locale>? systemLocales,
+  Iterable<Locale> supportedLocales,
+) {
+  for (final systemLocale in systemLocales ?? const [Locale('en')]) {
+    for (final supportedLocale in supportedLocales) {
+      if (supportedLocale.languageCode == systemLocale.languageCode) {
+        return supportedLocale;
+      }
+    }
+  }
+
+  for (final supportedLocale in supportedLocales) {
+    if (supportedLocale.languageCode == 'en') {
+      return supportedLocale;
+    }
+  }
+  return const Locale('en');
+}
 
 class VideoTranslatorApp extends StatefulWidget {
   const VideoTranslatorApp({
@@ -91,6 +117,14 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
         title: 'Video Translator',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        localeListResolutionCallback: resolveAppLocale,
         home: const ProjectWorkspacePage(),
       ),
     );

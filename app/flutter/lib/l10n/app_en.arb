@@ -1,0 +1,20 @@
+{
+  "@@locale": "en",
+  "languageEnglish": "English",
+  "languageVietnamese": "Vietnamese",
+  "languageJapanese": "Japanese",
+  "languageKorean": "Korean",
+  "languageChineseSimplified": "Chinese (Simplified)",
+  "languageChineseTraditional": "Chinese (Traditional)",
+  "languagePortugueseBrazil": "Portuguese (Brazil)",
+  "languagePortuguesePortugal": "Portuguese (Portugal)",
+  "languageFrench": "French",
+  "languageGerman": "German",
+  "languageSpanish": "Spanish",
+  "languageItalian": "Italian",
+  "languageRussian": "Russian",
+  "languageHindi": "Hindi",
+  "languageArabic": "Arabic",
+  "languageThai": "Thai",
+  "languageIndonesian": "Indonesian"
+}
