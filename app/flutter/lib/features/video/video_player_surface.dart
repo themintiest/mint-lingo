@@ -245,7 +245,7 @@ class _ControlsContent extends StatelessWidget {
 
     if (compact) {
       return ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
+        constraints: const BoxConstraints(maxWidth: 720),
         child: Material(
           color: const Color(0xD9101114),
           borderRadius: BorderRadius.circular(AppRadius.md),
