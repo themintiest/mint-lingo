@@ -179,15 +179,11 @@ void main() {
     expect(playerRect.top, secondaryRect.top);
     expect(secondaryRect.width, 440);
     expect(
-      tester.getTopLeft(find.byKey(const Key('source-language-mode-field'))).dy,
+      tester.getTopLeft(find.byKey(const Key('source-language-picker'))).dy,
       closeTo(tester.getTopLeft(find.text('Source language')).dy, 1),
     );
     expect(
-      tester
-          .getTopLeft(
-            find.widgetWithText(OutlinedButton, 'Select target language'),
-          )
-          .dy,
+      tester.getTopLeft(find.byKey(const Key('target-language-picker'))).dy,
       closeTo(tester.getTopLeft(find.text('Target language')).dy, 1),
     );
     expect(
@@ -329,17 +325,19 @@ void main() {
 
     await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Auto-detect'));
-    await tester.tap(find.text('Auto-detect'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Manual'));
-    await tester.pumpAndSettle();
-    await _enterLanguage(tester, tag: 'en');
+    await _selectCatalogLanguage(
+      tester,
+      pickerKey: const Key('source-language-picker'),
+      search: 'English',
+      label: 'English (en)',
+    );
 
-    await tester.ensureVisible(find.text('Select target language'));
-    await tester.tap(find.text('Select target language'));
-    await tester.pumpAndSettle();
-    await _enterLanguage(tester, tag: 'vi');
+    await _selectCatalogLanguage(
+      tester,
+      pickerKey: const Key('target-language-picker'),
+      search: 'Vietnamese',
+      label: 'Vietnamese (vi)',
+    );
 
     await tester.ensureVisible(find.text('Check setup'));
     await tester.tap(find.text('Check setup'));
@@ -508,8 +506,23 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   }
 }
 
-Future<void> _enterLanguage(WidgetTester tester, {required String tag}) async {
-  await tester.enterText(find.byKey(const Key('language-tag-field')), tag);
-  await tester.tap(find.text('Use language'));
+Future<void> _selectCatalogLanguage(
+  WidgetTester tester, {
+  required Key pickerKey,
+  required String search,
+  required String label,
+}) async {
+  await tester.ensureVisible(find.byKey(pickerKey));
+  await tester.tapAt(const Offset(1, 1));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(pickerKey));
+  await tester.pumpAndSettle();
+  final field = find.descendant(
+    of: find.byKey(pickerKey),
+    matching: find.byType(TextField),
+  );
+  await tester.enterText(field, search);
+  await tester.pump();
+  await tester.tap(find.text(label).hitTestable());
   await tester.pumpAndSettle();
 }
