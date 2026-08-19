@@ -72,4 +72,182 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get selectingVideoEmptyState => 'Đang chọn video...';
+
+  @override
+  String get appTitle => 'Trình dịch video';
+
+  @override
+  String get sourceLanguage => 'Ngôn ngữ nguồn';
+
+  @override
+  String get targetLanguage => 'Ngôn ngữ đích';
+
+  @override
+  String get automaticDetection => 'Tự động nhận diện';
+
+  @override
+  String get noTargetLanguageSelected => 'Chưa chọn ngôn ngữ đích';
+
+  @override
+  String get selectSourceLanguage => 'Chọn ngôn ngữ nguồn';
+
+  @override
+  String get selectTargetLanguage => 'Chọn ngôn ngữ đích';
+
+  @override
+  String get autoDetect => 'Tự động nhận diện';
+
+  @override
+  String get openingVideoPreview => 'Đang mở xem trước video...';
+
+  @override
+  String get videoPreviewUnavailable => 'Không thể xem trước video.';
+
+  @override
+  String get preparingVideoPreview => 'Đang chuẩn bị xem trước video...';
+
+  @override
+  String get skipBackTenSeconds => 'Lùi 10 giây';
+
+  @override
+  String get playVideo => 'Phát video';
+
+  @override
+  String get pauseVideo => 'Tạm dừng video';
+
+  @override
+  String get skipForwardTenSeconds => 'Tiến 10 giây';
+
+  @override
+  String get enterFullscreen => 'Vào toàn màn hình';
+
+  @override
+  String get exitFullscreen => 'Thoát toàn màn hình';
+
+  @override
+  String get loadedVideoReady => 'Video này đã sẵn sàng để thiết lập dự án.';
+
+  @override
+  String get selectingVideo => 'Đang chọn video...';
+
+  @override
+  String get replaceVideo => 'Thay video';
+
+  @override
+  String get checkSetup => 'Kiểm tra thiết lập';
+
+  @override
+  String get projectSetupComplete => 'Thiết lập dự án đã hoàn tất.';
+
+  @override
+  String get unableToUpdateSetup =>
+      'Không thể cập nhật thiết lập dự án. Vui lòng thử lại.';
+
+  @override
+  String get sourceRequired => 'Chọn video nguồn trước khi xử lý.';
+
+  @override
+  String get targetLanguageRequired => 'Chọn ngôn ngữ đích trước khi xử lý.';
+
+  @override
+  String get mediaDetails => 'Thông tin media';
+
+  @override
+  String get inspectMediaPrompt =>
+      'Kiểm tra video này để xác nhận thông tin media.';
+
+  @override
+  String get inspectVideo => 'Kiểm tra video';
+
+  @override
+  String get inspectingMediaDetails => 'Đang kiểm tra thông tin media...';
+
+  @override
+  String get duration => 'Thời lượng';
+
+  @override
+  String get audio => 'Âm thanh';
+
+  @override
+  String get audioPresent => 'Có';
+
+  @override
+  String get audioNotPresent => 'Không có';
+
+  @override
+  String get streams => 'Luồng';
+
+  @override
+  String get unableToInspectMedia => 'Không thể kiểm tra media';
+
+  @override
+  String get mediaErrorSourceNotFound =>
+      'Video đã chọn không còn khả dụng. Hãy chọn lại.';
+
+  @override
+  String get mediaErrorSourceNotReadable =>
+      'Không thể đọc video đã chọn. Hãy kiểm tra quyền truy cập và chọn lại.';
+
+  @override
+  String get mediaErrorUnsupported =>
+      'Tệp này không phải định dạng media được hỗ trợ. Hãy chọn video khác.';
+
+  @override
+  String get mediaErrorMetadataUnavailable =>
+      'Không thể đọc thông tin media của video này. Hãy chọn video khác.';
+
+  @override
+  String get mediaErrorAudioMissing =>
+      'Video này không có luồng âm thanh và không thể dịch.';
+
+  @override
+  String get mediaErrorToolUnavailable =>
+      'Công cụ kiểm tra media không khả dụng. Hãy sửa chữa hoặc cài đặt lại ứng dụng.';
+
+  @override
+  String get mediaErrorUnknown =>
+      'Không thể kiểm tra thông tin media. Vui lòng thử lại.';
+
+  @override
+  String get mediaStreamVideo => 'Video';
+
+  @override
+  String get mediaStreamAudio => 'Âm thanh';
+
+  @override
+  String get mediaStreamSubtitle => 'Phụ đề';
+
+  @override
+  String get mediaStreamData => 'Dữ liệu';
+
+  @override
+  String get mediaStreamAttachment => 'Tệp đính kèm';
+
+  @override
+  String get mediaStreamUnknown => 'Không rõ';
+
+  @override
+  String engineStatus(Object status) {
+    return 'Bộ máy: $status';
+  }
+
+  @override
+  String engineStatusSemantics(Object status) {
+    return 'Trạng thái bộ máy: $status';
+  }
+
+  @override
+  String get engineStopped => 'Đã dừng';
+
+  @override
+  String get engineStarting => 'Đang khởi động';
+
+  @override
+  String get engineReady => 'Sẵn sàng';
+
+  @override
+  String get engineUnavailable => 'Không khả dụng';
+
+  @override
+  String get engineCrashed => 'Đã gặp sự cố';
 }

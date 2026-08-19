@@ -114,7 +114,7 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
         BlocProvider.value(value: _videoPlayerCubit),
       ],
       child: MaterialApp(
-        title: 'Video Translator',
+        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         localizationsDelegates: const [
