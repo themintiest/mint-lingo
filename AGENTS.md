@@ -189,6 +189,19 @@ Large temporary media files should not be embedded into project metadata.
 
 ---
 
+## Abstractions and Design Patterns
+
+- Do not create interfaces or protocols mechanically for every class.
+- Use abstractions at meaningful substitution, integration, or provider boundaries.
+- Apply established design patterns where they solve a concrete problem.
+- Prefer Strategy-style abstractions when multiple interchangeable implementations must expose the same application-level contract.
+- Provider-specific or vendor-specific models must not leak into application/domain models.
+- Concrete implementations should normalize their output into shared application-level models.
+- Avoid speculative abstractions when only one simple implementation exists and no meaningful substitution point is present.
+- Prefer composition over large conditional branches when adding new implementations.
+
+---
+
 ## Testing
 
 When changing behavior:
