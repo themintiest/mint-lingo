@@ -20,7 +20,8 @@ abstract final class AppTheme {
           onTertiary: AppColors.onSuccess,
           surface: AppColors.background,
           surfaceContainerLowest: AppColors.surface,
-          surfaceContainerLow: AppColors.surface,
+          surfaceContainerLow: AppColors.surfaceSubtle,
+          surfaceContainer: AppColors.surfaceSubtle,
           onSurface: AppColors.textPrimary,
           onSurfaceVariant: AppColors.textSecondary,
           outline: AppColors.border,
@@ -40,10 +41,42 @@ abstract final class AppTheme {
       brightness: Brightness.light,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
+      textTheme: ThemeData.light().textTheme.copyWith(
+        headlineSmall: TextStyle(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        titleLarge: TextStyle(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        titleMedium: TextStyle(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        titleSmall: TextStyle(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        bodyLarge: TextStyle(color: colorScheme.onSurface),
+        bodyMedium: TextStyle(color: colorScheme.onSurfaceVariant),
+        labelLarge: TextStyle(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        labelMedium: TextStyle(color: colorScheme.onSurfaceVariant),
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.background,
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -53,6 +86,7 @@ abstract final class AppTheme {
             vertical: AppSpacing.sm,
           ),
           shape: buttonShape,
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -64,6 +98,7 @@ abstract final class AppTheme {
           ),
           side: BorderSide(color: colorScheme.outline),
           shape: buttonShape,
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -74,6 +109,7 @@ abstract final class AppTheme {
             vertical: AppSpacing.sm,
           ),
           shape: buttonShape,
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationThemeData(
@@ -100,6 +136,32 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(AppRadius.lg),
           side: BorderSide(color: colorScheme.outline),
         ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: colorScheme.outlineVariant,
+        space: AppSpacing.lg,
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(40, 40),
+          shape: buttonShape,
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colorScheme.primary,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: colorScheme.inverseSurface,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        textStyle: TextStyle(color: colorScheme.onInverseSurface),
       ),
     );
   }
