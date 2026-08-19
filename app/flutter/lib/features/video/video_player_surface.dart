@@ -292,6 +292,16 @@ class _ControlsContent extends StatelessWidget {
                       onPressed: () => unawaited(cubit.skipForward()),
                       icon: const Icon(Icons.forward_10),
                     ),
+                    IconButton(
+                      tooltip: playback.isMuted
+                          ? localizations.unmuteVideo
+                          : localizations.muteVideo,
+                      color: Colors.white,
+                      onPressed: () => unawaited(cubit.toggleMuted()),
+                      icon: Icon(
+                        playback.isMuted ? Icons.volume_off : Icons.volume_up,
+                      ),
+                    ),
                     const Spacer(),
                     Text(
                       '$positionText / $durationText',
@@ -348,6 +358,13 @@ class _ControlsContent extends StatelessWidget {
               tooltip: localizations.skipForwardTenSeconds,
               onPressed: () => unawaited(cubit.skipForward()),
               icon: const Icon(Icons.forward_10),
+            ),
+            IconButton(
+              tooltip: playback.isMuted
+                  ? localizations.unmuteVideo
+                  : localizations.muteVideo,
+              onPressed: () => unawaited(cubit.toggleMuted()),
+              icon: Icon(playback.isMuted ? Icons.volume_off : Icons.volume_up),
             ),
             Expanded(
               child: _VideoSeekBar(playback: playback, onSeek: cubit.seek),

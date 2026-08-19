@@ -116,6 +116,12 @@ class AppLocalizationsVi extends AppLocalizations {
   String get pauseVideo => 'Tạm dừng video';
 
   @override
+  String get muteVideo => 'Tắt tiếng video';
+
+  @override
+  String get unmuteVideo => 'Bật tiếng video';
+
+  @override
   String get skipForwardTenSeconds => 'Tiến 10 giây';
 
   @override
@@ -250,4 +256,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get engineCrashed => 'Đã gặp sự cố';
+
+  @override
+  String get changeAppLanguage => 'Đổi ngôn ngữ ứng dụng';
 }

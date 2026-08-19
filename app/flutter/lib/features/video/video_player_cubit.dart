@@ -12,9 +12,13 @@ abstract interface class VideoPlaybackController {
 
   Future<void> pause();
 
+  Future<void> setVolume(double volume);
+
   Future<void> seek(Duration position);
 
   Stream<bool> get isPlaying;
+
+  Stream<double> get volume;
 
   Stream<Duration> get position;
 
@@ -47,10 +51,16 @@ final class MediaKitVideoPlaybackController implements VideoPlaybackController {
   Future<void> pause() => _player.pause();
 
   @override
+  Future<void> setVolume(double volume) => _player.setVolume(volume);
+
+  @override
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Stream<bool> get isPlaying => _player.stream.playing;
+
+  @override
+  Stream<double> get volume => _player.stream.volume;
 
   @override
   Stream<Duration> get position => _player.stream.position;
@@ -107,24 +117,28 @@ final class VideoPlayerOpening extends VideoPlayerState {
 final class VideoPlayerPlaybackState {
   const VideoPlayerPlaybackState({
     this.isPlaying = false,
+    this.isMuted = false,
     this.isFullscreen = false,
     this.position = Duration.zero,
     this.duration = Duration.zero,
   });
 
   final bool isPlaying;
+  final bool isMuted;
   final bool isFullscreen;
   final Duration position;
   final Duration duration;
 
   VideoPlayerPlaybackState copyWith({
     bool? isPlaying,
+    bool? isMuted,
     bool? isFullscreen,
     Duration? position,
     Duration? duration,
   }) {
     return VideoPlayerPlaybackState(
       isPlaying: isPlaying ?? this.isPlaying,
+      isMuted: isMuted ?? this.isMuted,
       isFullscreen: isFullscreen ?? this.isFullscreen,
       position: position ?? this.position,
       duration: duration ?? this.duration,
@@ -135,12 +149,14 @@ final class VideoPlayerPlaybackState {
   bool operator ==(Object other) =>
       other is VideoPlayerPlaybackState &&
       other.isPlaying == isPlaying &&
+      other.isMuted == isMuted &&
       other.isFullscreen == isFullscreen &&
       other.position == position &&
       other.duration == duration;
 
   @override
-  int get hashCode => Object.hash(isPlaying, isFullscreen, position, duration);
+  int get hashCode =>
+      Object.hash(isPlaying, isMuted, isFullscreen, position, duration);
 }
 
 final class VideoPlayerReady extends VideoPlayerState {
@@ -271,6 +287,18 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
   Future<void> pause() =>
       _runPlaybackCommand((controller) => controller.pause());
 
+  /// Mutes the opened player or restores its standard playback volume.
+  Future<void> toggleMuted() {
+    final currentState = state;
+    if (currentState is! VideoPlayerReady) {
+      return Future.value();
+    }
+    return _runPlaybackCommand(
+      (controller) =>
+          controller.setVolume(currentState.playback.isMuted ? 100 : 0),
+    );
+  }
+
   /// Seeks the opened controller. Position state updates from its stream.
   Future<void> seek(Duration position) =>
       _runPlaybackCommand((controller) => controller.seek(position));
@@ -336,6 +364,14 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
           controller,
           operation,
           (playback) => playback.copyWith(isPlaying: isPlaying),
+        ),
+        onError: _ignorePlaybackStreamError,
+      ),
+      controller.volume.listen(
+        (volume) => _updatePlaybackState(
+          controller,
+          operation,
+          (playback) => playback.copyWith(isMuted: volume <= 0),
         ),
         onError: _ignorePlaybackStreamError,
       ),

@@ -15,15 +15,33 @@ import 'package:video_translator/features/video/video_player_surface.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 class ProjectWorkspacePage extends StatelessWidget {
-  const ProjectWorkspacePage({super.key});
+  const ProjectWorkspacePage({
+    super.key,
+    required this.onLocaleSelected,
+    this.localeOverride,
+  });
 
   static const _maxContentWidth = 1280.0;
   static const _compactWidth = 600.0;
 
+  final ValueChanged<Locale> onLocaleSelected;
+  final Locale? localeOverride;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context).appTitle)),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).appTitle),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: _UiLanguageSelector(
+              localeOverride: localeOverride,
+              onLocaleSelected: onLocaleSelected,
+            ),
+          ),
+        ],
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final horizontalPadding = constraints.maxWidth < _compactWidth
@@ -136,6 +154,66 @@ class ProjectWorkspacePage extends StatelessWidget {
             .join('\n'),
       _ => localizations.unableToUpdateSetup,
     };
+  }
+}
+
+class _UiLanguageSelector extends StatelessWidget {
+  const _UiLanguageSelector({
+    required this.localeOverride,
+    required this.onLocaleSelected,
+  });
+
+  final Locale? localeOverride;
+  final ValueChanged<Locale> onLocaleSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final activeLanguageCode =
+        localeOverride?.languageCode ??
+        Localizations.localeOf(context).languageCode;
+
+    return PopupMenuButton<Locale>(
+      key: const Key('ui-language-selector'),
+      tooltip: localizations.changeAppLanguage,
+      icon: const Icon(Icons.language_outlined),
+      onSelected: onLocaleSelected,
+      itemBuilder: (context) => [
+        _languageMenuItem(
+          key: const Key('ui-language-option-en'),
+          locale: const Locale('en'),
+          label: localizations.languageEnglish,
+          isActive: activeLanguageCode == 'en',
+        ),
+        _languageMenuItem(
+          key: const Key('ui-language-option-vi'),
+          locale: const Locale('vi'),
+          label: localizations.languageVietnamese,
+          isActive: activeLanguageCode == 'vi',
+        ),
+      ],
+    );
+  }
+
+  PopupMenuItem<Locale> _languageMenuItem({
+    required Key key,
+    required Locale locale,
+    required String label,
+    required bool isActive,
+  }) {
+    return PopupMenuItem(
+      key: key,
+      value: locale,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: isActive ? const Icon(Icons.check, size: 18) : null,
+          ),
+          Text(label),
+        ],
+      ),
+    );
   }
 }
 

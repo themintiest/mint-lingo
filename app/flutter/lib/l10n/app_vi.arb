@@ -36,6 +36,8 @@
   "skipBackTenSeconds": "Lùi 10 giây",
   "playVideo": "Phát video",
   "pauseVideo": "Tạm dừng video",
+  "muteVideo": "Tắt tiếng video",
+  "unmuteVideo": "Bật tiếng video",
   "skipForwardTenSeconds": "Tiến 10 giây",
   "enterFullscreen": "Vào toàn màn hình",
   "exitFullscreen": "Thoát toàn màn hình",
@@ -78,5 +80,6 @@
   "engineStarting": "Đang khởi động",
   "engineReady": "Sẵn sàng",
   "engineUnavailable": "Không khả dụng",
-  "engineCrashed": "Đã gặp sự cố"
+  "engineCrashed": "Đã gặp sự cố",
+  "changeAppLanguage": "Đổi ngôn ngữ ứng dụng"
 }

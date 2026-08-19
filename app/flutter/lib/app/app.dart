@@ -65,6 +65,7 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
   late final bool _ownsMediaInspectionCubit;
   late final VideoPlayerCubit _videoPlayerCubit;
   late final bool _ownsVideoPlayerCubit;
+  Locale? _localeOverride;
 
   @override
   void initState() {
@@ -85,6 +86,10 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
     if (widget.startEngineOnLaunch) {
       unawaited(_engineConnectionCubit.start());
     }
+  }
+
+  void _selectLocale(Locale locale) {
+    setState(() => _localeOverride = locale);
   }
 
   @override
@@ -117,6 +122,7 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
         onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
+        locale: _localeOverride,
         localizationsDelegates: const [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
@@ -125,7 +131,10 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         localeListResolutionCallback: resolveAppLocale,
-        home: const ProjectWorkspacePage(),
+        home: ProjectWorkspacePage(
+          localeOverride: _localeOverride,
+          onLocaleSelected: _selectLocale,
+        ),
       ),
     );
   }

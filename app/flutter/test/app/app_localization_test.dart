@@ -100,6 +100,58 @@ void main() {
   });
 
   testWidgets(
+    'switches the UI language for the current run without changing project languages',
+    (tester) async {
+      final cubit = ProjectSetupCubit();
+      addTearDown(cubit.close);
+      addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);
+      cubit.configure(
+        ProjectDraft(
+          sourceLanguage: SourceLanguageSelection.manual(Language(tag: 'en')),
+          targetLanguage: Language(tag: 'ja'),
+        ),
+      );
+      tester.binding.platformDispatcher.localesTestValue = const [
+        Locale('en', 'US'),
+      ];
+
+      await tester.pumpWidget(
+        VideoTranslatorApp(
+          startEngineOnLaunch: false,
+          projectSetupCubit: cubit,
+        ),
+      );
+
+      final scaffoldFinder = find.byType(Scaffold);
+      expect(
+        Localizations.localeOf(tester.element(scaffoldFinder)),
+        const Locale('en'),
+      );
+
+      await tester.tap(find.byKey(const Key('ui-language-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ui-language-option-vi')));
+      await tester.pumpAndSettle();
+
+      final vietnameseContext = tester.element(scaffoldFinder);
+      expect(Localizations.localeOf(vietnameseContext), const Locale('vi'));
+      expect(
+        find.byTooltip(
+          AppLocalizations.of(vietnameseContext).changeAppLanguage,
+        ),
+        findsOneWidget,
+      );
+
+      final draft = (cubit.state as ProjectSetupConfigured).draft;
+      expect(
+        draft.sourceLanguage,
+        SourceLanguageSelection.manual(Language(tag: 'en')),
+      );
+      expect(draft.targetLanguage, Language(tag: 'ja'));
+    },
+  );
+
+  testWidgets(
     'localizes the loaded workspace without changing project languages',
     (tester) async {
       final cubit = ProjectSetupCubit();
