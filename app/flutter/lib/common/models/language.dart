@@ -1,44 +1,51 @@
 /// A provider-neutral language value used for source and target selections.
 ///
-/// The code follows the supported BCP 47 profile: a two- or three-letter
+/// The tag follows the supported BCP 47 profile: a two- or three-letter
 /// primary language subtag, optionally followed by a script subtag and a
 /// region subtag. The model validates only this syntax; providers decide which
-/// syntactically valid languages they support.
+/// syntactically valid languages they support. Display labels are resolved by
+/// the application language catalog and are not part of language identity.
 final class Language {
-  Language({required String code, required String displayName})
-    : code = _normalizeCode(code),
-      displayName = _normalizeDisplayName(displayName);
+  Language({required String tag}) : tag = _normalizeTag(tag);
 
-  final String code;
-  final String displayName;
+  /// The canonical, application-owned BCP 47-compatible language tag.
+  final String tag;
 
   factory Language.fromJson(Map<String, Object?> json) {
-    if (!_hasExactKeys(json, const {'code', 'displayName'})) {
-      throw const FormatException(
-        'A language must contain code and displayName.',
-      );
-    }
-
-    final code = json['code'];
-    final displayName = json['displayName'];
-    if (code is! String || displayName is! String) {
-      throw const FormatException(
-        'Language code and displayName must be strings.',
-      );
-    }
+    final tag = _tagFromJson(json);
 
     try {
-      return Language(code: code, displayName: displayName);
+      return Language(tag: tag);
     } on ArgumentError catch (error) {
       throw FormatException('Invalid language: $error');
     }
   }
 
-  Map<String, String> toJson() => {'code': code, 'displayName': displayName};
+  Map<String, String> toJson() => {'tag': tag};
 
-  static String _normalizeCode(String value) {
+  static String _tagFromJson(Map<String, Object?> json) {
+    if (_hasExactKeys(json, const {'tag'})) {
+      final tag = json['tag'];
+      if (tag is String) {
+        return tag;
+      }
+    }
+
+    // Read legacy M2 values without allowing their user-entered display name
+    // to become part of the application-owned language identity.
+    if (_hasExactKeys(json, const {'code', 'displayName'})) {
+      final code = json['code'];
+      if (code is String && json['displayName'] is String) {
+        return code;
+      }
+    }
+
+    throw const FormatException('A language must contain a string tag.');
+  }
+
+  static String _normalizeTag(String value) {
     if (value.isEmpty || value.trim() != value) {
-      throw ArgumentError.value(value, 'code', 'must not be empty or padded');
+      throw ArgumentError.value(value, 'tag', 'must not be empty or padded');
     }
 
     final subtags = value.split('-');
@@ -46,7 +53,7 @@ final class Language {
         !_isPrimarySubtag(subtags.first)) {
       throw ArgumentError.value(
         value,
-        'code',
+        'tag',
         'has an unsupported language-tag format',
       );
     }
@@ -65,7 +72,7 @@ final class Language {
     if (index != subtags.length) {
       throw ArgumentError.value(
         value,
-        'code',
+        'tag',
         'has an unsupported language-tag format',
       );
     }
@@ -75,14 +82,6 @@ final class Language {
       if (script != null) _toTitleCase(script),
       if (region != null) _normalizeRegion(region),
     ].join('-');
-  }
-
-  static String _normalizeDisplayName(String value) {
-    final normalized = value.trim();
-    if (normalized.isEmpty) {
-      throw ArgumentError.value(value, 'displayName', 'must not be blank');
-    }
-    return normalized;
   }
 
   static bool _isPrimarySubtag(String value) =>
@@ -101,13 +100,10 @@ final class Language {
       RegExp(r'^[0-9]{3}$').hasMatch(value) ? value : value.toUpperCase();
 
   @override
-  bool operator ==(Object other) =>
-      other is Language &&
-      other.code == code &&
-      other.displayName == displayName;
+  bool operator ==(Object other) => other is Language && other.tag == tag;
 
   @override
-  int get hashCode => Object.hash(code, displayName);
+  int get hashCode => tag.hashCode;
 }
 
 /// A source-language choice that is either explicit or left to the provider.

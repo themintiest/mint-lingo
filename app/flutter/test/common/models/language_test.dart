@@ -3,38 +3,35 @@ import 'package:video_translator/common/models/language.dart';
 
 void main() {
   group('Language', () {
-    test(
-      'normalizes and round-trips a valid provider-neutral language tag',
-      () {
-        final language = Language(
-          code: 'zh-hans-cn',
-          displayName: '  Simplified Chinese (China)  ',
-        );
+    test('normalizes and round-trips a canonical language tag', () {
+      final language = Language(tag: 'zh-hans-cn');
 
-        expect(language.code, 'zh-Hans-CN');
-        expect(language.displayName, 'Simplified Chinese (China)');
-        expect(language.toJson(), {
-          'code': 'zh-Hans-CN',
-          'displayName': 'Simplified Chinese (China)',
-        });
-        expect(Language.fromJson(language.toJson()), language);
-      },
-    );
+      expect(language.tag, 'zh-Hans-CN');
+      expect(language.toJson(), {'tag': 'zh-Hans-CN'});
+      expect(Language.fromJson(language.toJson()), language);
+    });
 
-    test(
-      'accepts provider-defined language codes without a hard-coded list',
-      () {
-        final language = Language(
-          code: 'abc',
-          displayName: 'Provider-defined language',
-        );
+    test('uses the canonical tag as the complete value identity', () {
+      expect(Language(tag: 'pt-br'), Language(tag: 'pt-BR'));
+      expect(Language(tag: 'pt-BR').hashCode, Language(tag: 'pt-br').hashCode);
+    });
 
-        expect(language.code, 'abc');
-      },
-    );
+    test('accepts BCP 47-compatible tags without a provider mapping', () {
+      expect(Language(tag: 'abc').tag, 'abc');
+    });
 
-    test('rejects invalid language codes and malformed serialized values', () {
-      for (final code in [
+    test('reads legacy labels without making them application identity', () {
+      final language = Language.fromJson(const {
+        'code': 'vi',
+        'displayName': 'An arbitrary label',
+      });
+
+      expect(language, Language(tag: 'vi'));
+      expect(language.toJson(), {'tag': 'vi'});
+    });
+
+    test('rejects invalid language tags and malformed serialized values', () {
+      for (final tag in [
         '',
         'en_US',
         'english',
@@ -42,22 +39,15 @@ void main() {
         'en--US',
         'en-US-extra',
       ]) {
-        expect(
-          () => Language(code: code, displayName: 'English'),
-          throwsArgumentError,
-          reason: code,
-        );
+        expect(() => Language(tag: tag), throwsArgumentError, reason: tag);
       }
 
       expect(
-        () => Language.fromJson(const {
-          'code': 'en_US',
-          'displayName': 'English',
-        }),
+        () => Language.fromJson(const {'tag': 'en_US'}),
         throwsFormatException,
       );
       expect(
-        () => Language.fromJson(const {'code': 'en'}),
+        () => Language.fromJson(const {'tag': 'en', 'displayName': 'English'}),
         throwsFormatException,
       );
     });
@@ -66,18 +56,16 @@ void main() {
   group('SourceLanguageSelection', () {
     test('keeps automatic detection distinct from an explicit language', () {
       final automatic = const SourceLanguageSelection.autoDetect();
-      final manual = SourceLanguageSelection.manual(
-        Language(code: 'vi', displayName: 'Vietnamese'),
-      );
+      final manual = SourceLanguageSelection.manual(Language(tag: 'vi'));
 
       expect(automatic, isA<AutomaticSourceLanguageDetection>());
       expect(automatic, isNot(isA<Language>()));
       expect(manual, isA<ExplicitSourceLanguage>());
-      expect((manual as ExplicitSourceLanguage).language.code, 'vi');
+      expect((manual as ExplicitSourceLanguage).language.tag, 'vi');
       expect(automatic.toJson(), {'mode': 'auto'});
       expect(manual.toJson(), {
         'mode': 'manual',
-        'language': {'code': 'vi', 'displayName': 'Vietnamese'},
+        'language': {'tag': 'vi'},
       });
     });
 
@@ -86,9 +74,7 @@ void main() {
       () {
         final selections = [
           const SourceLanguageSelection.autoDetect(),
-          SourceLanguageSelection.manual(
-            Language(code: 'pt-BR', displayName: 'Brazilian Portuguese'),
-          ),
+          SourceLanguageSelection.manual(Language(tag: 'pt-BR')),
         ];
 
         for (final selection in selections) {
@@ -101,7 +87,7 @@ void main() {
         expect(
           () => SourceLanguageSelection.fromJson(const {
             'mode': 'auto',
-            'language': {'code': 'en', 'displayName': 'English'},
+            'language': {'tag': 'en'},
           }),
           throwsFormatException,
         );

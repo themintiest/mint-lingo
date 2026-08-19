@@ -25,7 +25,7 @@ void main() {
           path: '/videos/source.mp4',
           fileName: 'source.mp4',
         ),
-        targetLanguage: Language(code: 'vi', displayName: 'Vietnamese'),
+        targetLanguage: Language(tag: 'vi'),
       );
 
       final states = expectLater(
@@ -45,9 +45,7 @@ void main() {
   );
 
   test('retains the current draft when selection reports an error', () async {
-    final draft = ProjectDraft(
-      targetLanguage: Language(code: 'ja', displayName: 'Japanese'),
-    );
+    final draft = ProjectDraft(targetLanguage: Language(tag: 'ja'));
     final error = StateError('Source selection failed.');
     cubit.configure(draft);
 
@@ -67,11 +65,7 @@ void main() {
   });
 
   test('returns to empty when cleared', () async {
-    cubit.configure(
-      ProjectDraft(
-        targetLanguage: Language(code: 'ko', displayName: 'Korean'),
-      ),
-    );
+    cubit.configure(ProjectDraft(targetLanguage: Language(tag: 'ko')));
 
     final states = expectLater(cubit.stream, emits(const ProjectSetupEmpty()));
 
@@ -96,7 +90,7 @@ void main() {
       ]);
       await cubit.close();
       cubit = ProjectSetupCubit(sourceVideoPicker: sourcePicker);
-      final target = Language(code: 'vi', displayName: 'Vietnamese');
+      final target = Language(tag: 'vi');
       cubit.configure(ProjectDraft(targetLanguage: target));
 
       await cubit.selectSourceVideo();
@@ -145,8 +139,8 @@ void main() {
         path: '/videos/source.mp4',
         fileName: 'source.mp4',
       );
-      final targetLanguage = Language(code: 'vi', displayName: 'Vietnamese');
-      final sourceLanguage = Language(code: 'en', displayName: 'English');
+      final targetLanguage = Language(tag: 'vi');
+      final sourceLanguage = Language(tag: 'en');
       cubit.configure(
         ProjectDraft(source: source, targetLanguage: targetLanguage),
       );
@@ -163,8 +157,8 @@ void main() {
   test(
     'returns source language to automatic detection without target changes',
     () {
-      final sourceLanguage = Language(code: 'en', displayName: 'English');
-      final targetLanguage = Language(code: 'vi', displayName: 'Vietnamese');
+      final sourceLanguage = Language(tag: 'en');
+      final targetLanguage = Language(tag: 'vi');
       cubit.configure(
         ProjectDraft(
           sourceLanguage: SourceLanguageSelection.manual(sourceLanguage),
@@ -181,7 +175,7 @@ void main() {
   );
 
   test('sets an explicit target language from an incomplete draft', () {
-    final targetLanguage = Language(code: 'ja', displayName: 'Japanese');
+    final targetLanguage = Language(tag: 'ja');
 
     cubit.selectTargetLanguage(targetLanguage);
 
@@ -204,11 +198,7 @@ void main() {
   });
 
   test('reports only a missing source video', () {
-    cubit.configure(
-      ProjectDraft(
-        targetLanguage: Language(code: 'vi', displayName: 'Vietnamese'),
-      ),
-    );
+    cubit.configure(ProjectDraft(targetLanguage: Language(tag: 'vi')));
 
     expect(cubit.validateForProcessing(), isFalse);
 
@@ -241,7 +231,7 @@ void main() {
           path: '/videos/source.mp4',
           fileName: 'source.mp4',
         ),
-        targetLanguage: Language(code: 'vi', displayName: 'Vietnamese'),
+        targetLanguage: Language(tag: 'vi'),
       ),
     );
 

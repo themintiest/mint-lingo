@@ -190,12 +190,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Manual'));
     await tester.pumpAndSettle();
-    await _enterLanguage(tester, code: 'en', displayName: 'English');
+    await _enterLanguage(tester, tag: 'en');
 
     await tester.ensureVisible(find.text('Select target language'));
     await tester.tap(find.text('Select target language'));
     await tester.pumpAndSettle();
-    await _enterLanguage(tester, code: 'vi', displayName: 'Vietnamese');
+    await _enterLanguage(tester, tag: 'vi');
 
     await tester.ensureVisible(find.text('Check setup'));
     await tester.tap(find.text('Check setup'));
@@ -364,16 +364,8 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   }
 }
 
-Future<void> _enterLanguage(
-  WidgetTester tester, {
-  required String code,
-  required String displayName,
-}) async {
-  await tester.enterText(find.byKey(const Key('language-code-field')), code);
-  await tester.enterText(
-    find.byKey(const Key('language-display-name-field')),
-    displayName,
-  );
+Future<void> _enterLanguage(WidgetTester tester, {required String tag}) async {
+  await tester.enterText(find.byKey(const Key('language-tag-field')), tag);
   await tester.tap(find.text('Use language'));
   await tester.pumpAndSettle();
 }

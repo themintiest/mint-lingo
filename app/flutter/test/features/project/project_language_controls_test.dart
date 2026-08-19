@@ -36,31 +36,29 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Manual'));
     await tester.pumpAndSettle();
-    await _enterLanguage(tester, code: 'en', displayName: 'English');
+    await _enterLanguage(tester, tag: 'en');
 
     expect(find.text('English (en)'), findsOneWidget);
     expect(
       (cubit.state as ProjectSetupConfigured).draft.sourceLanguage,
-      ExplicitSourceLanguage(Language(code: 'en', displayName: 'English')),
+      ExplicitSourceLanguage(Language(tag: 'en')),
     );
 
     await tester.tap(find.text('Select target language'));
     await tester.pumpAndSettle();
-    await _enterLanguage(tester, code: 'vi', displayName: 'Vietnamese');
+    await _enterLanguage(tester, tag: 'vi');
 
     expect(find.text('Vietnamese (vi)'), findsOneWidget);
     expect(
       (cubit.state as ProjectSetupConfigured).draft.targetLanguage,
-      Language(code: 'vi', displayName: 'Vietnamese'),
+      Language(tag: 'vi'),
     );
   });
 
   testWidgets('returns a manual source language to automatic detection', (
     tester,
   ) async {
-    cubit.selectManualSourceLanguage(
-      Language(code: 'ko', displayName: 'Korean'),
-    );
+    cubit.selectManualSourceLanguage(Language(tag: 'ko'));
     await _pumpApp(tester, cubit);
 
     expect(find.text('Korean (ko)'), findsOneWidget);
@@ -84,16 +82,8 @@ Future<void> _pumpApp(WidgetTester tester, ProjectSetupCubit cubit) {
   );
 }
 
-Future<void> _enterLanguage(
-  WidgetTester tester, {
-  required String code,
-  required String displayName,
-}) async {
-  await tester.enterText(find.byKey(const Key('language-code-field')), code);
-  await tester.enterText(
-    find.byKey(const Key('language-display-name-field')),
-    displayName,
-  );
+Future<void> _enterLanguage(WidgetTester tester, {required String tag}) async {
+  await tester.enterText(find.byKey(const Key('language-tag-field')), tag);
   await tester.tap(find.text('Use language'));
   await tester.pumpAndSettle();
 }

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
+import 'package:video_translator/common/models/application_language_catalog.dart';
 import 'package:video_translator/common/models/language.dart';
 import 'package:video_translator/features/project/project_draft.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
+import 'package:video_translator/l10n/generated/app_localizations.dart';
 
-/// Renders project language choices without assuming a provider language catalog.
+/// Renders project language choices while preserving the temporary free-form
+/// entry flow until LANG-R03 introduces catalog-backed selectors.
 ///
-/// Provider capability-driven lists will replace free-form entry in a later task.
+/// Display labels are resolved from the application catalog rather than stored
+/// with project language values.
 class ProjectLanguageControls extends StatelessWidget {
   const ProjectLanguageControls({super.key});
 
@@ -15,6 +19,7 @@ class ProjectLanguageControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ProjectSetupCubit, ProjectSetupState>(
       builder: (context, state) {
+        final localizations = AppLocalizations.of(context);
         final draft = state.draft ?? const ProjectDraft();
         final sourceLanguage = draft.sourceLanguage;
         final manualSourceLanguage = switch (sourceLanguage) {
@@ -30,7 +35,7 @@ class ProjectLanguageControls extends StatelessWidget {
               title: 'Source language',
               description: manualSourceLanguage == null
                   ? 'Automatic detection'
-                  : _languageLabel(manualSourceLanguage),
+                  : _languageLabel(manualSourceLanguage, localizations),
               control: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -81,7 +86,7 @@ class ProjectLanguageControls extends StatelessWidget {
               title: 'Target language',
               description: draft.targetLanguage == null
                   ? 'No target language selected'
-                  : _languageLabel(draft.targetLanguage!),
+                  : _languageLabel(draft.targetLanguage!, localizations),
               control: OutlinedButton(
                 onPressed: () => _selectTargetLanguage(
                   context,
@@ -124,8 +129,12 @@ class ProjectLanguageControls extends StatelessWidget {
     }
   }
 
-  static String _languageLabel(Language language) =>
-      '${language.displayName} (${language.code})';
+  static String _languageLabel(
+    Language language,
+    AppLocalizations localizations,
+  ) =>
+      '${ApplicationLanguageCatalog.labelFor(language, localizations)} '
+      '(${language.tag})';
 }
 
 enum _SourceLanguageMode { automatic, manual }
@@ -214,32 +223,24 @@ class _LanguageEntryDialog extends StatefulWidget {
 }
 
 class _LanguageEntryDialogState extends State<_LanguageEntryDialog> {
-  late final TextEditingController _codeController;
-  late final TextEditingController _displayNameController;
+  late final TextEditingController _tagController;
   String? _validationMessage;
 
   @override
   void initState() {
     super.initState();
-    _codeController = TextEditingController(text: widget.initialLanguage?.code);
-    _displayNameController = TextEditingController(
-      text: widget.initialLanguage?.displayName,
-    );
+    _tagController = TextEditingController(text: widget.initialLanguage?.tag);
   }
 
   @override
   void dispose() {
-    _codeController.dispose();
-    _displayNameController.dispose();
+    _tagController.dispose();
     super.dispose();
   }
 
   void _submit() {
     try {
-      final language = Language(
-        code: _codeController.text,
-        displayName: _displayNameController.text,
-      );
+      final language = Language(tag: _tagController.text);
       Navigator.of(context).pop(language);
     } on ArgumentError catch (error) {
       setState(() {
@@ -256,20 +257,14 @@ class _LanguageEntryDialogState extends State<_LanguageEntryDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
-            key: const Key('language-code-field'),
-            controller: _codeController,
+            key: const Key('language-tag-field'),
+            controller: _tagController,
             autofocus: true,
             decoration: InputDecoration(
-              labelText: 'Language code',
+              labelText: 'Language tag',
               hintText: 'For example: en or pt-BR',
               errorText: _validationMessage,
             ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          TextField(
-            key: const Key('language-display-name-field'),
-            controller: _displayNameController,
-            decoration: const InputDecoration(labelText: 'Display name'),
             onSubmitted: (_) => _submit(),
           ),
         ],
