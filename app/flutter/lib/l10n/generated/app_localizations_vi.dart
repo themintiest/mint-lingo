@@ -59,4 +59,17 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get languageIndonesian => 'Tiếng Indonesia';
+
+  @override
+  String get emptyWorkspaceTitle => 'Bắt đầu dự án dịch';
+
+  @override
+  String get emptyWorkspaceDescription =>
+      'Mở video trên máy để kiểm tra thông tin media và chọn ngôn ngữ dịch.';
+
+  @override
+  String get openVideoEmptyState => 'Mở video';
+
+  @override
+  String get selectingVideoEmptyState => 'Đang chọn video...';
 }

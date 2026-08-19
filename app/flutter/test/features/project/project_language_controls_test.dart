@@ -1,8 +1,11 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_translator/app/app.dart';
+import 'package:video_translator/app/theme/app_theme.dart';
 import 'package:video_translator/common/models/language.dart';
+import 'package:video_translator/features/project/project_language_controls.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
+import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 void main() {
   late ProjectSetupCubit cubit;
@@ -78,7 +81,15 @@ void main() {
 
 Future<void> _pumpApp(WidgetTester tester, ProjectSetupCubit cubit) {
   return tester.pumpWidget(
-    VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
+    BlocProvider.value(
+      value: cubit,
+      child: MaterialApp(
+        theme: AppTheme.light,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(body: ProjectLanguageControls()),
+      ),
+    ),
   );
 }
 

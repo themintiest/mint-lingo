@@ -19,16 +19,20 @@ void main() {
     );
 
     expect(find.text('Video Translator'), findsOneWidget);
-    expect(find.text('No video is open'), findsOneWidget);
+    expect(find.text('Start a translation project'), findsOneWidget);
     expect(
-      find.text('Open a video to begin a translation project.'),
+      find.text(
+        'Open a local video to inspect its media and choose translation languages.',
+      ),
       findsOneWidget,
     );
 
-    final context = tester.element(find.text('No video is open'));
+    final context = tester.element(find.text('Start a translation project'));
     expect(Theme.of(context).colorScheme.primary, AppColors.primary);
     expect(Theme.of(context).brightness, Brightness.light);
-    expect(find.text('Engine: stopped'), findsOneWidget);
+    expect(find.text('Open a video'), findsOneWidget);
+    expect(find.text('Check setup'), findsNothing);
+    expect(find.text('Source language'), findsNothing);
   });
 
   testWidgets('opens and replaces one source video', (
@@ -52,7 +56,7 @@ void main() {
       VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
     );
 
-    await tester.tap(find.text('Open video'));
+    await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
     expect(find.text('first.mp4'), findsOneWidget);
     expect(find.text('Replace video'), findsOneWidget);
@@ -88,7 +92,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Open video'));
+    await tester.tap(find.text('Open a video'));
     await tester.pump();
     await tester.pump();
 
@@ -131,17 +135,28 @@ void main() {
     ]);
   });
 
-  testWidgets('shows actionable setup messages before processing', (
+  testWidgets('shows target-language setup guidance after opening a video', (
     WidgetTester tester,
   ) async {
+    final cubit = ProjectSetupCubit(
+      sourceVideoPicker: _FakeSourceVideoPicker([
+        const ProjectSourceReference(
+          path: '/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+      ]),
+    );
+    addTearDown(cubit.close);
     await tester.pumpWidget(
-      const VideoTranslatorApp(startEngineOnLaunch: false),
+      VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
     );
 
+    await tester.tap(find.text('Open a video'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Check setup'));
     await tester.tap(find.text('Check setup'));
     await tester.pump();
 
-    expect(find.textContaining('Select a source video'), findsOneWidget);
     expect(find.textContaining('Select a target language'), findsOneWidget);
   });
 
@@ -160,10 +175,10 @@ void main() {
     );
 
     expect(find.byType(SingleChildScrollView), findsOneWidget);
-    expect(find.text('Open video'), findsOneWidget);
-    await tester.ensureVisible(find.text('Select target language'));
-    expect(find.text('Source language'), findsOneWidget);
-    expect(find.text('Target language'), findsOneWidget);
+    expect(find.text('Open a video'), findsOneWidget);
+    expect(find.text('Start a translation project'), findsOneWidget);
+    expect(find.text('Source language'), findsNothing);
+    expect(find.text('Target language'), findsNothing);
   });
 
   testWidgets('accepts a fully configured project setup', (
@@ -183,7 +198,7 @@ void main() {
       VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
     );
 
-    await tester.tap(find.text('Open video'));
+    await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Auto-detect'));
     await tester.tap(find.text('Auto-detect'));
@@ -249,7 +264,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Open video'));
+    await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Inspect video'));
     await tester.tap(find.text('Inspect video'));
@@ -292,7 +307,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Open video'));
+    await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Inspect video'));
     await tester.tap(find.text('Inspect video'));

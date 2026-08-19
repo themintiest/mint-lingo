@@ -59,4 +59,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get languageIndonesian => 'Indonesian';
+
+  @override
+  String get emptyWorkspaceTitle => 'Start a translation project';
+
+  @override
+  String get emptyWorkspaceDescription =>
+      'Open a local video to inspect its media and choose translation languages.';
+
+  @override
+  String get openVideoEmptyState => 'Open a video';
+
+  @override
+  String get selectingVideoEmptyState => 'Selecting video...';
 }
