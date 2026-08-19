@@ -39,34 +39,46 @@ class ProjectLanguageControls extends StatelessWidget {
               control: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButton<_SourceLanguageMode>(
-                    value: manualSourceLanguage == null
-                        ? _SourceLanguageMode.automatic
-                        : _SourceLanguageMode.manual,
-                    onChanged: (mode) {
-                      if (mode == _SourceLanguageMode.automatic) {
-                        context
-                            .read<ProjectSetupCubit>()
-                            .selectAutomaticSourceLanguage();
-                        return;
-                      }
-                      if (mode == _SourceLanguageMode.manual) {
-                        _selectManualSourceLanguage(
-                          context,
-                          initialLanguage: manualSourceLanguage,
-                        );
-                      }
-                    },
-                    items: const [
-                      DropdownMenuItem(
-                        value: _SourceLanguageMode.automatic,
-                        child: Text('Auto-detect'),
+                  SizedBox(
+                    width: 180,
+                    child: DropdownButtonFormField<_SourceLanguageMode>(
+                      key: const Key('source-language-mode-field'),
+                      initialValue: manualSourceLanguage == null
+                          ? _SourceLanguageMode.automatic
+                          : _SourceLanguageMode.manual,
+                      isDense: true,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: 10,
+                        ),
                       ),
-                      DropdownMenuItem(
-                        value: _SourceLanguageMode.manual,
-                        child: Text('Manual'),
-                      ),
-                    ],
+                      onChanged: (mode) {
+                        if (mode == _SourceLanguageMode.automatic) {
+                          context
+                              .read<ProjectSetupCubit>()
+                              .selectAutomaticSourceLanguage();
+                          return;
+                        }
+                        if (mode == _SourceLanguageMode.manual) {
+                          _selectManualSourceLanguage(
+                            context,
+                            initialLanguage: manualSourceLanguage,
+                          );
+                        }
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                          value: _SourceLanguageMode.automatic,
+                          child: Text('Auto-detect'),
+                        ),
+                        DropdownMenuItem(
+                          value: _SourceLanguageMode.manual,
+                          child: Text('Manual'),
+                        ),
+                      ],
+                    ),
                   ),
                   if (manualSourceLanguage != null)
                     IconButton(
@@ -147,7 +159,7 @@ class _LanguageControlRow extends StatelessWidget {
     required this.control,
   });
 
-  static const _compactWidth = 520.0;
+  static const _compactWidth = 400.0;
 
   final IconData icon;
   final String title;
@@ -188,10 +200,10 @@ class _LanguageControlRow extends StatelessWidget {
         }
 
         return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: details),
-            const SizedBox(width: AppSpacing.lg),
+            const SizedBox(width: AppSpacing.md),
             control,
           ],
         );

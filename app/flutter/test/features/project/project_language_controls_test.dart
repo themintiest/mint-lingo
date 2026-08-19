@@ -22,6 +22,10 @@ void main() {
       await _pumpApp(tester, cubit);
 
       expect(find.text('Source language'), findsOneWidget);
+      expect(
+        find.byKey(const Key('source-language-mode-field')),
+        findsOneWidget,
+      );
       expect(find.text('Auto-detect'), findsOneWidget);
       expect(find.text('Automatic detection'), findsOneWidget);
       expect(find.text('Target language'), findsOneWidget);
