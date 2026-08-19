@@ -142,6 +142,18 @@ void main() {
         findsOneWidget,
       );
 
+      await tester.tap(find.byKey(const Key('ui-language-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ui-language-option-en')));
+      await tester.pumpAndSettle();
+
+      final englishContext = tester.element(scaffoldFinder);
+      expect(Localizations.localeOf(englishContext), const Locale('en'));
+      expect(
+        find.byTooltip(AppLocalizations.of(englishContext).changeAppLanguage),
+        findsOneWidget,
+      );
+
       final draft = (cubit.state as ProjectSetupConfigured).draft;
       expect(
         draft.sourceLanguage,

@@ -105,8 +105,13 @@ void main() {
       const SourceLanguageSelection.autoDetect(),
     );
 
-    await _openPicker(tester, const Key('target-language-picker'));
-    expect(find.text('Auto-detect'), findsNWidgets(2));
+    final targetPicker = tester.widget<DropdownMenu<Language>>(
+      find.byKey(const Key('target-language-picker')),
+    );
+    expect(
+      targetPicker.dropdownMenuEntries.map((entry) => entry.label),
+      isNot(contains('Auto-detect')),
+    );
   });
 }
 
