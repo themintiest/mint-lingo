@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/engine/engine_connection_cubit.dart';
+import 'package:video_translator/app/theme/app_radius.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
 import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/media_inspection_panel.dart';
@@ -273,25 +274,90 @@ class _LoadedSetupRegion extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         MediaInspectionPanel(source: source),
         const SizedBox(height: AppSpacing.lg),
-        Center(
-          child: BlocBuilder<EngineConnectionCubit, EngineConnectionState>(
-            builder: (context, state) {
-              return Text('Engine: ${_engineStatusText(state.status)}');
-            },
-          ),
-        ),
+        const _EngineStatusIndicator(),
       ],
     );
   }
 }
 
-String _engineStatusText(EngineConnectionStatus status) => switch (status) {
-  EngineConnectionStatus.stopped => 'stopped',
-  EngineConnectionStatus.starting => 'starting',
-  EngineConnectionStatus.ready => 'ready',
-  EngineConnectionStatus.unavailable => 'unavailable',
-  EngineConnectionStatus.crashed => 'crashed',
-};
+class _EngineStatusIndicator extends StatelessWidget {
+  const _EngineStatusIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: BlocBuilder<EngineConnectionCubit, EngineConnectionState>(
+        builder: (context, state) {
+          final presentation = _EngineStatusPresentation.from(state.status);
+          final colorScheme = Theme.of(context).colorScheme;
+          return Semantics(
+            label: 'Engine status: ${presentation.label}',
+            child: DecoratedBox(
+              key: const Key('engine-status-indicator'),
+              decoration: BoxDecoration(
+                color: presentation.color(colorScheme).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      presentation.icon,
+                      size: 18,
+                      color: presentation.color(colorScheme),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'Engine: ${presentation.label}',
+                      style: Theme.of(context).textTheme.labelLarge
+                          ?.copyWith(color: presentation.color(colorScheme)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+enum _EngineStatusPresentation {
+  stopped('Stopped', Icons.pause_circle_outline),
+  starting('Starting', Icons.sync_outlined),
+  ready('Ready', Icons.check_circle_outline),
+  unavailable('Unavailable', Icons.error_outline),
+  crashed('Crashed', Icons.warning_amber_outlined);
+
+  const _EngineStatusPresentation(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+
+  factory _EngineStatusPresentation.from(EngineConnectionStatus status) =>
+      switch (status) {
+        EngineConnectionStatus.stopped => _EngineStatusPresentation.stopped,
+        EngineConnectionStatus.starting => _EngineStatusPresentation.starting,
+        EngineConnectionStatus.ready => _EngineStatusPresentation.ready,
+        EngineConnectionStatus.unavailable =>
+          _EngineStatusPresentation.unavailable,
+        EngineConnectionStatus.crashed => _EngineStatusPresentation.crashed,
+      };
+
+  Color color(ColorScheme colorScheme) => switch (this) {
+    _EngineStatusPresentation.stopped => colorScheme.onSurfaceVariant,
+    _EngineStatusPresentation.starting => colorScheme.primary,
+    _EngineStatusPresentation.ready => colorScheme.tertiary,
+    _EngineStatusPresentation.unavailable ||
+    _EngineStatusPresentation.crashed => colorScheme.error,
+  };
+}
 
 class _EmptyProjectWorkspace extends StatelessWidget {
   const _EmptyProjectWorkspace({

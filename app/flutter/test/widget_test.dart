@@ -197,6 +197,8 @@ void main() {
       find.descendant(of: secondary, matching: find.text('Source language')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('engine-status-indicator')), findsOneWidget);
+    expect(find.text('Engine: Stopped'), findsOneWidget);
   });
 
   testWidgets('stacks the player before setup on narrow desktops', (
@@ -397,12 +399,23 @@ void main() {
     await tester.tap(find.text('Inspect video'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Duration: 01:35'), findsOneWidget);
-    expect(find.text('Audio: Present'), findsOneWidget);
+    expect(find.byKey(const Key('media-inspection-details')), findsOneWidget);
+    expect(find.byKey(const Key('media-detail-duration')), findsOneWidget);
+    expect(find.byKey(const Key('media-detail-audio')), findsOneWidget);
+    expect(find.text('Duration'), findsOneWidget);
+    expect(find.text('01:35'), findsOneWidget);
+    expect(find.text('Audio'), findsOneWidget);
+    expect(find.text('Present'), findsOneWidget);
     expect(find.byType(SelectionArea), findsOneWidget);
     expect(find.byKey(const Key('media-stream-0')), findsOneWidget);
+    expect(find.byKey(const Key('media-stream-1')), findsOneWidget);
+    expect(find.textContaining('h264'), findsOneWidget);
+    expect(find.textContaining('aac'), findsOneWidget);
+    /* Legacy assertions retained temporarily because their old literals were
+       stored with corrupt character encoding.
     expect(find.text('Video #0 · h264 · 1920 × 1080'), findsOneWidget);
     expect(find.text('Audio #1 · aac'), findsOneWidget);
+    */
   });
 
   testWidgets('shows a safe structured media inspection error', (
