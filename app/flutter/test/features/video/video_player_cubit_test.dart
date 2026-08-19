@@ -67,6 +67,31 @@ void main() {
     ]);
   });
 
+  test('toggles mute through the opened controller volume', () async {
+    final controller = _FakeVideoPlaybackController();
+    final cubit = VideoPlayerCubit(
+      controllerFactory: _FakeVideoPlaybackControllerFactory([controller]),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.open(firstSource);
+    await cubit.toggleMuted();
+
+    expect(controller.volumeValues, [0]);
+    expect(
+      cubit.state,
+      const VideoPlayerReady(
+        firstSource,
+        playback: VideoPlayerPlaybackState(isMuted: true),
+      ),
+    );
+
+    await cubit.toggleMuted();
+
+    expect(controller.volumeValues, [0, 100]);
+    expect(cubit.state, const VideoPlayerReady(firstSource));
+  });
+
   test('toggles fullscreen through the registered viewport', () async {
     final controller = _FakeVideoPlaybackController();
     final cubit = VideoPlayerCubit(
@@ -192,7 +217,7 @@ void main() {
     await cubit.clear();
 
     expect(controller.disposeCount, 1);
-    expect(controller.cancelledSubscriptionCount, 3);
+    expect(controller.cancelledSubscriptionCount, 4);
     expect(cubit.state, const VideoPlayerIdle());
   });
 
@@ -214,7 +239,7 @@ void main() {
       await cubit.open(secondSource);
       firstController.positionEvents.add(const Duration(seconds: 30));
 
-      expect(firstController.cancelledSubscriptionCount, 3);
+      expect(firstController.cancelledSubscriptionCount, 4);
       expect(cubit.state, const VideoPlayerReady(secondSource));
     },
   );
@@ -276,12 +301,18 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
       onListen: _recordStartedSubscription,
       onCancel: _recordCancelledSubscription,
     );
+    volumeEvents = StreamController<double>.broadcast(
+      sync: true,
+      onListen: _recordStartedSubscription,
+      onCancel: _recordCancelledSubscription,
+    );
   }
 
   final Object? openError;
   final Future<void>? openFuture;
   final List<String> openedPaths = [];
   final List<Duration> seekPositions = [];
+  final List<double> volumeValues = [];
   int disposeCount = 0;
   int playCount = 0;
   int pauseCount = 0;
@@ -290,9 +321,13 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   late final StreamController<bool> playingEvents;
   late final StreamController<Duration> positionEvents;
   late final StreamController<Duration> durationEvents;
+  late final StreamController<double> volumeEvents;
 
   @override
   Stream<bool> get isPlaying => playingEvents.stream;
+
+  @override
+  Stream<double> get volume => volumeEvents.stream;
 
   @override
   Stream<Duration> get position => positionEvents.stream;
@@ -327,6 +362,12 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   @override
   Future<void> seek(Duration position) async {
     seekPositions.add(position);
+  }
+
+  @override
+  Future<void> setVolume(double volume) async {
+    volumeValues.add(volume);
+    volumeEvents.add(volume);
   }
 
   void _recordCancelledSubscription() {

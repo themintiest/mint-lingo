@@ -36,6 +36,8 @@
   "skipBackTenSeconds": "Skip back 10 seconds",
   "playVideo": "Play video",
   "pauseVideo": "Pause video",
+  "muteVideo": "Mute video",
+  "unmuteVideo": "Unmute video",
   "skipForwardTenSeconds": "Skip forward 10 seconds",
   "enterFullscreen": "Enter fullscreen",
   "exitFullscreen": "Exit fullscreen",
@@ -78,5 +80,6 @@
   "engineStarting": "Starting",
   "engineReady": "Ready",
   "engineUnavailable": "Unavailable",
-  "engineCrashed": "Crashed"
+  "engineCrashed": "Crashed",
+  "changeAppLanguage": "Change app language"
 }

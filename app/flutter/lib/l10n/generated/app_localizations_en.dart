@@ -116,6 +116,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pauseVideo => 'Pause video';
 
   @override
+  String get muteVideo => 'Mute video';
+
+  @override
+  String get unmuteVideo => 'Unmute video';
+
+  @override
   String get skipForwardTenSeconds => 'Skip forward 10 seconds';
 
   @override
@@ -251,4 +257,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get engineCrashed => 'Crashed';
+
+  @override
+  String get changeAppLanguage => 'Change app language';
 }

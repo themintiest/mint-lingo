@@ -484,6 +484,7 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   final durationEvents = StreamController<Duration>.broadcast();
   final playingEvents = StreamController<bool>.broadcast();
   final positionEvents = StreamController<Duration>.broadcast();
+  final volumeEvents = StreamController<double>.broadcast();
   int pauseCount = 0;
   int playCount = 0;
   final seekPositions = <Duration>[];
@@ -493,6 +494,9 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
 
   @override
   Stream<bool> get isPlaying => playingEvents.stream;
+
+  @override
+  Stream<double> get volume => volumeEvents.stream;
 
   @override
   Stream<Duration> get position => positionEvents.stream;
@@ -516,6 +520,11 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   @override
   Future<void> seek(Duration position) async {
     seekPositions.add(position);
+  }
+
+  @override
+  Future<void> setVolume(double volume) async {
+    volumeEvents.add(volume);
   }
 }
 

@@ -308,6 +308,18 @@ abstract class AppLocalizations {
   /// **'Pause video'**
   String get pauseVideo;
 
+  /// No description provided for @muteVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute video'**
+  String get muteVideo;
+
+  /// No description provided for @unmuteVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute video'**
+  String get unmuteVideo;
+
   /// No description provided for @skipForwardTenSeconds.
   ///
   /// In en, this message translates to:
@@ -553,6 +565,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Crashed'**
   String get engineCrashed;
+
+  /// No description provided for @changeAppLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Change app language'**
+  String get changeAppLanguage;
 }
 
 class _AppLocalizationsDelegate
