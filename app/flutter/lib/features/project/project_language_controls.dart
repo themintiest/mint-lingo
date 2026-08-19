@@ -7,13 +7,15 @@ import 'package:video_translator/features/project/project_draft.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
-/// Renders project language choices while preserving the temporary free-form
-/// entry flow until LANG-R03 introduces catalog-backed selectors.
+/// Renders project language choices from the application-owned language catalog.
 ///
-/// Display labels are resolved from the application catalog rather than stored
-/// with project language values.
+/// Display labels are resolved from the catalog rather than stored with project
+/// language values.
 class ProjectLanguageControls extends StatelessWidget {
   const ProjectLanguageControls({super.key});
+
+  static const _pickerWidth = 220.0;
+  static const _menuHeight = 360.0;
 
   @override
   Widget build(BuildContext context) {
@@ -36,60 +38,9 @@ class ProjectLanguageControls extends StatelessWidget {
               description: manualSourceLanguage == null
                   ? 'Automatic detection'
                   : _languageLabel(manualSourceLanguage, localizations),
-              control: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    child: DropdownButtonFormField<_SourceLanguageMode>(
-                      key: const Key('source-language-mode-field'),
-                      initialValue: manualSourceLanguage == null
-                          ? _SourceLanguageMode.automatic
-                          : _SourceLanguageMode.manual,
-                      isDense: true,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: 10,
-                        ),
-                      ),
-                      onChanged: (mode) {
-                        if (mode == _SourceLanguageMode.automatic) {
-                          context
-                              .read<ProjectSetupCubit>()
-                              .selectAutomaticSourceLanguage();
-                          return;
-                        }
-                        if (mode == _SourceLanguageMode.manual) {
-                          _selectManualSourceLanguage(
-                            context,
-                            initialLanguage: manualSourceLanguage,
-                          );
-                        }
-                      },
-                      items: const [
-                        DropdownMenuItem(
-                          value: _SourceLanguageMode.automatic,
-                          child: Text('Auto-detect'),
-                        ),
-                        DropdownMenuItem(
-                          value: _SourceLanguageMode.manual,
-                          child: Text('Manual'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (manualSourceLanguage != null)
-                    IconButton(
-                      tooltip: 'Choose source language',
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () => _selectManualSourceLanguage(
-                        context,
-                        initialLanguage: manualSourceLanguage,
-                      ),
-                    ),
-                ],
+              control: _SourceLanguagePicker(
+                selection: sourceLanguage,
+                localizations: localizations,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -99,12 +50,9 @@ class ProjectLanguageControls extends StatelessWidget {
               description: draft.targetLanguage == null
                   ? 'No target language selected'
                   : _languageLabel(draft.targetLanguage!, localizations),
-              control: OutlinedButton(
-                onPressed: () => _selectTargetLanguage(
-                  context,
-                  initialLanguage: draft.targetLanguage,
-                ),
-                child: const Text('Select target language'),
+              control: _TargetLanguagePicker(
+                language: draft.targetLanguage,
+                localizations: localizations,
               ),
             ),
           ],
@@ -112,44 +60,118 @@ class ProjectLanguageControls extends StatelessWidget {
       },
     );
   }
-
-  Future<void> _selectManualSourceLanguage(
-    BuildContext context, {
-    Language? initialLanguage,
-  }) async {
-    final language = await _showLanguageEntryDialog(
-      context,
-      title: 'Select source language',
-      initialLanguage: initialLanguage,
-    );
-    if (language != null && context.mounted) {
-      context.read<ProjectSetupCubit>().selectManualSourceLanguage(language);
-    }
-  }
-
-  Future<void> _selectTargetLanguage(
-    BuildContext context, {
-    Language? initialLanguage,
-  }) async {
-    final language = await _showLanguageEntryDialog(
-      context,
-      title: 'Select target language',
-      initialLanguage: initialLanguage,
-    );
-    if (language != null && context.mounted) {
-      context.read<ProjectSetupCubit>().selectTargetLanguage(language);
-    }
-  }
-
-  static String _languageLabel(
-    Language language,
-    AppLocalizations localizations,
-  ) =>
-      '${ApplicationLanguageCatalog.labelFor(language, localizations)} '
-      '(${language.tag})';
 }
 
-enum _SourceLanguageMode { automatic, manual }
+class _SourceLanguagePicker extends StatelessWidget {
+  const _SourceLanguagePicker({
+    required this.selection,
+    required this.localizations,
+  });
+
+  final SourceLanguageSelection selection;
+  final AppLocalizations localizations;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownMenu<SourceLanguageSelection>(
+      key: const Key('source-language-picker'),
+      width: ProjectLanguageControls._pickerWidth,
+      menuHeight: ProjectLanguageControls._menuHeight,
+      initialSelection: selection,
+      hintText: 'Select source language',
+      enableFilter: true,
+      filterCallback: _filterEntries,
+      inputDecorationTheme: const InputDecorationTheme(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 10,
+        ),
+      ),
+      onSelected: (selection) {
+        if (selection case AutomaticSourceLanguageDetection()) {
+          context.read<ProjectSetupCubit>().selectAutomaticSourceLanguage();
+        } else if (selection case ExplicitSourceLanguage(:final language)) {
+          context.read<ProjectSetupCubit>().selectManualSourceLanguage(
+            language,
+          );
+        }
+      },
+      dropdownMenuEntries: [
+        const DropdownMenuEntry(
+          value: SourceLanguageSelection.autoDetect(),
+          label: 'Auto-detect',
+        ),
+        ...ApplicationLanguageCatalog.entries.map(
+          (entry) => DropdownMenuEntry(
+            value: SourceLanguageSelection.manual(entry.language),
+            label: _languageLabel(entry.language, localizations),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TargetLanguagePicker extends StatelessWidget {
+  const _TargetLanguagePicker({
+    required this.language,
+    required this.localizations,
+  });
+
+  final Language? language;
+  final AppLocalizations localizations;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownMenu<Language>(
+      key: const Key('target-language-picker'),
+      width: ProjectLanguageControls._pickerWidth,
+      menuHeight: ProjectLanguageControls._menuHeight,
+      initialSelection: language,
+      hintText: 'Select target language',
+      enableFilter: true,
+      filterCallback: _filterEntries,
+      inputDecorationTheme: const InputDecorationTheme(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 10,
+        ),
+      ),
+      onSelected: (language) {
+        if (language != null) {
+          context.read<ProjectSetupCubit>().selectTargetLanguage(language);
+        }
+      },
+      dropdownMenuEntries: ApplicationLanguageCatalog.entries
+          .map(
+            (entry) => DropdownMenuEntry(
+              value: entry.language,
+              label: _languageLabel(entry.language, localizations),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+List<DropdownMenuEntry<T>> _filterEntries<T>(
+  List<DropdownMenuEntry<T>> entries,
+  String filter,
+) {
+  final query = filter.trim().toLowerCase();
+  if (query.isEmpty) {
+    return entries;
+  }
+  return entries
+      .where((entry) => entry.label.toLowerCase().contains(query))
+      .toList();
+}
+
+String _languageLabel(Language language, AppLocalizations localizations) =>
+    '${ApplicationLanguageCatalog.labelFor(language, localizations)} '
+    '(${language.tag})';
 
 class _LanguageControlRow extends StatelessWidget {
   const _LanguageControlRow({
@@ -208,86 +230,6 @@ class _LanguageControlRow extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-Future<Language?> _showLanguageEntryDialog(
-  BuildContext context, {
-  required String title,
-  Language? initialLanguage,
-}) {
-  return showDialog<Language>(
-    context: context,
-    builder: (context) =>
-        _LanguageEntryDialog(title: title, initialLanguage: initialLanguage),
-  );
-}
-
-class _LanguageEntryDialog extends StatefulWidget {
-  const _LanguageEntryDialog({required this.title, this.initialLanguage});
-
-  final String title;
-  final Language? initialLanguage;
-
-  @override
-  State<_LanguageEntryDialog> createState() => _LanguageEntryDialogState();
-}
-
-class _LanguageEntryDialogState extends State<_LanguageEntryDialog> {
-  late final TextEditingController _tagController;
-  String? _validationMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _tagController = TextEditingController(text: widget.initialLanguage?.tag);
-  }
-
-  @override
-  void dispose() {
-    _tagController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    try {
-      final language = Language(tag: _tagController.text);
-      Navigator.of(context).pop(language);
-    } on ArgumentError catch (error) {
-      setState(() {
-        _validationMessage = error.message?.toString() ?? 'Enter a language.';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            key: const Key('language-tag-field'),
-            controller: _tagController,
-            autofocus: true,
-            decoration: InputDecoration(
-              labelText: 'Language tag',
-              hintText: 'For example: en or pt-BR',
-              errorText: _validationMessage,
-            ),
-            onSubmitted: (_) => _submit(),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('Use language')),
-      ],
     );
   }
 }
