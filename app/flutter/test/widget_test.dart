@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:video_translator/app/app.dart';
 import 'package:video_translator/app/engine/media_inspection.dart';
 import 'package:video_translator/app/theme/app_colors.dart';
+import 'package:video_translator/app/theme/app_spacing.dart';
 import 'package:video_translator/features/project/project_draft.dart';
 import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
@@ -135,6 +136,113 @@ void main() {
     ]);
   });
 
+  testWidgets('prioritizes video beside a secondary setup region when wide', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final cubit = ProjectSetupCubit(
+      sourceVideoPicker: _FakeSourceVideoPicker([
+        const ProjectSourceReference(
+          path: '/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+      ]),
+    );
+    final videoCubit = VideoPlayerCubit(
+      controllerFactory: _FakeVideoPlaybackControllerFactory(),
+    );
+    addTearDown(cubit.close);
+    addTearDown(videoCubit.close);
+
+    await tester.pumpWidget(
+      VideoTranslatorApp(
+        startEngineOnLaunch: false,
+        projectSetupCubit: cubit,
+        videoPlayerCubit: videoCubit,
+      ),
+    );
+
+    await tester.tap(find.text('Open a video'));
+    await tester.pump();
+    await tester.pump();
+
+    final primary = find.byKey(const Key('loaded-workspace-primary'));
+    final secondary = find.byKey(const Key('loaded-workspace-secondary'));
+    final primaryRect = tester.getRect(primary);
+    final secondaryRect = tester.getRect(secondary);
+    final playerRect = tester.getRect(
+      find.byKey(VideoPlayerSurface.surfaceKey),
+    );
+    expect(primaryRect.left, lessThan(secondaryRect.left));
+    expect(primaryRect.width, greaterThan(secondaryRect.width));
+    expect(playerRect.top, secondaryRect.top);
+    expect(secondaryRect.width, 440);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('source-language-mode-field'))).dy,
+      closeTo(tester.getTopLeft(find.text('Source language')).dy, 1),
+    );
+    expect(
+      tester
+          .getTopLeft(
+            find.widgetWithText(OutlinedButton, 'Select target language'),
+          )
+          .dy,
+      closeTo(tester.getTopLeft(find.text('Target language')).dy, 1),
+    );
+    expect(
+      find.descendant(
+        of: primary,
+        matching: find.byKey(VideoPlayerSurface.surfaceKey),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: secondary, matching: find.text('Source language')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('stacks the player before setup on narrow desktops', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(700, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final cubit = ProjectSetupCubit(
+      sourceVideoPicker: _FakeSourceVideoPicker([
+        const ProjectSourceReference(
+          path: '/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+      ]),
+    );
+    final videoCubit = VideoPlayerCubit(
+      controllerFactory: _FakeVideoPlaybackControllerFactory(),
+    );
+    addTearDown(cubit.close);
+    addTearDown(videoCubit.close);
+
+    await tester.pumpWidget(
+      VideoTranslatorApp(
+        startEngineOnLaunch: false,
+        projectSetupCubit: cubit,
+        videoPlayerCubit: videoCubit,
+      ),
+    );
+
+    await tester.tap(find.text('Open a video'));
+    await tester.pump();
+    await tester.pump();
+
+    final primaryRect = tester.getRect(
+      find.byKey(const Key('loaded-workspace-primary')),
+    );
+    final secondaryRect = tester.getRect(
+      find.byKey(const Key('loaded-workspace-secondary')),
+    );
+    expect(secondaryRect.top, greaterThan(primaryRect.bottom));
+  });
+
   testWidgets('shows target-language setup guidance after opening a video', (
     WidgetTester tester,
   ) async {
@@ -179,6 +287,27 @@ void main() {
     expect(find.text('Start a translation project'), findsOneWidget);
     expect(find.text('Source language'), findsNothing);
     expect(find.text('Target language'), findsNothing);
+  });
+
+  testWidgets('keeps deliberate space below the workspace content', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const VideoTranslatorApp(startEngineOnLaunch: false),
+    );
+
+    final scrollView = tester.widget<SingleChildScrollView>(
+      find.byType(SingleChildScrollView),
+    );
+    expect(
+      scrollView.padding,
+      const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.xl,
+        AppSpacing.xl,
+        AppSpacing.xxl,
+      ),
+    );
   });
 
   testWidgets('accepts a fully configured project setup', (
