@@ -88,6 +88,23 @@ void main() {
   });
 
   test(
+    'keeps fullscreen state unchanged when the viewport declines the change',
+    () async {
+      final controller = _FakeVideoPlaybackController();
+      final cubit = VideoPlayerCubit(
+        controllerFactory: _FakeVideoPlaybackControllerFactory([controller]),
+        initialFullscreenToggler: () async => false,
+      );
+      addTearDown(cubit.close);
+
+      await cubit.open(firstSource);
+      await cubit.toggleFullscreen();
+
+      expect(cubit.state, const VideoPlayerReady(firstSource));
+    },
+  );
+
+  test(
     'updates only the playback portion of ready state from controller streams',
     () async {
       final controller = _FakeVideoPlaybackController();
@@ -162,6 +179,21 @@ void main() {
     await cubit.close();
 
     expect(controller.disposeCount, 1);
+  });
+
+  test('clears the active controller and returns to the idle state', () async {
+    final controller = _FakeVideoPlaybackController();
+    final cubit = VideoPlayerCubit(
+      controllerFactory: _FakeVideoPlaybackControllerFactory([controller]),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.open(firstSource);
+    await cubit.clear();
+
+    expect(controller.disposeCount, 1);
+    expect(controller.cancelledSubscriptionCount, 3);
+    expect(cubit.state, const VideoPlayerIdle());
   });
 
   test(
