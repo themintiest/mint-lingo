@@ -16,5 +16,9 @@
   "languageHindi": "Hindi",
   "languageArabic": "Arabic",
   "languageThai": "Thai",
-  "languageIndonesian": "Indonesian"
+  "languageIndonesian": "Indonesian",
+  "emptyWorkspaceTitle": "Start a translation project",
+  "emptyWorkspaceDescription": "Open a local video to inspect its media and choose translation languages.",
+  "openVideoEmptyState": "Open a video",
+  "selectingVideoEmptyState": "Selecting video..."
 }

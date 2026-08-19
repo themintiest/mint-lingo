@@ -16,5 +16,9 @@
   "languageHindi": "Tiếng Hindi",
   "languageArabic": "Tiếng Ả Rập",
   "languageThai": "Tiếng Thái",
-  "languageIndonesian": "Tiếng Indonesia"
+  "languageIndonesian": "Tiếng Indonesia",
+  "emptyWorkspaceTitle": "Bắt đầu dự án dịch",
+  "emptyWorkspaceDescription": "Mở video trên máy để kiểm tra thông tin media và chọn ngôn ngữ dịch.",
+  "openVideoEmptyState": "Mở video",
+  "selectingVideoEmptyState": "Đang chọn video..."
 }

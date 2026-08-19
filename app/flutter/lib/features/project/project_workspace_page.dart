@@ -10,6 +10,7 @@ import 'package:video_translator/features/project/project_language_controls.dart
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/features/video/video_player_cubit.dart';
 import 'package:video_translator/features/video/video_player_surface.dart';
+import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 class ProjectWorkspacePage extends StatelessWidget {
   const ProjectWorkspacePage({super.key});
@@ -64,37 +65,34 @@ class ProjectWorkspacePage extends StatelessWidget {
                       builder: (context, state) {
                         final source = state.draft?.source;
                         final isSelecting = state is ProjectSetupSelecting;
+                        if (source == null) {
+                          return _EmptyProjectWorkspace(
+                            isSelecting: isSelecting,
+                            onOpenVideo: isSelecting
+                                ? null
+                                : () => context
+                                      .read<ProjectSetupCubit>()
+                                      .selectSourceVideo(),
+                          );
+                        }
+
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Center(
-                              child: Icon(
-                                Icons.video_file_outlined,
-                                size: 64,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
                             Text(
-                              source == null
-                                  ? 'No video is open'
-                                  : source.fileName,
+                              source.fileName,
                               style: Theme.of(context).textTheme.headlineSmall,
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Text(
-                              source == null
-                                  ? 'Open a video to begin a translation project.'
-                                  : 'This video is ready for project setup.',
+                              'This video is ready for project setup.',
                               style: Theme.of(context).textTheme.bodyLarge,
                               textAlign: TextAlign.center,
                             ),
-                            if (source != null) ...[
-                              const SizedBox(height: AppSpacing.lg),
-                              const VideoPlayerSurface(),
-                            ],
+                            const SizedBox(height: AppSpacing.lg),
+                            const VideoPlayerSurface(),
                             const SizedBox(height: AppSpacing.lg),
                             Wrap(
                               alignment: WrapAlignment.center,
@@ -118,8 +116,6 @@ class ProjectWorkspacePage extends StatelessWidget {
                                   label: Text(
                                     isSelecting
                                         ? 'Selecting video...'
-                                        : source == null
-                                        ? 'Open video'
                                         : 'Replace video',
                                   ),
                                 ),
@@ -134,8 +130,7 @@ class ProjectWorkspacePage extends StatelessWidget {
                             ),
                             const SizedBox(height: AppSpacing.lg),
                             MediaInspectionPanel(source: source),
-                            if (source != null)
-                              const SizedBox(height: AppSpacing.lg),
+                            const SizedBox(height: AppSpacing.lg),
                             const ProjectLanguageControls(),
                             const SizedBox(height: AppSpacing.lg),
                             Center(
@@ -188,5 +183,78 @@ class ProjectWorkspacePage extends StatelessWidget {
       EngineConnectionStatus.unavailable => 'unavailable',
       EngineConnectionStatus.crashed => 'crashed',
     };
+  }
+}
+
+class _EmptyProjectWorkspace extends StatelessWidget {
+  const _EmptyProjectWorkspace({
+    required this.isSelecting,
+    required this.onOpenVideo,
+  });
+
+  final bool isSelecting;
+  final VoidCallback? onOpenVideo;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Icon(
+                      Icons.video_file_outlined,
+                      size: 40,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  localizations.emptyWorkspaceTitle,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  localizations.emptyWorkspaceDescription,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                FilledButton.icon(
+                  onPressed: onOpenVideo,
+                  icon: isSelecting
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.folder_open_outlined),
+                  label: Text(
+                    isSelecting
+                        ? localizations.selectingVideoEmptyState
+                        : localizations.openVideoEmptyState,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

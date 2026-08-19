@@ -57,8 +57,7 @@ void main() {
       final context = tester.element(find.byType(Scaffold));
       expect(Localizations.localeOf(context), const Locale('vi'));
       expect(AppLocalizations.of(context).languageVietnamese, 'Tiếng Việt');
-      expect(find.text('Tiếng Anh (en)'), findsOneWidget);
-      expect(find.text('Tiếng Nhật (ja)'), findsOneWidget);
+      expect(find.text('Bắt đầu dự án dịch'), findsOneWidget);
       final draft = (cubit.state as ProjectSetupConfigured).draft;
       expect(
         draft.sourceLanguage,

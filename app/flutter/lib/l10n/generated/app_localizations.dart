@@ -199,6 +199,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Indonesian'**
   String get languageIndonesian;
+
+  /// No description provided for @emptyWorkspaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a translation project'**
+  String get emptyWorkspaceTitle;
+
+  /// No description provided for @emptyWorkspaceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Open a local video to inspect its media and choose translation languages.'**
+  String get emptyWorkspaceDescription;
+
+  /// No description provided for @openVideoEmptyState.
+  ///
+  /// In en, this message translates to:
+  /// **'Open a video'**
+  String get openVideoEmptyState;
+
+  /// No description provided for @selectingVideoEmptyState.
+  ///
+  /// In en, this message translates to:
+  /// **'Selecting video...'**
+  String get selectingVideoEmptyState;
 }
 
 class _AppLocalizationsDelegate
