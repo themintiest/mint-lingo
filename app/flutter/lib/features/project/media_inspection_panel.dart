@@ -5,6 +5,7 @@ import 'package:video_translator/app/theme/app_radius.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
 import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_draft.dart';
+import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 class MediaInspectionPanel extends StatelessWidget {
   const MediaInspectionPanel({required this.source, super.key});
@@ -46,6 +47,7 @@ class _InspectionPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Card(
       key: const Key('media-inspection-prompt'),
       child: Padding(
@@ -55,7 +57,7 @@ class _InspectionPrompt extends StatelessWidget {
           children: [
             const _MediaDetailsHeader(),
             const SizedBox(height: AppSpacing.xs),
-            const Text('Inspect this video to confirm its media details.'),
+            Text(localizations.inspectMediaPrompt),
             const SizedBox(height: AppSpacing.sm),
             Align(
               alignment: Alignment.centerLeft,
@@ -63,7 +65,7 @@ class _InspectionPrompt extends StatelessWidget {
                 onPressed: () =>
                     context.read<MediaInspectionCubit>().inspect(source),
                 icon: const Icon(Icons.info_outline),
-                label: const Text('Inspect video'),
+                label: Text(localizations.inspectVideo),
               ),
             ),
           ],
@@ -78,6 +80,7 @@ class _InspectionLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Card(
       key: const Key('media-inspection-loading'),
       child: Padding(
@@ -95,7 +98,7 @@ class _InspectionLoading extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  'Inspecting media details...',
+                  localizations.inspectingMediaDetails,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -114,6 +117,7 @@ class _InspectionDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Card(
       key: const Key('media-inspection-details'),
       child: Padding(
@@ -125,7 +129,10 @@ class _InspectionDetails extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             _MediaFacts(metadata: metadata),
             const Divider(height: AppSpacing.lg),
-            Text('Streams', style: Theme.of(context).textTheme.labelLarge),
+            Text(
+              localizations.streams,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
             const SizedBox(height: AppSpacing.sm),
             for (final stream in metadata.streams)
               Padding(
@@ -145,6 +152,7 @@ class _MediaDetailsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final localizations = AppLocalizations.of(context);
     return Row(
       children: [
         DecoratedBox(
@@ -158,7 +166,10 @@ class _MediaDetailsHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        Text('Media details', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          localizations.mediaDetails,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
       ],
     );
   }
@@ -171,17 +182,20 @@ class _MediaFacts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final duration = _MediaFact(
       key: const Key('media-detail-duration'),
       icon: Icons.schedule_outlined,
-      label: 'Duration',
+      label: localizations.duration,
       value: _formatDuration(metadata.duration),
     );
     final audio = _MediaFact(
       key: const Key('media-detail-audio'),
       icon: Icons.graphic_eq_outlined,
-      label: 'Audio',
-      value: metadata.hasAudio ? 'Present' : 'Not present',
+      label: localizations.audio,
+      value: metadata.hasAudio
+          ? localizations.audioPresent
+          : localizations.audioNotPresent,
       isPositive: metadata.hasAudio,
     );
 
@@ -287,7 +301,9 @@ class _StreamDetail extends StatelessWidget {
               color: colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text(_streamLabel(stream))),
+            Expanded(
+              child: Text(_streamLabel(stream, AppLocalizations.of(context))),
+            ),
           ],
         ),
       ),
@@ -302,6 +318,7 @@ class _InspectionError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Card(
       key: const Key('media-inspection-error'),
       color: Theme.of(context).colorScheme.errorContainer,
@@ -320,11 +337,11 @@ class _InspectionError extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Unable to inspect media',
+                    localizations.unableToInspectMedia,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: AppSpacing.xs),
-                  Text(error.message),
+                  Text(_inspectionErrorMessage(error, localizations)),
                 ],
               ),
             ),
@@ -346,12 +363,16 @@ String _formatDuration(Duration duration) {
       : '$paddedMinutes:$paddedSeconds';
 }
 
-String _streamLabel(MediaStreamMetadata stream) {
+String _streamLabel(
+  MediaStreamMetadata stream,
+  AppLocalizations localizations,
+) {
   final dimensions = stream.dimensions;
   final size = dimensions == null
       ? ''
       : ' · ${dimensions.width} × ${dimensions.height}';
-  return '${_kindLabel(stream.kind)} #${stream.index} · ${stream.codec}$size';
+  return '${_kindLabel(stream.kind, localizations)} '
+      '#${stream.index} · ${stream.codec}$size';
 }
 
 IconData _streamIcon(MediaStreamKind kind) => switch (kind) {
@@ -363,11 +384,31 @@ IconData _streamIcon(MediaStreamKind kind) => switch (kind) {
   MediaStreamKind.unknown => Icons.help_outline,
 };
 
-String _kindLabel(MediaStreamKind kind) => switch (kind) {
-  MediaStreamKind.video => 'Video',
-  MediaStreamKind.audio => 'Audio',
-  MediaStreamKind.subtitle => 'Subtitle',
-  MediaStreamKind.data => 'Data',
-  MediaStreamKind.attachment => 'Attachment',
-  MediaStreamKind.unknown => 'Unknown',
+String _kindLabel(MediaStreamKind kind, AppLocalizations localizations) =>
+    switch (kind) {
+      MediaStreamKind.video => localizations.mediaStreamVideo,
+      MediaStreamKind.audio => localizations.mediaStreamAudio,
+      MediaStreamKind.subtitle => localizations.mediaStreamSubtitle,
+      MediaStreamKind.data => localizations.mediaStreamData,
+      MediaStreamKind.attachment => localizations.mediaStreamAttachment,
+      MediaStreamKind.unknown => localizations.mediaStreamUnknown,
+    };
+
+String _inspectionErrorMessage(
+  MediaInspectionFailure error,
+  AppLocalizations localizations,
+) => switch (error.kind) {
+  MediaInspectionFailureKind.sourceNotFound =>
+    localizations.mediaErrorSourceNotFound,
+  MediaInspectionFailureKind.sourceNotReadable =>
+    localizations.mediaErrorSourceNotReadable,
+  MediaInspectionFailureKind.unsupportedMedia =>
+    localizations.mediaErrorUnsupported,
+  MediaInspectionFailureKind.metadataUnavailable =>
+    localizations.mediaErrorMetadataUnavailable,
+  MediaInspectionFailureKind.audioStreamMissing =>
+    localizations.mediaErrorAudioMissing,
+  MediaInspectionFailureKind.toolUnavailable =>
+    localizations.mediaErrorToolUnavailable,
+  MediaInspectionFailureKind.unknown => localizations.mediaErrorUnknown,
 };

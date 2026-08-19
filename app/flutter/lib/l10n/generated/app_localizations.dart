@@ -223,6 +223,336 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Selecting video...'**
   String get selectingVideoEmptyState;
+
+  /// No description provided for @appTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Video Translator'**
+  String get appTitle;
+
+  /// No description provided for @sourceLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Source language'**
+  String get sourceLanguage;
+
+  /// No description provided for @targetLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Target language'**
+  String get targetLanguage;
+
+  /// No description provided for @automaticDetection.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic detection'**
+  String get automaticDetection;
+
+  /// No description provided for @noTargetLanguageSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No target language selected'**
+  String get noTargetLanguageSelected;
+
+  /// No description provided for @selectSourceLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select source language'**
+  String get selectSourceLanguage;
+
+  /// No description provided for @selectTargetLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select target language'**
+  String get selectTargetLanguage;
+
+  /// No description provided for @autoDetect.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-detect'**
+  String get autoDetect;
+
+  /// No description provided for @openingVideoPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening video preview...'**
+  String get openingVideoPreview;
+
+  /// No description provided for @videoPreviewUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Video preview is unavailable.'**
+  String get videoPreviewUnavailable;
+
+  /// No description provided for @preparingVideoPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing video preview...'**
+  String get preparingVideoPreview;
+
+  /// No description provided for @skipBackTenSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip back 10 seconds'**
+  String get skipBackTenSeconds;
+
+  /// No description provided for @playVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Play video'**
+  String get playVideo;
+
+  /// No description provided for @pauseVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause video'**
+  String get pauseVideo;
+
+  /// No description provided for @skipForwardTenSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip forward 10 seconds'**
+  String get skipForwardTenSeconds;
+
+  /// No description provided for @enterFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter fullscreen'**
+  String get enterFullscreen;
+
+  /// No description provided for @exitFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit fullscreen'**
+  String get exitFullscreen;
+
+  /// No description provided for @loadedVideoReady.
+  ///
+  /// In en, this message translates to:
+  /// **'This video is ready for project setup.'**
+  String get loadedVideoReady;
+
+  /// No description provided for @selectingVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Selecting video...'**
+  String get selectingVideo;
+
+  /// No description provided for @replaceVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace video'**
+  String get replaceVideo;
+
+  /// No description provided for @checkSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Check setup'**
+  String get checkSetup;
+
+  /// No description provided for @projectSetupComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Project setup is complete.'**
+  String get projectSetupComplete;
+
+  /// No description provided for @unableToUpdateSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to update project setup. Please try again.'**
+  String get unableToUpdateSetup;
+
+  /// No description provided for @sourceRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a source video before processing.'**
+  String get sourceRequired;
+
+  /// No description provided for @targetLanguageRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a target language before processing.'**
+  String get targetLanguageRequired;
+
+  /// No description provided for @mediaDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Media details'**
+  String get mediaDetails;
+
+  /// No description provided for @inspectMediaPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspect this video to confirm its media details.'**
+  String get inspectMediaPrompt;
+
+  /// No description provided for @inspectVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspect video'**
+  String get inspectVideo;
+
+  /// No description provided for @inspectingMediaDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspecting media details...'**
+  String get inspectingMediaDetails;
+
+  /// No description provided for @duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get duration;
+
+  /// No description provided for @audio.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get audio;
+
+  /// No description provided for @audioPresent.
+  ///
+  /// In en, this message translates to:
+  /// **'Present'**
+  String get audioPresent;
+
+  /// No description provided for @audioNotPresent.
+  ///
+  /// In en, this message translates to:
+  /// **'Not present'**
+  String get audioNotPresent;
+
+  /// No description provided for @streams.
+  ///
+  /// In en, this message translates to:
+  /// **'Streams'**
+  String get streams;
+
+  /// No description provided for @unableToInspectMedia.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to inspect media'**
+  String get unableToInspectMedia;
+
+  /// No description provided for @mediaErrorSourceNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected video is no longer available. Choose it again.'**
+  String get mediaErrorSourceNotFound;
+
+  /// No description provided for @mediaErrorSourceNotReadable.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected video cannot be read. Check its permissions and choose it again.'**
+  String get mediaErrorSourceNotReadable;
+
+  /// No description provided for @mediaErrorUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is not a supported media format. Choose a different video.'**
+  String get mediaErrorUnsupported;
+
+  /// No description provided for @mediaErrorMetadataUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Media details could not be read for this video. Choose a different video.'**
+  String get mediaErrorMetadataUnavailable;
+
+  /// No description provided for @mediaErrorAudioMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This video has no audio stream and cannot be translated.'**
+  String get mediaErrorAudioMissing;
+
+  /// No description provided for @mediaErrorToolUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The media inspection tool is unavailable. Repair or reinstall the application.'**
+  String get mediaErrorToolUnavailable;
+
+  /// No description provided for @mediaErrorUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Media details could not be inspected. Please try again.'**
+  String get mediaErrorUnknown;
+
+  /// No description provided for @mediaStreamVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get mediaStreamVideo;
+
+  /// No description provided for @mediaStreamAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get mediaStreamAudio;
+
+  /// No description provided for @mediaStreamSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitle'**
+  String get mediaStreamSubtitle;
+
+  /// No description provided for @mediaStreamData.
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get mediaStreamData;
+
+  /// No description provided for @mediaStreamAttachment.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment'**
+  String get mediaStreamAttachment;
+
+  /// No description provided for @mediaStreamUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get mediaStreamUnknown;
+
+  /// No description provided for @engineStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Engine: {status}'**
+  String engineStatus(Object status);
+
+  /// No description provided for @engineStatusSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Engine status: {status}'**
+  String engineStatusSemantics(Object status);
+
+  /// No description provided for @engineStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped'**
+  String get engineStopped;
+
+  /// No description provided for @engineStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting'**
+  String get engineStarting;
+
+  /// No description provided for @engineReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get engineReady;
+
+  /// No description provided for @engineUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get engineUnavailable;
+
+  /// No description provided for @engineCrashed.
+  ///
+  /// In en, this message translates to:
+  /// **'Crashed'**
+  String get engineCrashed;
 }
 
 class _AppLocalizationsDelegate

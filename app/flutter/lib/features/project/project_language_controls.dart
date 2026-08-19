@@ -34,9 +34,9 @@ class ProjectLanguageControls extends StatelessWidget {
           children: [
             _LanguageControlRow(
               icon: Icons.record_voice_over_outlined,
-              title: 'Source language',
+              title: localizations.sourceLanguage,
               description: manualSourceLanguage == null
-                  ? 'Automatic detection'
+                  ? localizations.automaticDetection
                   : _languageLabel(manualSourceLanguage, localizations),
               control: _SourceLanguagePicker(
                 selection: sourceLanguage,
@@ -46,9 +46,9 @@ class ProjectLanguageControls extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             _LanguageControlRow(
               icon: Icons.translate_outlined,
-              title: 'Target language',
+              title: localizations.targetLanguage,
               description: draft.targetLanguage == null
-                  ? 'No target language selected'
+                  ? localizations.noTargetLanguageSelected
                   : _languageLabel(draft.targetLanguage!, localizations),
               control: _TargetLanguagePicker(
                 language: draft.targetLanguage,
@@ -78,7 +78,7 @@ class _SourceLanguagePicker extends StatelessWidget {
       width: ProjectLanguageControls._pickerWidth,
       menuHeight: ProjectLanguageControls._menuHeight,
       initialSelection: selection,
-      hintText: 'Select source language',
+      hintText: localizations.selectSourceLanguage,
       enableFilter: true,
       filterCallback: _filterEntries,
       inputDecorationTheme: const InputDecorationTheme(
@@ -98,9 +98,9 @@ class _SourceLanguagePicker extends StatelessWidget {
         }
       },
       dropdownMenuEntries: [
-        const DropdownMenuEntry(
+        DropdownMenuEntry(
           value: SourceLanguageSelection.autoDetect(),
-          label: 'Auto-detect',
+          label: localizations.autoDetect,
         ),
         ...ApplicationLanguageCatalog.entries.map(
           (entry) => DropdownMenuEntry(
@@ -129,7 +129,7 @@ class _TargetLanguagePicker extends StatelessWidget {
       width: ProjectLanguageControls._pickerWidth,
       menuHeight: ProjectLanguageControls._menuHeight,
       initialSelection: language,
-      hintText: 'Select target language',
+      hintText: localizations.selectTargetLanguage,
       enableFilter: true,
       filterCallback: _filterEntries,
       inputDecorationTheme: const InputDecorationTheme(

@@ -23,7 +23,7 @@ class ProjectWorkspacePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Video Translator')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).appTitle)),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final horizontalPadding = constraints.maxWidth < _compactWidth
@@ -49,7 +49,14 @@ class ProjectWorkspacePage extends StatelessWidget {
               }
               if (state is ProjectSetupError) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(_setupErrorMessage(state.error))),
+                  SnackBar(
+                    content: Text(
+                      _setupErrorMessage(
+                        state.error,
+                        AppLocalizations.of(context),
+                      ),
+                    ),
+                  ),
                 );
               }
             },
@@ -107,15 +114,27 @@ class ProjectWorkspacePage extends StatelessWidget {
   void _checkSetup(BuildContext context) {
     if (context.read<ProjectSetupCubit>().validateForProcessing()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Project setup is complete.')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).projectSetupComplete),
+        ),
       );
     }
   }
 
-  String _setupErrorMessage(Object error) {
+  String _setupErrorMessage(Object error, AppLocalizations localizations) {
     return switch (error) {
-      ProjectSetupValidationError() => error.message,
-      _ => 'Unable to update project setup. Please try again.',
+      ProjectSetupValidationError() =>
+        error.issues
+            .map(
+              (issue) => switch (issue) {
+                ProjectSetupValidationIssue.sourceRequired =>
+                  localizations.sourceRequired,
+                ProjectSetupValidationIssue.targetLanguageRequired =>
+                  localizations.targetLanguageRequired,
+              },
+            )
+            .join('\n'),
+      _ => localizations.unableToUpdateSetup,
     };
   }
 }
@@ -196,7 +215,7 @@ class _LoadedVideoHeader extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'This video is ready for project setup.',
+          AppLocalizations.of(context).loadedVideoReady,
           style: Theme.of(context).textTheme.bodyLarge,
           textAlign: TextAlign.center,
         ),
@@ -231,6 +250,7 @@ class _LoadedSetupRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Column(
       key: const Key('loaded-workspace-secondary'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -255,13 +275,15 @@ class _LoadedSetupRegion extends StatelessWidget {
                             )
                           : const Icon(Icons.folder_open_outlined),
                       label: Text(
-                        isSelecting ? 'Selecting video...' : 'Replace video',
+                        isSelecting
+                            ? localizations.selectingVideo
+                            : localizations.replaceVideo,
                       ),
                     ),
                     TextButton.icon(
                       onPressed: onCheckSetup,
                       icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Check setup'),
+                      label: Text(localizations.checkSetup),
                     ),
                   ],
                 ),
@@ -290,8 +312,10 @@ class _EngineStatusIndicator extends StatelessWidget {
         builder: (context, state) {
           final presentation = _EngineStatusPresentation.from(state.status);
           final colorScheme = Theme.of(context).colorScheme;
+          final localizations = AppLocalizations.of(context);
+          final statusLabel = presentation.label(localizations);
           return Semantics(
-            label: 'Engine status: ${presentation.label}',
+            label: localizations.engineStatusSemantics(statusLabel),
             child: DecoratedBox(
               key: const Key('engine-status-indicator'),
               decoration: BoxDecoration(
@@ -313,7 +337,7 @@ class _EngineStatusIndicator extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      'Engine: ${presentation.label}',
+                      localizations.engineStatus(statusLabel),
                       style: Theme.of(context).textTheme.labelLarge
                           ?.copyWith(color: presentation.color(colorScheme)),
                     ),
@@ -329,15 +353,14 @@ class _EngineStatusIndicator extends StatelessWidget {
 }
 
 enum _EngineStatusPresentation {
-  stopped('Stopped', Icons.pause_circle_outline),
-  starting('Starting', Icons.sync_outlined),
-  ready('Ready', Icons.check_circle_outline),
-  unavailable('Unavailable', Icons.error_outline),
-  crashed('Crashed', Icons.warning_amber_outlined);
+  stopped(Icons.pause_circle_outline),
+  starting(Icons.sync_outlined),
+  ready(Icons.check_circle_outline),
+  unavailable(Icons.error_outline),
+  crashed(Icons.warning_amber_outlined);
 
-  const _EngineStatusPresentation(this.label, this.icon);
+  const _EngineStatusPresentation(this.icon);
 
-  final String label;
   final IconData icon;
 
   factory _EngineStatusPresentation.from(EngineConnectionStatus status) =>
@@ -356,6 +379,14 @@ enum _EngineStatusPresentation {
     _EngineStatusPresentation.ready => colorScheme.tertiary,
     _EngineStatusPresentation.unavailable ||
     _EngineStatusPresentation.crashed => colorScheme.error,
+  };
+
+  String label(AppLocalizations localizations) => switch (this) {
+    _EngineStatusPresentation.stopped => localizations.engineStopped,
+    _EngineStatusPresentation.starting => localizations.engineStarting,
+    _EngineStatusPresentation.ready => localizations.engineReady,
+    _EngineStatusPresentation.unavailable => localizations.engineUnavailable,
+    _EngineStatusPresentation.crashed => localizations.engineCrashed,
   };
 }
 

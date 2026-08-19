@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:video_translator/app/theme/app_radius.dart';
 import 'package:video_translator/features/video/video_player_cubit.dart';
+import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 /// Renders the one active media-kit video output and Cubit-owned controls.
 class VideoPlayerSurface extends StatefulWidget {
@@ -37,6 +38,7 @@ class _VideoPlayerSurfaceState extends State<VideoPlayerSurface> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Focus(
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
@@ -47,16 +49,16 @@ class _VideoPlayerSurfaceState extends State<VideoPlayerSurface> {
           return switch (state) {
             VideoPlayerIdle() => const SizedBox.shrink(),
             VideoPlayerOpening() => _PlayerViewport(
-              child: const _PlayerStatus(
+              child: _PlayerStatus(
                 icon: Icons.hourglass_top_outlined,
-                message: 'Opening video preview...',
+                message: localizations.openingVideoPreview,
                 showProgress: true,
               ),
             ),
             VideoPlayerFailure() => _PlayerViewport(
-              child: const _PlayerStatus(
+              child: _PlayerStatus(
                 icon: Icons.error_outline,
-                message: 'Video preview is unavailable.',
+                message: localizations.videoPreviewUnavailable,
               ),
             ),
             VideoPlayerReady() => _readySurface(context),
@@ -73,9 +75,9 @@ class _VideoPlayerSurfaceState extends State<VideoPlayerSurface> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PlayerViewport(
-            child: const _PlayerStatus(
+            child: _PlayerStatus(
               icon: Icons.hourglass_top_outlined,
-              message: 'Preparing video preview...',
+              message: AppLocalizations.of(context).preparingVideoPreview,
               showProgress: true,
             ),
           ),
@@ -242,6 +244,7 @@ class _ControlsContent extends StatelessWidget {
     final durationText = _formatDuration(playback.duration);
     final positionText = _formatDuration(playback.position);
     final cubit = context.read<VideoPlayerCubit>();
+    final localizations = AppLocalizations.of(context);
 
     if (compact) {
       return ConstrainedBox(
@@ -262,15 +265,15 @@ class _ControlsContent extends StatelessWidget {
                 Row(
                   children: [
                     IconButton(
-                      tooltip: 'Skip back 10 seconds',
+                      tooltip: localizations.skipBackTenSeconds,
                       color: Colors.white,
                       onPressed: () => unawaited(cubit.skipBackward()),
                       icon: const Icon(Icons.replay_10),
                     ),
                     IconButton(
                       tooltip: playback.isPlaying
-                          ? 'Pause video'
-                          : 'Play video',
+                          ? localizations.pauseVideo
+                          : localizations.playVideo,
                       color: Colors.white,
                       onPressed: () {
                         if (playback.isPlaying) {
@@ -284,7 +287,7 @@ class _ControlsContent extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Skip forward 10 seconds',
+                      tooltip: localizations.skipForwardTenSeconds,
                       color: Colors.white,
                       onPressed: () => unawaited(cubit.skipForward()),
                       icon: const Icon(Icons.forward_10),
@@ -297,8 +300,8 @@ class _ControlsContent extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: playback.isFullscreen
-                          ? 'Exit fullscreen'
-                          : 'Enter fullscreen',
+                          ? localizations.exitFullscreen
+                          : localizations.enterFullscreen,
                       color: Colors.white,
                       onPressed: () => unawaited(cubit.toggleFullscreen()),
                       icon: Icon(
@@ -324,12 +327,14 @@ class _ControlsContent extends StatelessWidget {
         child: Row(
           children: [
             IconButton(
-              tooltip: 'Skip back 10 seconds',
+              tooltip: localizations.skipBackTenSeconds,
               onPressed: () => unawaited(cubit.skipBackward()),
               icon: const Icon(Icons.replay_10),
             ),
             IconButton(
-              tooltip: playback.isPlaying ? 'Pause video' : 'Play video',
+              tooltip: playback.isPlaying
+                  ? localizations.pauseVideo
+                  : localizations.playVideo,
               onPressed: () {
                 if (playback.isPlaying) {
                   unawaited(cubit.pause());
@@ -340,7 +345,7 @@ class _ControlsContent extends StatelessWidget {
               icon: Icon(playback.isPlaying ? Icons.pause : Icons.play_arrow),
             ),
             IconButton(
-              tooltip: 'Skip forward 10 seconds',
+              tooltip: localizations.skipForwardTenSeconds,
               onPressed: () => unawaited(cubit.skipForward()),
               icon: const Icon(Icons.forward_10),
             ),
@@ -350,8 +355,8 @@ class _ControlsContent extends StatelessWidget {
             Text('$positionText / $durationText'),
             IconButton(
               tooltip: playback.isFullscreen
-                  ? 'Exit fullscreen'
-                  : 'Enter fullscreen',
+                  ? localizations.exitFullscreen
+                  : localizations.enterFullscreen,
               onPressed: () => unawaited(cubit.toggleFullscreen()),
               icon: Icon(
                 playback.isFullscreen
