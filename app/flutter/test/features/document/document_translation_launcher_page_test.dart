@@ -132,8 +132,11 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text(
-        'This file is not supported for document viewing. Choose an EPUB, TXT, or PDF.',
+      find.descendant(
+        of: find.byKey(const Key('document-workspace-unsupported')),
+        matching: find.text(
+          'This file is not supported for document viewing. Choose an EPUB, TXT, or PDF.',
+        ),
       ),
       findsOneWidget,
     );

@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
@@ -52,19 +53,34 @@ final class DocumentReaderCubit extends Cubit<DocumentReaderLoadState> {
       if (source.format == DocumentReaderFormat.epub) {
         final content = await _epubPresentationLoader.load(source.path);
         if (!isClosed) {
-          emit(EpubDocumentReaderReady(source: source, content: content));
+          emit(
+            DocumentReaderReady(
+              source: source,
+              presentation: EpubDocumentPresentation(content: content),
+            ),
+          );
         }
         return;
       }
       if (source.format == DocumentReaderFormat.plainText) {
         final content = await _plainTextPresentationLoader.load(source.path);
         if (!isClosed) {
-          emit(PlainTextDocumentReaderReady(source: source, content: content));
+          emit(
+            DocumentReaderReady(
+              source: source,
+              presentation: PlainTextDocumentPresentation(content: content),
+            ),
+          );
         }
         return;
       }
       if (source.format == DocumentReaderFormat.pdf) {
-        emit(DocumentReaderReady(source));
+        emit(
+          DocumentReaderReady(
+            source: source,
+            presentation: const DocumentReaderUnavailablePresentation(),
+          ),
+        );
         return;
       }
     } on EpubReaderFileTooLargeException {
@@ -74,7 +90,7 @@ final class DocumentReaderCubit extends Cubit<DocumentReaderLoadState> {
           emit(
             DocumentReaderUnsupported(
               source,
-              reason: DocumentReaderUnsupportedReason.epubFileTooLarge,
+              reason: DocumentReaderUnsupportedReason.fileTooLarge,
             ),
           );
         }
@@ -82,12 +98,12 @@ final class DocumentReaderCubit extends Cubit<DocumentReaderLoadState> {
     } on PlainTextReaderFileTooLargeException {
       _emitUnsupported(
         selectedSource,
-        DocumentReaderUnsupportedReason.plainTextFileTooLarge,
+        DocumentReaderUnsupportedReason.fileTooLarge,
       );
     } on PlainTextReaderUnsupportedContentException {
       _emitUnsupported(
         selectedSource,
-        DocumentReaderUnsupportedReason.plainTextUnsupportedContent,
+        DocumentReaderUnsupportedReason.unsupportedContent,
       );
     } on Object catch (error) {
       if (!isClosed) {
@@ -112,13 +128,18 @@ final class DocumentReaderCubit extends Cubit<DocumentReaderLoadState> {
 
   /// Releases format-specific presentation content when the workspace is left.
   void releaseReaderPresentation() {
-    final source = switch (state) {
-      EpubDocumentReaderReady(:final source) => source,
-      PlainTextDocumentReaderReady(:final source) => source,
-      _ => null,
-    };
-    if (source != null) {
-      emit(DocumentReaderReady(source));
+    if (state
+        case DocumentReaderReady(
+          :final source,
+          presentation: final presentation,
+        )
+        when presentation is! DocumentReaderUnavailablePresentation) {
+      emit(
+        DocumentReaderReady(
+          source: source,
+          presentation: const DocumentReaderUnavailablePresentation(),
+        ),
+      );
     }
   }
 

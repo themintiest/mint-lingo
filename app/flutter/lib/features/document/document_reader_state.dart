@@ -1,5 +1,4 @@
-import 'package:video_translator/features/document/epub_presentation_loader.dart';
-import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
+import 'package:video_translator/features/document/document_presentation.dart';
 
 /// Reader formats recognized by the Document Translation presentation flow.
 ///
@@ -80,48 +79,26 @@ final class DocumentReaderLoading extends DocumentReaderLoadState {
 
 /// A local document is ready for read-only presentation.
 final class DocumentReaderReady extends DocumentReaderLoadState {
-  const DocumentReaderReady(this.source);
+  const DocumentReaderReady({required this.source, required this.presentation});
 
   @override
   final DocumentSourceReference source;
+  final DocumentPresentation presentation;
 
   @override
   bool operator ==(Object other) =>
-      other is DocumentReaderReady && other.source == source;
+      other is DocumentReaderReady &&
+      other.source == source &&
+      other.presentation == presentation;
 
   @override
-  int get hashCode => Object.hash(runtimeType, source);
-}
-
-/// A selected local EPUB has been decoded into reader-only presentation data.
-///
-/// The content is intentionally specific to the EPUB surface and is not a
-/// normalized document artifact or a processing validation result.
-final class EpubDocumentReaderReady extends DocumentReaderLoadState {
-  const EpubDocumentReaderReady({required this.source, required this.content});
-
-  @override
-  final DocumentSourceReference source;
-  final EpubPresentationContent content;
-}
-
-/// A selected local UTF-8 text source is ready for read-only presentation.
-final class PlainTextDocumentReaderReady extends DocumentReaderLoadState {
-  const PlainTextDocumentReaderReady({
-    required this.source,
-    required this.content,
-  });
-
-  @override
-  final DocumentSourceReference source;
-  final PlainTextPresentationContent content;
+  int get hashCode => Object.hash(runtimeType, source, presentation);
 }
 
 enum DocumentReaderUnsupportedReason {
   generic,
-  epubFileTooLarge,
-  plainTextFileTooLarge,
-  plainTextUnsupportedContent,
+  fileTooLarge,
+  unsupportedContent,
 }
 
 /// The selected local document cannot be presented by its reader surface.

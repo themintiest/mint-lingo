@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_translator/features/document/document_reader_cubit.dart';
+import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
@@ -46,11 +47,12 @@ void main() {
     expect(
       cubit.state,
       const DocumentReaderReady(
-        DocumentSourceReference(
+        source: DocumentSourceReference(
           path: '/documents/second.pdf',
           fileName: 'second.pdf',
           format: DocumentReaderFormat.pdf,
         ),
+        presentation: DocumentReaderUnavailablePresentation(),
       ),
     );
   });
@@ -72,8 +74,10 @@ void main() {
 
       await cubit.selectOrReplaceSource();
 
-      expect(cubit.state, isA<EpubDocumentReaderReady>());
-      expect((cubit.state as EpubDocumentReaderReady).source, source);
+      expect(cubit.state, isA<DocumentReaderReady>());
+      final ready = cubit.state as DocumentReaderReady;
+      expect(ready.source, source);
+      expect(ready.presentation, isA<EpubDocumentPresentation>());
     },
   );
 
@@ -93,10 +97,18 @@ void main() {
 
       await cubit.selectOrReplaceSource();
 
-      expect(cubit.state, isA<EpubDocumentReaderReady>());
-      final ready = cubit.state as EpubDocumentReaderReady;
+      expect(cubit.state, isA<DocumentReaderReady>());
+      final ready = cubit.state as DocumentReaderReady;
       expect(ready.source, source);
-      expect(ready.content.chapters.single.title, 'Chapter');
+      expect(ready.presentation, isA<EpubDocumentPresentation>());
+      expect(
+        (ready.presentation as EpubDocumentPresentation)
+            .content
+            .chapters
+            .single
+            .title,
+        'Chapter',
+      );
     },
   );
 
@@ -116,10 +128,14 @@ void main() {
 
       await cubit.selectOrReplaceSource();
 
-      expect(cubit.state, isA<PlainTextDocumentReaderReady>());
-      final ready = cubit.state as PlainTextDocumentReaderReady;
+      expect(cubit.state, isA<DocumentReaderReady>());
+      final ready = cubit.state as DocumentReaderReady;
       expect(ready.source, source);
-      expect(ready.content.text, 'First line\n\nSecond line');
+      expect(ready.presentation, isA<PlainTextDocumentPresentation>());
+      expect(
+        (ready.presentation as PlainTextDocumentPresentation).content.text,
+        'First line\n\nSecond line',
+      );
     },
   );
 
@@ -142,7 +158,7 @@ void main() {
       cubit.state,
       const DocumentReaderUnsupported(
         source,
-        reason: DocumentReaderUnsupportedReason.plainTextUnsupportedContent,
+        reason: DocumentReaderUnsupportedReason.unsupportedContent,
       ),
     );
   });
@@ -162,7 +178,13 @@ void main() {
     await cubit.selectOrReplaceSource();
     await cubit.close();
 
-    expect(cubit.state, const DocumentReaderReady(source));
+    expect(
+      cubit.state,
+      const DocumentReaderReady(
+        source: source,
+        presentation: DocumentReaderUnavailablePresentation(),
+      ),
+    );
   });
 
   test(
@@ -185,7 +207,7 @@ void main() {
         cubit.state,
         const DocumentReaderUnsupported(
           source,
-          reason: DocumentReaderUnsupportedReason.epubFileTooLarge,
+          reason: DocumentReaderUnsupportedReason.fileTooLarge,
         ),
       );
     },

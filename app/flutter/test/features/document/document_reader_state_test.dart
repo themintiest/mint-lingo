@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/project/project_draft.dart';
 
@@ -47,7 +48,10 @@ void main() {
     final states = <DocumentReaderLoadState>[
       const DocumentReaderNoSource(),
       const DocumentReaderLoading(null),
-      const DocumentReaderReady(epubSource),
+      const DocumentReaderReady(
+        source: epubSource,
+        presentation: DocumentReaderUnavailablePresentation(),
+      ),
       const DocumentReaderUnsupported(unsupportedSource),
       const DocumentReaderFailure(source: epubSource, error: failure),
     ];
