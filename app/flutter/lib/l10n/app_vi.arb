@@ -93,4 +93,10 @@
   "@documentSelected": {"placeholders": {"fileName": {}}},
   "documentSourceUnsupported": "Tệp này không được hỗ trợ để xem tài liệu. Hãy chọn EPUB, TXT hoặc PDF.",
   "documentSelectionFailed": "Không thể chọn tài liệu. Vui lòng thử lại."
+  ,
+  "documentWorkspaceTitle": "Không gian làm việc tài liệu",
+  "documentSourceMissing": "Chưa chọn tài liệu nguồn.",
+  "replacingDocument": "Đang thay tài liệu...",
+  "documentReaderUnavailableTitle": "Bề mặt đọc chưa khả dụng",
+  "documentReaderUnavailableDescription": "Trình đọc chỉ đọc theo từng định dạng sẽ được thêm trong tác vụ riêng."
 }
