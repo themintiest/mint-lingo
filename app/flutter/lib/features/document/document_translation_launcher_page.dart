@@ -29,6 +29,7 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
     return BlocListener<DocumentReaderCubit, DocumentReaderLoadState>(
       listenWhen: (_, state) =>
           state is EpubDocumentReaderReady ||
+          state is PlainTextDocumentReaderReady ||
           (state is DocumentReaderReady &&
               state.source.format != DocumentReaderFormat.epub),
       listener: (context, state) {
@@ -164,6 +165,8 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
     EpubDocumentReaderReady(:final source) => localizations.documentSelected(
       source.fileName,
     ),
+    PlainTextDocumentReaderReady(:final source) =>
+      localizations.documentSelected(source.fileName),
     DocumentReaderReady(:final source) => localizations.documentSelected(
       source.fileName,
     ),
@@ -171,6 +174,14 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
       reason: DocumentReaderUnsupportedReason.epubFileTooLarge,
     ) =>
       localizations.epubReaderFileTooLarge,
+    DocumentReaderUnsupported(
+      reason: DocumentReaderUnsupportedReason.plainTextFileTooLarge,
+    ) =>
+      localizations.plainTextReaderFileTooLarge,
+    DocumentReaderUnsupported(
+      reason: DocumentReaderUnsupportedReason.plainTextUnsupportedContent,
+    ) =>
+      localizations.plainTextReaderUnsupportedContent,
     DocumentReaderUnsupported() => localizations.documentSourceUnsupported,
     DocumentReaderFailure() => localizations.documentSelectionFailed,
   };

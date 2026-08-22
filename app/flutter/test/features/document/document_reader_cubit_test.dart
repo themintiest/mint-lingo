@@ -3,6 +3,7 @@ import 'package:video_translator/features/document/document_reader_cubit.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
+import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
 
 void main() {
   test('recognizes only EPUB TXT and PDF filename extensions', () {
@@ -35,6 +36,7 @@ void main() {
           format: DocumentReaderFormat.pdf,
         ),
       ]),
+      plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
     );
     addTearDown(cubit.close);
 
@@ -97,6 +99,53 @@ void main() {
       expect(ready.content.chapters.single.title, 'Chapter');
     },
   );
+
+  test(
+    'stores UTF-8 plain-text presentation content after local loading',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/notes.txt',
+        fileName: 'notes.txt',
+        format: DocumentReaderFormat.plainText,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+        plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(cubit.state, isA<PlainTextDocumentReaderReady>());
+      final ready = cubit.state as PlainTextDocumentReaderReady;
+      expect(ready.source, source);
+      expect(ready.content.text, 'First line\n\nSecond line');
+    },
+  );
+
+  test('maps unsupported plain-text content to document-owned state', () async {
+    const source = DocumentSourceReference(
+      path: '/documents/invalid.txt',
+      fileName: 'invalid.txt',
+      format: DocumentReaderFormat.plainText,
+    );
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([source]),
+      plainTextPresentationLoader:
+          const _UnsupportedPlainTextPresentationLoader(),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.selectOrReplaceSource();
+
+    expect(
+      cubit.state,
+      const DocumentReaderUnsupported(
+        source,
+        reason: DocumentReaderUnsupportedReason.plainTextUnsupportedContent,
+      ),
+    );
+  });
 
   test('releases EPUB presentation content on reader disposal', () async {
     const source = DocumentSourceReference(
@@ -208,6 +257,26 @@ final class _TooLargeEpubPresentationLoader implements EpubPresentationLoader {
   Future<EpubPresentationContent> load(String localPath) =>
       Future<EpubPresentationContent>.error(
         const EpubReaderFileTooLargeException(50 * 1024 * 1024 + 1),
+      );
+}
+
+final class _FakePlainTextPresentationLoader
+    implements PlainTextPresentationLoader {
+  const _FakePlainTextPresentationLoader();
+
+  @override
+  Future<PlainTextPresentationContent> load(String localPath) async =>
+      const PlainTextPresentationContent(text: 'First line\n\nSecond line');
+}
+
+final class _UnsupportedPlainTextPresentationLoader
+    implements PlainTextPresentationLoader {
+  const _UnsupportedPlainTextPresentationLoader();
+
+  @override
+  Future<PlainTextPresentationContent> load(String localPath) =>
+      Future<PlainTextPresentationContent>.error(
+        const PlainTextReaderUnsupportedContentException(),
       );
 }
 

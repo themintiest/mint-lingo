@@ -7,6 +7,7 @@ import 'package:video_translator/app/theme/app_spacing.dart';
 import 'package:video_translator/features/document/document_reader_cubit.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
+import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 /// Read-only presentation chrome for one document selected in this workflow.
@@ -42,7 +43,7 @@ class _DocumentWorkspacePageState extends State<DocumentWorkspacePage> {
 
   @override
   void dispose() {
-    _readerCubit.releaseEpubPresentation();
+    _readerCubit.releaseReaderPresentation();
     super.dispose();
   }
 
@@ -163,6 +164,8 @@ class _DocumentSourceChrome extends StatelessWidget {
     EpubDocumentReaderReady(:final source) => localizations.documentSelected(
       source.fileName,
     ),
+    PlainTextDocumentReaderReady(:final source) =>
+      localizations.documentSelected(source.fileName),
     DocumentReaderReady(:final source) => localizations.documentSelected(
       source.fileName,
     ),
@@ -170,6 +173,14 @@ class _DocumentSourceChrome extends StatelessWidget {
       reason: DocumentReaderUnsupportedReason.epubFileTooLarge,
     ) =>
       localizations.epubReaderFileTooLarge,
+    DocumentReaderUnsupported(
+      reason: DocumentReaderUnsupportedReason.plainTextFileTooLarge,
+    ) =>
+      localizations.plainTextReaderFileTooLarge,
+    DocumentReaderUnsupported(
+      reason: DocumentReaderUnsupportedReason.plainTextUnsupportedContent,
+    ) =>
+      localizations.plainTextReaderUnsupportedContent,
     DocumentReaderUnsupported() => localizations.documentSourceUnsupported,
     DocumentReaderFailure() => localizations.documentSelectionFailed,
   };
@@ -185,11 +196,16 @@ class _PrimaryWorkspaceRegion extends StatelessWidget {
     EpubDocumentReaderReady(:final content) => _EpubReaderRegion(
       content: content,
     ),
+    PlainTextDocumentReaderReady(:final content) => _PlainTextReaderRegion(
+      content: content,
+    ),
     DocumentReaderReady(:final source) => switch (source.format) {
       DocumentReaderFormat.epub => const _UnavailableReaderRegion(
         regionKey: Key('document-reader-region-epub'),
       ),
-      DocumentReaderFormat.plainText => const _PlainTextReaderRegion(),
+      DocumentReaderFormat.plainText => const _UnavailableReaderRegion(
+        regionKey: Key('document-reader-region-plain-text'),
+      ),
       DocumentReaderFormat.pdf => const _PdfReaderRegion(),
       null => const _UnavailableReaderRegion(),
     },
@@ -204,6 +220,23 @@ class _PrimaryWorkspaceRegion extends StatelessWidget {
         regionKey: const Key('document-workspace-epub-too-large'),
         icon: Icons.report_outlined,
         description: AppLocalizations.of(context).epubReaderFileTooLarge,
+      ),
+    DocumentReaderUnsupported(
+      reason: DocumentReaderUnsupportedReason.plainTextFileTooLarge,
+    ) =>
+      _WorkspaceFeedbackRegion(
+        regionKey: const Key('document-workspace-plain-text-too-large'),
+        icon: Icons.report_outlined,
+        description: AppLocalizations.of(context).plainTextReaderFileTooLarge,
+      ),
+    DocumentReaderUnsupported(
+      reason: DocumentReaderUnsupportedReason.plainTextUnsupportedContent,
+    ) =>
+      _WorkspaceFeedbackRegion(
+        regionKey: const Key('document-workspace-plain-text-unsupported'),
+        icon: Icons.report_outlined,
+        description: AppLocalizations.of(context)
+            .plainTextReaderUnsupportedContent,
       ),
     DocumentReaderUnsupported() => const _WorkspaceFeedbackRegion(
       regionKey: Key('document-workspace-unsupported'),
@@ -411,11 +444,27 @@ class _EpubBlock extends StatelessWidget {
 }
 
 class _PlainTextReaderRegion extends StatelessWidget {
-  const _PlainTextReaderRegion();
+  const _PlainTextReaderRegion({required this.content});
+
+  final PlainTextPresentationContent content;
 
   @override
-  Widget build(BuildContext context) => const _UnavailableReaderRegion(
-    regionKey: Key('document-reader-region-plain-text'),
+  Widget build(BuildContext context) => Card(
+    key: const Key('document-reader-region-plain-text'),
+    child: SizedBox(
+      height: 600,
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          key: const Key('plain-text-reader-content'),
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Text(
+            content.text,
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(fontFamily: 'monospace', height: 1.45),
+          ),
+        ),
+      ),
+    ),
   );
 }
 

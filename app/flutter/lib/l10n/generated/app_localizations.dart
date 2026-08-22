@@ -667,6 +667,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This EPUB is larger than the 50 MiB reader limit.'**
   String get epubReaderFileTooLarge;
+
+  /// No description provided for @plainTextReaderFileTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'This text file is larger than the 10 MiB reader limit.'**
+  String get plainTextReaderFileTooLarge;
+
+  /// No description provided for @plainTextReaderUnsupportedContent.
+  ///
+  /// In en, this message translates to:
+  /// **'This reader supports UTF-8 text only; binary or invalid text content cannot be displayed.'**
+  String get plainTextReaderUnsupportedContent;
 }
 
 class _AppLocalizationsDelegate
