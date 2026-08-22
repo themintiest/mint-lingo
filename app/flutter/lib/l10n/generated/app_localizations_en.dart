@@ -260,4 +260,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get changeAppLanguage => 'Change app language';
+
+  @override
+  String get workflowSelectionQuestion => 'What would you like to translate?';
+
+  @override
+  String get videoTranslationWorkflow => 'Video Translation';
+
+  @override
+  String get documentTranslationWorkflow => 'Document Translation';
 }

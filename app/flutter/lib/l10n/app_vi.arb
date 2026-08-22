@@ -81,5 +81,8 @@
   "engineReady": "Sẵn sàng",
   "engineUnavailable": "Không khả dụng",
   "engineCrashed": "Đã gặp sự cố",
-  "changeAppLanguage": "Đổi ngôn ngữ ứng dụng"
+  "changeAppLanguage": "Đổi ngôn ngữ ứng dụng",
+  "workflowSelectionQuestion": "Bạn muốn dịch nội dung gì?",
+  "videoTranslationWorkflow": "Dịch video",
+  "documentTranslationWorkflow": "Dịch tài liệu"
 }
