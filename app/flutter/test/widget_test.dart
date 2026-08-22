@@ -18,6 +18,7 @@ void main() {
     await tester.pumpWidget(
       const VideoTranslatorApp(startEngineOnLaunch: false),
     );
+    await _enterVideoWorkflow(tester);
 
     expect(find.text('Video Translator'), findsOneWidget);
     expect(find.text('Start a translation project'), findsOneWidget);
@@ -56,6 +57,7 @@ void main() {
     await tester.pumpWidget(
       VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
     );
+    await _enterVideoWorkflow(tester);
 
     await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
@@ -92,6 +94,7 @@ void main() {
         videoPlayerCubit: videoCubit,
       ),
     );
+    await _enterVideoWorkflow(tester);
 
     await tester.tap(find.text('Open a video'));
     await tester.pump();
@@ -162,6 +165,7 @@ void main() {
         videoPlayerCubit: videoCubit,
       ),
     );
+    await _enterVideoWorkflow(tester);
 
     await tester.tap(find.text('Open a video'));
     await tester.pump();
@@ -227,6 +231,7 @@ void main() {
         videoPlayerCubit: videoCubit,
       ),
     );
+    await _enterVideoWorkflow(tester);
 
     await tester.tap(find.text('Open a video'));
     await tester.pump();
@@ -256,6 +261,7 @@ void main() {
     await tester.pumpWidget(
       VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
     );
+    await _enterVideoWorkflow(tester);
 
     await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
@@ -279,6 +285,7 @@ void main() {
     await tester.pumpWidget(
       const VideoTranslatorApp(startEngineOnLaunch: false),
     );
+    await _enterVideoWorkflow(tester);
 
     expect(find.byType(SingleChildScrollView), findsOneWidget);
     expect(find.text('Open a video'), findsOneWidget);
@@ -293,6 +300,7 @@ void main() {
     await tester.pumpWidget(
       const VideoTranslatorApp(startEngineOnLaunch: false),
     );
+    await _enterVideoWorkflow(tester);
 
     final scrollView = tester.widget<SingleChildScrollView>(
       find.byType(SingleChildScrollView),
@@ -324,6 +332,7 @@ void main() {
     await tester.pumpWidget(
       VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
     );
+    await _enterVideoWorkflow(tester);
 
     await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
@@ -392,6 +401,7 @@ void main() {
         mediaInspectionCubit: inspectionCubit,
       ),
     );
+    await _enterVideoWorkflow(tester);
 
     await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
@@ -446,6 +456,7 @@ void main() {
         mediaInspectionCubit: inspectionCubit,
       ),
     );
+    await _enterVideoWorkflow(tester);
 
     await tester.tap(find.text('Open a video'));
     await tester.pumpAndSettle();
@@ -526,6 +537,11 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   Future<void> setVolume(double volume) async {
     volumeEvents.add(volume);
   }
+}
+
+Future<void> _enterVideoWorkflow(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('workflow-video-translation')));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _selectCatalogLanguage(

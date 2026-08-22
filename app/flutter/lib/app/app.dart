@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:video_translator/app/app_workflow.dart';
 import 'package:video_translator/app/engine/engine_client.dart';
 import 'package:video_translator/app/engine/engine_connection_cubit.dart';
 import 'package:video_translator/app/theme/app_theme.dart';
+import 'package:video_translator/app/workflow_selection_page.dart';
 import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/features/project/project_workspace_page.dart';
@@ -92,6 +94,23 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
     setState(() => _localeOverride = locale);
   }
 
+  void _selectWorkflow(BuildContext context, AppWorkflow workflow) {
+    switch (workflow) {
+      case AppWorkflow.videoTranslation:
+        Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (context) => ProjectWorkspacePage(
+              localeOverride: _localeOverride,
+              onLocaleSelected: _selectLocale,
+            ),
+          ),
+        );
+      case AppWorkflow.documentTranslation:
+        // DOC-ENTRY-01 adds the dedicated Document Translation destination.
+        break;
+    }
+  }
+
   @override
   void dispose() {
     if (_ownsEngineConnectionCubit) {
@@ -131,9 +150,13 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         localeListResolutionCallback: resolveAppLocale,
-        home: ProjectWorkspacePage(
-          localeOverride: _localeOverride,
-          onLocaleSelected: _selectLocale,
+        home: Builder(
+          builder: (context) => WorkflowSelectionPage(
+            onWorkflowSelected: (workflow) =>
+                _selectWorkflow(context, workflow),
+            localeOverride: _localeOverride,
+            onLocaleSelected: _selectLocale,
+          ),
         ),
       ),
     );

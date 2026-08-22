@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:video_translator/app/app_locale_selector.dart';
 import 'package:video_translator/app/app_workflow.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
@@ -8,18 +9,38 @@ import 'package:video_translator/l10n/generated/app_localizations.dart';
 /// Navigation remains with the application shell so this page only reports the
 /// selected product workflow.
 class WorkflowSelectionPage extends StatelessWidget {
-  const WorkflowSelectionPage({super.key, required this.onWorkflowSelected});
+  const WorkflowSelectionPage({
+    super.key,
+    required this.onWorkflowSelected,
+    this.localeOverride,
+    this.onLocaleSelected,
+  });
 
   static const _maxContentWidth = 640.0;
   static const _compactWidth = 600.0;
 
   final ValueChanged<AppWorkflow> onWorkflowSelected;
+  final Locale? localeOverride;
+  final ValueChanged<Locale>? onLocaleSelected;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
 
     return Scaffold(
+      appBar: AppBar(
+        title: Text(localizations.appTitle),
+        actions: [
+          if (onLocaleSelected case final onLocaleSelected?)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.sm),
+              child: AppLocaleSelector(
+                localeOverride: localeOverride,
+                onLocaleSelected: onLocaleSelected,
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
