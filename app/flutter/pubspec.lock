@@ -2,7 +2,7 @@
 # See https://dart.dev/tools/pub/glossary#lockfile
 packages:
   archive:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: archive
       sha256: a96e8b390886ee8abb49b7bd3ac8df6f451c621619f52a26e815fdcf568959ff
@@ -89,6 +89,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.14"
+  epubx_kuebiko:
+    dependency: "direct main"
+    description:
+      name: epubx_kuebiko
+      sha256: a1a65e625b530fbef30b88b21250116deb66812b6114bdb521ff2806911e19a1
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.2.1"
   fake_async:
     dependency: transitive
     description:
@@ -437,6 +445,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5+1"
+  quiver:
+    dependency: transitive
+    description:
+      name: quiver
+      sha256: ea0b925899e64ecdfbf9c7becb60d5b50e706ade44a85b2363be2a22d88117d2
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.2"
   safe_local_storage:
     dependency: transitive
     description:
@@ -587,7 +603,7 @@ packages:
     source: hosted
     version: "6.4.0"
   xml:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: xml
       sha256: "971043b3a0d3da28727e40ed3e0b5d18b742fa5a68665cca88e74b7876d5e025"

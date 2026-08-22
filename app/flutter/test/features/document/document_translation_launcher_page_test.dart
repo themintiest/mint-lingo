@@ -7,6 +7,7 @@ import 'package:video_translator/features/document/document_reader_cubit.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
 import 'package:video_translator/features/document/document_translation_launcher_page.dart';
+import 'package:video_translator/features/document/epub_presentation_loader.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 void main() {
@@ -26,6 +27,7 @@ void main() {
           format: DocumentReaderFormat.epub,
         ),
       ]),
+      epubPresentationLoader: const _FakeEpubPresentationLoader(),
     );
     addTearDown(cubit.close);
 
@@ -70,6 +72,23 @@ void main() {
     );
     expect(find.text('second.epub'), findsOneWidget);
     expect(find.text('first.txt'), findsNothing);
+    expect(find.text('Chapter one'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('epub-reader-next-chapter')));
+    await tester.pump();
+    expect(find.text('Chapter two'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('epub-reader-table-of-contents-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('epub-reader-table-of-contents')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Chapter one'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chapter one'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -143,6 +162,28 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+}
+
+final class _FakeEpubPresentationLoader implements EpubPresentationLoader {
+  const _FakeEpubPresentationLoader();
+
+  @override
+  Future<EpubPresentationContent> load(String localPath) async =>
+      const EpubPresentationContent(
+        chapters: [
+          EpubPresentationChapter(
+            title: 'Chapter one',
+            packagePath: 'Text/chapter-one.xhtml',
+            blocks: [],
+          ),
+          EpubPresentationChapter(
+            title: 'Chapter two',
+            packagePath: 'Text/chapter-two.xhtml',
+            blocks: [],
+          ),
+        ],
+        images: {},
+      );
 }
 
 Widget _launcherApp(DocumentReaderCubit cubit) => BlocProvider.value(

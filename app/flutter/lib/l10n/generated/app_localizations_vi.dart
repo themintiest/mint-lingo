@@ -310,4 +310,8 @@ class AppLocalizationsVi extends AppLocalizations {
   @override
   String get documentReaderUnavailableDescription =>
       'Trình đọc chỉ đọc theo từng định dạng sẽ được thêm trong tác vụ riêng.';
+
+  @override
+  String get epubReaderFileTooLarge =>
+      'EPUB này lớn hơn giới hạn trình đọc 50 MiB.';
 }
