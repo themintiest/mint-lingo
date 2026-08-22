@@ -5,6 +5,7 @@ import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
 import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
+import 'package:video_translator/features/document/pdf_presentation_loader.dart';
 
 void main() {
   test('recognizes only EPUB TXT and PDF filename extensions', () {
@@ -38,6 +39,7 @@ void main() {
         ),
       ]),
       plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
+      pdfPresentationLoader: const _FakePdfPresentationLoader(),
     );
     addTearDown(cubit.close);
 
@@ -46,14 +48,21 @@ void main() {
 
     expect(
       cubit.state,
-      const DocumentReaderReady(
-        source: DocumentSourceReference(
-          path: '/documents/second.pdf',
-          fileName: 'second.pdf',
-          format: DocumentReaderFormat.pdf,
-        ),
-        presentation: DocumentReaderUnavailablePresentation(),
-      ),
+      isA<DocumentReaderReady>()
+          .having(
+            (state) => state.source,
+            'source',
+            const DocumentSourceReference(
+              path: '/documents/second.pdf',
+              fileName: 'second.pdf',
+              format: DocumentReaderFormat.pdf,
+            ),
+          )
+          .having(
+            (state) => state.presentation,
+            'presentation',
+            isA<PdfDocumentPresentation>(),
+          ),
     );
   });
 
@@ -253,6 +262,65 @@ void main() {
 
     expect(cubit.state, DocumentReaderFailure(source: source, error: error));
   });
+
+  test(
+    'maps the PDF size envelope to document-owned unsupported state',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/large.pdf',
+        fileName: 'large.pdf',
+        format: DocumentReaderFormat.pdf,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+        pdfPresentationLoader: const _TooLargePdfPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(
+        cubit.state,
+        const DocumentReaderUnsupported(
+          source,
+          reason: DocumentReaderUnsupportedReason.fileTooLarge,
+        ),
+      );
+    },
+  );
+
+  test('keeps PDF reader failures and page limits document-owned', () async {
+    const source = DocumentSourceReference(
+      path: '/documents/source.pdf',
+      fileName: 'source.pdf',
+      format: DocumentReaderFormat.pdf,
+    );
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([source]),
+      pdfPresentationLoader: const _FakePdfPresentationLoader(),
+    );
+    addTearDown(cubit.close);
+    final error = StateError('corrupt PDF');
+
+    await cubit.selectOrReplaceSource();
+    cubit.reportPdfReaderFailure(source, error);
+    expect(cubit.state, DocumentReaderFailure(source: source, error: error));
+
+    final pageLimitCubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([source]),
+      pdfPresentationLoader: const _FakePdfPresentationLoader(),
+    );
+    addTearDown(pageLimitCubit.close);
+    await pageLimitCubit.selectOrReplaceSource();
+    pageLimitCubit.reportPdfPageLimitExceeded(source);
+    expect(
+      pageLimitCubit.state,
+      const DocumentReaderUnsupported(
+        source,
+        reason: DocumentReaderUnsupportedReason.pageLimitExceeded,
+      ),
+    );
+  });
 }
 
 final class _FakeEpubPresentationLoader implements EpubPresentationLoader {
@@ -299,6 +367,24 @@ final class _UnsupportedPlainTextPresentationLoader
   Future<PlainTextPresentationContent> load(String localPath) =>
       Future<PlainTextPresentationContent>.error(
         const PlainTextReaderUnsupportedContentException(),
+      );
+}
+
+final class _FakePdfPresentationLoader implements PdfPresentationLoader {
+  const _FakePdfPresentationLoader();
+
+  @override
+  Future<PdfPresentationContent> load(String localPath) async =>
+      const PdfPresentationContent();
+}
+
+final class _TooLargePdfPresentationLoader implements PdfPresentationLoader {
+  const _TooLargePdfPresentationLoader();
+
+  @override
+  Future<PdfPresentationContent> load(String localPath) =>
+      Future<PdfPresentationContent>.error(
+        const PdfReaderFileTooLargeException(50 * 1024 * 1024 + 1),
       );
 }
 

@@ -324,4 +324,29 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get plainTextReaderUnsupportedContent =>
       'This reader supports UTF-8 text only; binary or invalid text content cannot be displayed.';
+
+  @override
+  String get pdfReaderFileTooLarge =>
+      'This PDF is larger than the 50 MiB reader limit.';
+
+  @override
+  String get pdfReaderTooManyPages =>
+      'This PDF has more than the 500-page reader limit.';
+
+  @override
+  String get pdfReaderPreviousPage => 'Previous page';
+
+  @override
+  String get pdfReaderNextPage => 'Next page';
+
+  @override
+  String get pdfReaderZoomOut => 'Zoom out';
+
+  @override
+  String get pdfReaderZoomIn => 'Zoom in';
+
+  @override
+  String pdfReaderPageStatus(Object current, Object total) {
+    return 'Page $current of $total';
+  }
 }

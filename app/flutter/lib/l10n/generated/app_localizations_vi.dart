@@ -322,4 +322,29 @@ class AppLocalizationsVi extends AppLocalizations {
   @override
   String get plainTextReaderUnsupportedContent =>
       'Trình đọc này chỉ hỗ trợ văn bản UTF-8; không thể hiển thị nội dung nhị phân hoặc văn bản không hợp lệ.';
+
+  @override
+  String get pdfReaderFileTooLarge =>
+      'PDF này vượt quá giới hạn trình đọc 50 MiB.';
+
+  @override
+  String get pdfReaderTooManyPages =>
+      'PDF này có nhiều hơn giới hạn 500 trang.';
+
+  @override
+  String get pdfReaderPreviousPage => 'Trang trước';
+
+  @override
+  String get pdfReaderNextPage => 'Trang tiếp theo';
+
+  @override
+  String get pdfReaderZoomOut => 'Thu nhỏ';
+
+  @override
+  String get pdfReaderZoomIn => 'Phóng to';
+
+  @override
+  String pdfReaderPageStatus(Object current, Object total) {
+    return 'Trang $current trên $total';
+  }
 }

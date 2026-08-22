@@ -101,5 +101,13 @@
   "documentReaderUnavailableDescription": "A format-specific read-only reader will be added in its own task.",
   "epubReaderFileTooLarge": "This EPUB is larger than the 50 MiB reader limit.",
   "plainTextReaderFileTooLarge": "This text file is larger than the 10 MiB reader limit.",
-  "plainTextReaderUnsupportedContent": "This reader supports UTF-8 text only; binary or invalid text content cannot be displayed."
+  "plainTextReaderUnsupportedContent": "This reader supports UTF-8 text only; binary or invalid text content cannot be displayed.",
+  "pdfReaderFileTooLarge": "This PDF is larger than the 50 MiB reader limit.",
+  "pdfReaderTooManyPages": "This PDF has more than the 500-page reader limit.",
+  "pdfReaderPreviousPage": "Previous page",
+  "pdfReaderNextPage": "Next page",
+  "pdfReaderZoomOut": "Zoom out",
+  "pdfReaderZoomIn": "Zoom in",
+  "pdfReaderPageStatus": "Page {current} of {total}",
+  "@pdfReaderPageStatus": {"placeholders": {"current": {}, "total": {}}}
 }

@@ -9,6 +9,14 @@ import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_workspace_page.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
+/// Whether a prepared reader presentation should open the workspace.
+///
+/// A released presentation retains its source only for launcher context; it
+/// must never reopen a workspace after the user has navigated back from it.
+bool shouldOpenDocumentWorkspace(DocumentReaderLoadState state) =>
+    state is DocumentReaderReady &&
+    state.presentation is! DocumentReaderUnavailablePresentation;
+
 /// The Document Translation entry for selecting one local reader source.
 class DocumentTranslationLauncherPage extends StatelessWidget {
   const DocumentTranslationLauncherPage({
@@ -29,10 +37,7 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return BlocListener<DocumentReaderCubit, DocumentReaderLoadState>(
-      listenWhen: (_, state) =>
-          state is DocumentReaderReady &&
-          (state.presentation is! DocumentReaderUnavailablePresentation ||
-              state.source.format == DocumentReaderFormat.pdf),
+      listenWhen: (_, state) => shouldOpenDocumentWorkspace(state),
       listener: (context, state) {
         if (ModalRoute.of(context)?.isCurrent != true) {
           return;

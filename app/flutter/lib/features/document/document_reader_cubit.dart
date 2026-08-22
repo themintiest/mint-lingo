@@ -4,6 +4,7 @@ import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
 import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
+import 'package:video_translator/features/document/pdf_presentation_loader.dart';
 
 /// Owns local Document Translation selection and reader presentation state.
 ///
@@ -15,17 +16,21 @@ final class DocumentReaderCubit extends Cubit<DocumentReaderLoadState> {
     DocumentSourcePicker? sourcePicker,
     EpubPresentationLoader? epubPresentationLoader,
     PlainTextPresentationLoader? plainTextPresentationLoader,
+    PdfPresentationLoader? pdfPresentationLoader,
   }) : _sourcePicker = sourcePicker ?? const FileSelectorDocumentSourcePicker(),
        _epubPresentationLoader =
            epubPresentationLoader ?? const IsolateEpubPresentationLoader(),
        _plainTextPresentationLoader =
            plainTextPresentationLoader ??
            const IsolatePlainTextPresentationLoader(),
+       _pdfPresentationLoader =
+           pdfPresentationLoader ?? const LocalPdfPresentationLoader(),
        super(const DocumentReaderNoSource());
 
   final DocumentSourcePicker _sourcePicker;
   final EpubPresentationLoader _epubPresentationLoader;
   final PlainTextPresentationLoader _plainTextPresentationLoader;
+  final PdfPresentationLoader _pdfPresentationLoader;
 
   /// Opens the document-only picker to select or replace one local source.
   Future<void> selectOrReplaceSource() async {
@@ -75,10 +80,14 @@ final class DocumentReaderCubit extends Cubit<DocumentReaderLoadState> {
         return;
       }
       if (source.format == DocumentReaderFormat.pdf) {
+        final content = await _pdfPresentationLoader.load(source.path);
+        if (isClosed) {
+          return;
+        }
         emit(
           DocumentReaderReady(
             source: source,
-            presentation: const DocumentReaderUnavailablePresentation(),
+            presentation: PdfDocumentPresentation(content: content),
           ),
         );
         return;
@@ -105,6 +114,11 @@ final class DocumentReaderCubit extends Cubit<DocumentReaderLoadState> {
         selectedSource,
         DocumentReaderUnsupportedReason.unsupportedContent,
       );
+    } on PdfReaderFileTooLargeException {
+      _emitUnsupported(
+        selectedSource,
+        DocumentReaderUnsupportedReason.fileTooLarge,
+      );
     } on Object catch (error) {
       if (!isClosed) {
         emit(
@@ -115,6 +129,29 @@ final class DocumentReaderCubit extends Cubit<DocumentReaderLoadState> {
         );
       }
     }
+  }
+
+  /// Reports a PDF reader failure without treating it as processing validation
+  /// or sending document content outside the Document feature.
+  void reportPdfReaderFailure(DocumentSourceReference source, Object error) {
+    if (isClosed || state.source != source) {
+      return;
+    }
+    emit(DocumentReaderFailure(source: source, error: error));
+  }
+
+  /// Enforces the first reader's bounded page envelope after PDFium opens the
+  /// local file. This makes no claim about processing suitability.
+  void reportPdfPageLimitExceeded(DocumentSourceReference source) {
+    if (isClosed || state.source != source) {
+      return;
+    }
+    emit(
+      DocumentReaderUnsupported(
+        source,
+        reason: DocumentReaderUnsupportedReason.pageLimitExceeded,
+      ),
+    );
   }
 
   void _emitUnsupported(

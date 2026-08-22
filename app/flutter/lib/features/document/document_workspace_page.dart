@@ -178,9 +178,8 @@ class _PrimaryWorkspaceRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => switch (state) {
-    DocumentReaderReady(:final presentation) => DocumentReaderHost(
-      presentation: presentation,
-    ),
+    DocumentReaderReady(:final source, :final presentation) =>
+      DocumentReaderHost(source: source, presentation: presentation),
     DocumentReaderLoading() => const _WorkspaceFeedbackRegion(
       regionKey: Key('document-workspace-loading'),
       icon: Icons.hourglass_top_outlined,

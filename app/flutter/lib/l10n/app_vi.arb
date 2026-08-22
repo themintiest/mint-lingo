@@ -101,5 +101,13 @@
   "documentReaderUnavailableDescription": "Trình đọc chỉ đọc theo từng định dạng sẽ được thêm trong tác vụ riêng.",
   "epubReaderFileTooLarge": "EPUB này lớn hơn giới hạn trình đọc 50 MiB.",
   "plainTextReaderFileTooLarge": "Tệp văn bản này lớn hơn giới hạn trình đọc 10 MiB.",
-  "plainTextReaderUnsupportedContent": "Trình đọc này chỉ hỗ trợ văn bản UTF-8; không thể hiển thị nội dung nhị phân hoặc văn bản không hợp lệ."
+  "plainTextReaderUnsupportedContent": "Trình đọc này chỉ hỗ trợ văn bản UTF-8; không thể hiển thị nội dung nhị phân hoặc văn bản không hợp lệ.",
+  "pdfReaderFileTooLarge": "PDF này vượt quá giới hạn trình đọc 50 MiB.",
+  "pdfReaderTooManyPages": "PDF này có nhiều hơn giới hạn 500 trang.",
+  "pdfReaderPreviousPage": "Trang trước",
+  "pdfReaderNextPage": "Trang tiếp theo",
+  "pdfReaderZoomOut": "Thu nhỏ",
+  "pdfReaderZoomIn": "Phóng to",
+  "pdfReaderPageStatus": "Trang {current} trên {total}",
+  "@pdfReaderPageStatus": {"placeholders": {"current": {}, "total": {}}}
 }

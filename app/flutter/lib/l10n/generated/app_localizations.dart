@@ -679,6 +679,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This reader supports UTF-8 text only; binary or invalid text content cannot be displayed.'**
   String get plainTextReaderUnsupportedContent;
+
+  /// No description provided for @pdfReaderFileTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'This PDF is larger than the 50 MiB reader limit.'**
+  String get pdfReaderFileTooLarge;
+
+  /// No description provided for @pdfReaderTooManyPages.
+  ///
+  /// In en, this message translates to:
+  /// **'This PDF has more than the 500-page reader limit.'**
+  String get pdfReaderTooManyPages;
+
+  /// No description provided for @pdfReaderPreviousPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous page'**
+  String get pdfReaderPreviousPage;
+
+  /// No description provided for @pdfReaderNextPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Next page'**
+  String get pdfReaderNextPage;
+
+  /// No description provided for @pdfReaderZoomOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out'**
+  String get pdfReaderZoomOut;
+
+  /// No description provided for @pdfReaderZoomIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in'**
+  String get pdfReaderZoomIn;
+
+  /// No description provided for @pdfReaderPageStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Page {current} of {total}'**
+  String pdfReaderPageStatus(Object current, Object total);
 }
 
 class _AppLocalizationsDelegate
