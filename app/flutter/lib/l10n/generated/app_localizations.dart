@@ -661,6 +661,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A format-specific read-only reader will be added in its own task.'**
   String get documentReaderUnavailableDescription;
+
+  /// No description provided for @epubReaderFileTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'This EPUB is larger than the 50 MiB reader limit.'**
+  String get epubReaderFileTooLarge;
 }
 
 class _AppLocalizationsDelegate

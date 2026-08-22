@@ -312,4 +312,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get documentReaderUnavailableDescription =>
       'A format-specific read-only reader will be added in its own task.';
+
+  @override
+  String get epubReaderFileTooLarge =>
+      'This EPUB is larger than the 50 MiB reader limit.';
 }

@@ -27,7 +27,10 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return BlocListener<DocumentReaderCubit, DocumentReaderLoadState>(
-      listenWhen: (_, state) => state is DocumentReaderReady,
+      listenWhen: (_, state) =>
+          state is EpubDocumentReaderReady ||
+          (state is DocumentReaderReady &&
+              state.source.format != DocumentReaderFormat.epub),
       listener: (context, state) {
         if (ModalRoute.of(context)?.isCurrent != true) {
           return;
@@ -158,9 +161,16 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
   ) => switch (state) {
     DocumentReaderNoSource() => localizations.documentLauncherDescription,
     DocumentReaderLoading() => localizations.selectingDocument,
+    EpubDocumentReaderReady(:final source) => localizations.documentSelected(
+      source.fileName,
+    ),
     DocumentReaderReady(:final source) => localizations.documentSelected(
       source.fileName,
     ),
+    DocumentReaderUnsupported(
+      reason: DocumentReaderUnsupportedReason.epubFileTooLarge,
+    ) =>
+      localizations.epubReaderFileTooLarge,
     DocumentReaderUnsupported() => localizations.documentSourceUnsupported,
     DocumentReaderFailure() => localizations.documentSelectionFailed,
   };

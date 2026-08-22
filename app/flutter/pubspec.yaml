@@ -35,6 +35,8 @@ dependencies:
   intl: ^0.20.2
   flutter_bloc: ^9.1.1
   file_selector: ^1.1.0
+  epubx_kuebiko: 4.2.1
+  xml: 6.6.1
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
@@ -42,6 +44,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  archive: 4.0.9
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

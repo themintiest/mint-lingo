@@ -1,3 +1,5 @@
+import 'package:video_translator/features/document/epub_presentation_loader.dart';
+
 /// Reader formats recognized by the Document Translation presentation flow.
 ///
 /// This classification only selects a future reader surface. It does not
@@ -90,19 +92,39 @@ final class DocumentReaderReady extends DocumentReaderLoadState {
   int get hashCode => Object.hash(runtimeType, source);
 }
 
-/// The selected local document cannot be presented by its reader surface.
-final class DocumentReaderUnsupported extends DocumentReaderLoadState {
-  const DocumentReaderUnsupported(this.source);
+/// A selected local EPUB has been decoded into reader-only presentation data.
+///
+/// The content is intentionally specific to the EPUB surface and is not a
+/// normalized document artifact or a processing validation result.
+final class EpubDocumentReaderReady extends DocumentReaderLoadState {
+  const EpubDocumentReaderReady({required this.source, required this.content});
 
   @override
   final DocumentSourceReference source;
+  final EpubPresentationContent content;
+}
+
+enum DocumentReaderUnsupportedReason { generic, epubFileTooLarge }
+
+/// The selected local document cannot be presented by its reader surface.
+final class DocumentReaderUnsupported extends DocumentReaderLoadState {
+  const DocumentReaderUnsupported(
+    this.source, {
+    this.reason = DocumentReaderUnsupportedReason.generic,
+  });
+
+  @override
+  final DocumentSourceReference source;
+  final DocumentReaderUnsupportedReason reason;
 
   @override
   bool operator ==(Object other) =>
-      other is DocumentReaderUnsupported && other.source == source;
+      other is DocumentReaderUnsupported &&
+      other.source == source &&
+      other.reason == reason;
 
   @override
-  int get hashCode => Object.hash(runtimeType, source);
+  int get hashCode => Object.hash(runtimeType, source, reason);
 }
 
 /// Loading a local document failed before read-only presentation was ready.

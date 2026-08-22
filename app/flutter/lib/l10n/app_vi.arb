@@ -98,5 +98,6 @@
   "documentSourceMissing": "Chưa chọn tài liệu nguồn.",
   "replacingDocument": "Đang thay tài liệu...",
   "documentReaderUnavailableTitle": "Bề mặt đọc chưa khả dụng",
-  "documentReaderUnavailableDescription": "Trình đọc chỉ đọc theo từng định dạng sẽ được thêm trong tác vụ riêng."
+  "documentReaderUnavailableDescription": "Trình đọc chỉ đọc theo từng định dạng sẽ được thêm trong tác vụ riêng.",
+  "epubReaderFileTooLarge": "EPUB này lớn hơn giới hạn trình đọc 50 MiB."
 }

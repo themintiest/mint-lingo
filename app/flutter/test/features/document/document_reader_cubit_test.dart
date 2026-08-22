@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:video_translator/features/document/document_reader_cubit.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
+import 'package:video_translator/features/document/epub_presentation_loader.dart';
 
 void main() {
   test('recognizes only EPUB TXT and PDF filename extensions', () {
@@ -62,13 +63,82 @@ void main() {
       );
       final cubit = DocumentReaderCubit(
         sourcePicker: _FakeDocumentSourcePicker([source, null]),
+        epubPresentationLoader: const _FakeEpubPresentationLoader(),
       );
       addTearDown(cubit.close);
       await cubit.selectOrReplaceSource();
 
       await cubit.selectOrReplaceSource();
 
-      expect(cubit.state, const DocumentReaderReady(source));
+      expect(cubit.state, isA<EpubDocumentReaderReady>());
+      expect((cubit.state as EpubDocumentReaderReady).source, source);
+    },
+  );
+
+  test(
+    'stores only EPUB presentation content after local reader loading',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/book.epub',
+        fileName: 'book.epub',
+        format: DocumentReaderFormat.epub,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+        epubPresentationLoader: const _FakeEpubPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(cubit.state, isA<EpubDocumentReaderReady>());
+      final ready = cubit.state as EpubDocumentReaderReady;
+      expect(ready.source, source);
+      expect(ready.content.chapters.single.title, 'Chapter');
+    },
+  );
+
+  test('releases EPUB presentation content on reader disposal', () async {
+    const source = DocumentSourceReference(
+      path: '/documents/book.epub',
+      fileName: 'book.epub',
+      format: DocumentReaderFormat.epub,
+    );
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([source]),
+      epubPresentationLoader: const _FakeEpubPresentationLoader(),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.selectOrReplaceSource();
+    await cubit.close();
+
+    expect(cubit.state, const DocumentReaderReady(source));
+  });
+
+  test(
+    'reports the EPUB size envelope as document-owned unsupported state',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/book.epub',
+        fileName: 'book.epub',
+        format: DocumentReaderFormat.epub,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+        epubPresentationLoader: const _TooLargeEpubPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(
+        cubit.state,
+        const DocumentReaderUnsupported(
+          source,
+          reason: DocumentReaderUnsupportedReason.epubFileTooLarge,
+        ),
+      );
     },
   );
 
@@ -112,6 +182,33 @@ void main() {
 
     expect(cubit.state, DocumentReaderFailure(source: source, error: error));
   });
+}
+
+final class _FakeEpubPresentationLoader implements EpubPresentationLoader {
+  const _FakeEpubPresentationLoader();
+
+  @override
+  Future<EpubPresentationContent> load(String localPath) async =>
+      const EpubPresentationContent(
+        chapters: [
+          EpubPresentationChapter(
+            title: 'Chapter',
+            packagePath: 'Text/chapter.xhtml',
+            blocks: [],
+          ),
+        ],
+        images: {},
+      );
+}
+
+final class _TooLargeEpubPresentationLoader implements EpubPresentationLoader {
+  const _TooLargeEpubPresentationLoader();
+
+  @override
+  Future<EpubPresentationContent> load(String localPath) =>
+      Future<EpubPresentationContent>.error(
+        const EpubReaderFileTooLargeException(50 * 1024 * 1024 + 1),
+      );
 }
 
 final class _FakeDocumentSourcePicker implements DocumentSourcePicker {
