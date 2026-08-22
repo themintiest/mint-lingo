@@ -37,6 +37,83 @@ void main() {
     expect(find.text('Source language'), findsNothing);
   });
 
+  testWidgets(
+    'completes the Video workflow from selection through inspection and playback',
+    (tester) async {
+      final setupCubit = ProjectSetupCubit(
+        sourceVideoPicker: _FakeSourceVideoPicker([
+          const ProjectSourceReference(
+            path: '/videos/source.mp4',
+            fileName: 'source.mp4',
+          ),
+        ]),
+      );
+      final inspectionCubit = MediaInspectionCubit(
+        inspectMedia: (_) async => MediaInspectionMetadata(
+          duration: const Duration(seconds: 95),
+          streams: const [
+            MediaStreamMetadata(
+              index: 0,
+              kind: MediaStreamKind.video,
+              codec: 'h264',
+              dimensions: MediaDimensions(width: 1920, height: 1080),
+            ),
+            MediaStreamMetadata(
+              index: 1,
+              kind: MediaStreamKind.audio,
+              codec: 'aac',
+            ),
+          ],
+          hasAudio: true,
+        ),
+      );
+      final playbackFactory = _FakeVideoPlaybackControllerFactory();
+      final videoCubit = VideoPlayerCubit(controllerFactory: playbackFactory);
+      addTearDown(setupCubit.close);
+      addTearDown(inspectionCubit.close);
+      addTearDown(videoCubit.close);
+
+      await tester.pumpWidget(
+        VideoTranslatorApp(
+          startEngineOnLaunch: false,
+          projectSetupCubit: setupCubit,
+          mediaInspectionCubit: inspectionCubit,
+          videoPlayerCubit: videoCubit,
+        ),
+      );
+
+      expect(find.byKey(const Key('workflow-selection-page')), findsOneWidget);
+      expect(
+        find.byKey(const Key('workflow-document-translation')),
+        findsOneWidget,
+      );
+      await _enterVideoWorkflow(tester);
+
+      await tester.tap(find.text('Open a video'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('source.mp4'), findsOneWidget);
+      expect(find.byKey(VideoPlayerSurface.surfaceKey), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Inspect video'));
+      await tester.tap(find.text('Inspect video'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const Key('media-inspection-details')), findsOneWidget);
+      expect(find.text('01:35'), findsOneWidget);
+      expect(find.text('Present'), findsOneWidget);
+
+      playbackFactory.controller.durationEvents.add(const Duration(minutes: 2));
+      playbackFactory.controller.positionEvents.add(const Duration(seconds: 5));
+      await tester.pump();
+      expect(find.text('00:05 / 02:00'), findsOneWidget);
+
+      await tester.ensureVisible(find.byTooltip('Play video'));
+      await tester.tap(find.byTooltip('Play video'));
+      expect(playbackFactory.controller.playCount, 1);
+    },
+  );
+
   testWidgets('opens and replaces one source video', (
     WidgetTester tester,
   ) async {
