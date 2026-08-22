@@ -53,6 +53,7 @@ void main() {
           projectSetupCubit: cubit,
         ),
       );
+      await _enterVideoWorkflow(tester);
 
       final context = tester.element(find.byType(Scaffold));
       expect(Localizations.localeOf(context), const Locale('vi'));
@@ -99,6 +100,33 @@ void main() {
     expect(AppLocalizations.of(context).languageVietnamese, 'Vietnamese');
   });
 
+  testWidgets('switches the UI language from workflow selection', (
+    tester,
+  ) async {
+    addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);
+    tester.binding.platformDispatcher.localesTestValue = const [
+      Locale('en', 'US'),
+    ];
+
+    await tester.pumpWidget(
+      const VideoTranslatorApp(startEngineOnLaunch: false),
+    );
+
+    await tester.tap(find.byKey(const Key('ui-language-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ui-language-option-vi')));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(
+      find.byKey(const Key('workflow-selection-page')),
+    );
+    final localizations = AppLocalizations.of(context);
+    expect(Localizations.localeOf(context), const Locale('vi'));
+    expect(find.text(localizations.workflowSelectionQuestion), findsOneWidget);
+    expect(find.text(localizations.videoTranslationWorkflow), findsOneWidget);
+    expect(find.byTooltip(localizations.changeAppLanguage), findsOneWidget);
+  });
+
   testWidgets(
     'switches the UI language for the current run without changing project languages',
     (tester) async {
@@ -121,6 +149,7 @@ void main() {
           projectSetupCubit: cubit,
         ),
       );
+      await _enterVideoWorkflow(tester);
 
       final scaffoldFinder = find.byType(Scaffold);
       expect(
@@ -189,6 +218,7 @@ void main() {
           projectSetupCubit: cubit,
         ),
       );
+      await _enterVideoWorkflow(tester);
 
       final context = tester.element(find.byType(Scaffold));
       final localizations = AppLocalizations.of(context);
@@ -233,12 +263,18 @@ void main() {
     await tester.pumpWidget(
       VideoTranslatorApp(startEngineOnLaunch: false, projectSetupCubit: cubit),
     );
+    await _enterVideoWorkflow(tester);
     cubit.validateForProcessing();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final localizations = AppLocalizations.of(
       tester.element(find.byType(Scaffold)),
     );
     expect(find.text(localizations.targetLanguageRequired), findsOneWidget);
   });
+}
+
+Future<void> _enterVideoWorkflow(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('workflow-video-translation')));
+  await tester.pumpAndSettle();
 }
