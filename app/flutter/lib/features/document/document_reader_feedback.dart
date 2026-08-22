@@ -13,6 +13,13 @@ String documentReaderUnsupportedDescription(
 ) => switch ((source.format, reason)) {
   (DocumentReaderFormat.epub, DocumentReaderUnsupportedReason.fileTooLarge) =>
     localizations.epubReaderFileTooLarge,
+  (DocumentReaderFormat.pdf, DocumentReaderUnsupportedReason.fileTooLarge) =>
+    localizations.pdfReaderFileTooLarge,
+  (
+    DocumentReaderFormat.pdf,
+    DocumentReaderUnsupportedReason.pageLimitExceeded,
+  ) =>
+    localizations.pdfReaderTooManyPages,
   (
     DocumentReaderFormat.plainText,
     DocumentReaderUnsupportedReason.fileTooLarge,
@@ -33,6 +40,13 @@ Key documentReaderUnsupportedRegionKey(
 ) => switch ((source.format, reason)) {
   (DocumentReaderFormat.epub, DocumentReaderUnsupportedReason.fileTooLarge) =>
     const Key('document-workspace-epub-too-large'),
+  (DocumentReaderFormat.pdf, DocumentReaderUnsupportedReason.fileTooLarge) =>
+    const Key('document-workspace-pdf-too-large'),
+  (
+    DocumentReaderFormat.pdf,
+    DocumentReaderUnsupportedReason.pageLimitExceeded,
+  ) =>
+    const Key('document-workspace-pdf-too-many-pages'),
   (
     DocumentReaderFormat.plainText,
     DocumentReaderUnsupportedReason.fileTooLarge,

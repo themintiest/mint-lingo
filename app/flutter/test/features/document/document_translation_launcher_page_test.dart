@@ -4,14 +4,45 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_translator/app/theme/app_theme.dart';
 import 'package:video_translator/features/document/document_reader_cubit.dart';
+import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
 import 'package:video_translator/features/document/document_translation_launcher_page.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
 import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
+import 'package:video_translator/features/document/pdf_presentation_loader.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 void main() {
+  test('does not reopen a released PDF reader workspace', () {
+    const source = DocumentSourceReference(
+      path: '/documents/guide.pdf',
+      fileName: 'guide.pdf',
+      format: DocumentReaderFormat.pdf,
+    );
+
+    expect(
+      shouldOpenDocumentWorkspace(
+        const DocumentReaderReady(
+          source: source,
+          presentation: PdfDocumentPresentation(
+            content: PdfPresentationContent(),
+          ),
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      shouldOpenDocumentWorkspace(
+        const DocumentReaderReady(
+          source: source,
+          presentation: DocumentReaderUnavailablePresentation(),
+        ),
+      ),
+      isFalse,
+    );
+  });
+
   testWidgets('opens the workspace and replaces a document reader region', (
     tester,
   ) async {
@@ -118,6 +149,7 @@ void main() {
         ),
       ]),
       plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
+      pdfPresentationLoader: const _FakePdfPresentationLoader(),
     );
     addTearDown(cubit.close);
 
@@ -202,6 +234,14 @@ final class _FakePlainTextPresentationLoader
   @override
   Future<PlainTextPresentationContent> load(String localPath) async =>
       const PlainTextPresentationContent(text: 'First line\n\nSecond line');
+}
+
+final class _FakePdfPresentationLoader implements PdfPresentationLoader {
+  const _FakePdfPresentationLoader();
+
+  @override
+  Future<PdfPresentationContent> load(String localPath) async =>
+      const PdfPresentationContent();
 }
 
 Widget _launcherApp(DocumentReaderCubit cubit) => BlocProvider.value(

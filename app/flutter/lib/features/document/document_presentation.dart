@@ -1,5 +1,6 @@
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
 import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
+import 'package:video_translator/features/document/pdf_presentation_loader.dart';
 
 /// Reader-only data prepared for one local document format.
 ///
@@ -23,11 +24,17 @@ final class PlainTextDocumentPresentation extends DocumentPresentation {
   final PlainTextPresentationContent content;
 }
 
-/// A recognized source whose reader surface has not been implemented yet.
+/// PDF presentation readiness for the local original-source reader.
 ///
-/// This is deliberately format-neutral: it preserves the current PDF
-/// placeholder without introducing a PDF data model before there is PDF data
-/// to present.
+/// The content intentionally contains no extracted text, pages, or processing
+/// metadata. PDFium opens the selected local path only inside the reader widget.
+final class PdfDocumentPresentation extends DocumentPresentation {
+  const PdfDocumentPresentation({required this.content});
+
+  final PdfPresentationContent content;
+}
+
+/// A selected source whose presentation data has been released.
 final class DocumentReaderUnavailablePresentation extends DocumentPresentation {
   const DocumentReaderUnavailablePresentation();
 

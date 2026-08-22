@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
+import 'package:video_translator/features/document/document_reader_cubit.dart';
+import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/reader/epub/epub_reader_region.dart';
 import 'package:video_translator/features/document/reader/plain_text/plain_text_reader_region.dart';
+import 'package:video_translator/features/document/reader/pdf/pdf_reader_region.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 /// The single boundary that maps prepared document data to reader UI.
 class DocumentReaderHost extends StatelessWidget {
-  const DocumentReaderHost({super.key, required this.presentation});
+  const DocumentReaderHost({
+    super.key,
+    required this.source,
+    required this.presentation,
+  });
 
+  final DocumentSourceReference source;
   final DocumentPresentation presentation;
 
   @override
@@ -19,17 +28,20 @@ class DocumentReaderHost extends StatelessWidget {
     PlainTextDocumentPresentation(:final content) => PlainTextReaderRegion(
       content: content,
     ),
-    DocumentReaderUnavailablePresentation() => const _PdfReaderRegion(),
+    PdfDocumentPresentation() => PdfReaderRegion(
+      key: ValueKey(source.path),
+      localPath: source.path,
+      onLoadFailure: (error) => context
+          .read<DocumentReaderCubit>()
+          .reportPdfReaderFailure(source, error),
+      onPageLimitExceeded: () => context
+          .read<DocumentReaderCubit>()
+          .reportPdfPageLimitExceeded(source),
+    ),
+    DocumentReaderUnavailablePresentation() => const _UnavailableReaderRegion(
+      regionKey: Key('document-reader-region-pdf'),
+    ),
   };
-}
-
-class _PdfReaderRegion extends StatelessWidget {
-  const _PdfReaderRegion();
-
-  @override
-  Widget build(BuildContext context) => const _UnavailableReaderRegion(
-    regionKey: Key('document-reader-region-pdf'),
-  );
 }
 
 class _UnavailableReaderRegion extends StatelessWidget {

@@ -98,6 +98,7 @@ final class DocumentReaderReady extends DocumentReaderLoadState {
 enum DocumentReaderUnsupportedReason {
   generic,
   fileTooLarge,
+  pageLimitExceeded,
   unsupportedContent,
 }
 
