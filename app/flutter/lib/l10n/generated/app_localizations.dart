@@ -631,6 +631,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to select the document. Please try again.'**
   String get documentSelectionFailed;
+
+  /// No description provided for @documentWorkspaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Document Workspace'**
+  String get documentWorkspaceTitle;
+
+  /// No description provided for @documentSourceMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'No document source is selected.'**
+  String get documentSourceMissing;
+
+  /// No description provided for @replacingDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Replacing document...'**
+  String get replacingDocument;
+
+  /// No description provided for @documentReaderUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader surface not available yet'**
+  String get documentReaderUnavailableTitle;
+
+  /// No description provided for @documentReaderUnavailableDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'A format-specific read-only reader will be added in its own task.'**
+  String get documentReaderUnavailableDescription;
 }
 
 class _AppLocalizationsDelegate

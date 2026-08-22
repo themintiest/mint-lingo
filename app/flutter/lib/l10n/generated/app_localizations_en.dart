@@ -295,4 +295,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get documentSelectionFailed =>
       'Unable to select the document. Please try again.';
+
+  @override
+  String get documentWorkspaceTitle => 'Document Workspace';
+
+  @override
+  String get documentSourceMissing => 'No document source is selected.';
+
+  @override
+  String get replacingDocument => 'Replacing document...';
+
+  @override
+  String get documentReaderUnavailableTitle =>
+      'Reader surface not available yet';
+
+  @override
+  String get documentReaderUnavailableDescription =>
+      'A format-specific read-only reader will be added in its own task.';
 }

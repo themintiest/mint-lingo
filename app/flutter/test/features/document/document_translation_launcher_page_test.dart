@@ -10,7 +10,7 @@ import 'package:video_translator/features/document/document_translation_launcher
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 void main() {
-  testWidgets('selects then replaces a document without rendering a reader', (
+  testWidgets('opens the workspace and replaces a document reader region', (
     tester,
   ) async {
     final cubit = DocumentReaderCubit(
@@ -53,16 +53,115 @@ void main() {
     await tester.tap(find.byKey(const Key('select-document-source')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Selected document: first.txt'), findsOneWidget);
+    expect(find.byKey(const Key('document-workspace-source')), findsOneWidget);
+    expect(find.text('first.txt'), findsOneWidget);
     expect(find.text('Replace document'), findsOneWidget);
     expect(find.byType(SelectionArea), findsNothing);
+    expect(
+      find.byKey(const Key('document-reader-region-plain-text')),
+      findsOneWidget,
+    );
 
+    await tester.tap(find.byKey(const Key('replace-document-source')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('document-reader-region-epub')),
+      findsOneWidget,
+    );
+    expect(find.text('second.epub'), findsOneWidget);
+    expect(find.text('first.txt'), findsNothing);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('document-translation-launcher')),
+      findsOneWidget,
+    );
+    expect(find.text('Replace document'), findsOneWidget);
+  });
+
+  testWidgets('presents unsupported replacement feedback in the workspace', (
+    tester,
+  ) async {
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([
+        const DocumentSourceReference(
+          path: '/documents/guide.pdf',
+          fileName: 'guide.pdf',
+          format: DocumentReaderFormat.pdf,
+        ),
+        const DocumentSourceReference(
+          path: '/documents/legacy.doc',
+          fileName: 'legacy.doc',
+        ),
+      ]),
+    );
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(_launcherApp(cubit));
     await tester.tap(find.byKey(const Key('select-document-source')));
     await tester.pumpAndSettle();
-    expect(find.text('Selected document: second.epub'), findsOneWidget);
-    expect(find.text('first.txt'), findsNothing);
+    await tester.tap(find.byKey(const Key('replace-document-source')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('document-workspace-unsupported')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'This file is not supported for document viewing. Choose an EPUB, TXT, or PDF.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keeps workspace chrome within a narrow desktop viewport', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(480, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([
+        const DocumentSourceReference(
+          path: '/documents/notes.txt',
+          fileName: 'notes.txt',
+          format: DocumentReaderFormat.plainText,
+        ),
+      ]),
+    );
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(_launcherApp(cubit));
+    await tester.tap(find.byKey(const Key('select-document-source')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('document-workspace-source'))).width,
+      lessThan(480),
+    );
+    expect(tester.takeException(), isNull);
   });
 }
+
+Widget _launcherApp(DocumentReaderCubit cubit) => BlocProvider.value(
+  value: cubit,
+  child: MaterialApp(
+    theme: AppTheme.light,
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: DocumentTranslationLauncherPage(
+      localeOverride: null,
+      onLocaleSelected: (_) {},
+    ),
+  ),
+);
 
 final class _FakeDocumentSourcePicker implements DocumentSourcePicker {
   _FakeDocumentSourcePicker(this._sources);
