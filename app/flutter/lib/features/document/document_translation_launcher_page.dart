@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/app_locale_selector.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
 import 'package:video_translator/features/document/document_reader_cubit.dart';
+import 'package:video_translator/features/document/document_reader_feedback.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
+import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_workspace_page.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
@@ -28,10 +30,9 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
 
     return BlocListener<DocumentReaderCubit, DocumentReaderLoadState>(
       listenWhen: (_, state) =>
-          state is EpubDocumentReaderReady ||
-          state is PlainTextDocumentReaderReady ||
-          (state is DocumentReaderReady &&
-              state.source.format != DocumentReaderFormat.epub),
+          state is DocumentReaderReady &&
+          (state.presentation is! DocumentReaderUnavailablePresentation ||
+              state.source.format == DocumentReaderFormat.pdf),
       listener: (context, state) {
         if (ModalRoute.of(context)?.isCurrent != true) {
           return;
@@ -162,27 +163,11 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
   ) => switch (state) {
     DocumentReaderNoSource() => localizations.documentLauncherDescription,
     DocumentReaderLoading() => localizations.selectingDocument,
-    EpubDocumentReaderReady(:final source) => localizations.documentSelected(
-      source.fileName,
-    ),
-    PlainTextDocumentReaderReady(:final source) =>
-      localizations.documentSelected(source.fileName),
     DocumentReaderReady(:final source) => localizations.documentSelected(
       source.fileName,
     ),
-    DocumentReaderUnsupported(
-      reason: DocumentReaderUnsupportedReason.epubFileTooLarge,
-    ) =>
-      localizations.epubReaderFileTooLarge,
-    DocumentReaderUnsupported(
-      reason: DocumentReaderUnsupportedReason.plainTextFileTooLarge,
-    ) =>
-      localizations.plainTextReaderFileTooLarge,
-    DocumentReaderUnsupported(
-      reason: DocumentReaderUnsupportedReason.plainTextUnsupportedContent,
-    ) =>
-      localizations.plainTextReaderUnsupportedContent,
-    DocumentReaderUnsupported() => localizations.documentSourceUnsupported,
+    DocumentReaderUnsupported(:final source, :final reason) =>
+      documentReaderUnsupportedDescription(localizations, source, reason),
     DocumentReaderFailure() => localizations.documentSelectionFailed,
   };
 }
