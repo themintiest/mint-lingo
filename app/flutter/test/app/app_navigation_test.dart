@@ -42,7 +42,7 @@ void main() {
     },
   );
 
-  testWidgets('opens the Document launcher without document acquisition', (
+  testWidgets('opens the Document launcher with document selection only', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -59,10 +59,9 @@ void main() {
       find.text(localizations.documentLauncherDescription),
       findsOneWidget,
     );
-    expect(find.byType(FilledButton), findsNothing);
-    expect(find.text('EPUB'), findsNothing);
-    expect(find.text('TXT'), findsNothing);
-    expect(find.text('PDF'), findsNothing);
+    expect(find.byKey(const Key('select-document-source')), findsOneWidget);
+    expect(find.text(localizations.selectDocument), findsOneWidget);
+    expect(find.byType(SelectionArea), findsNothing);
 
     await tester.pageBack();
     await tester.pumpAndSettle();

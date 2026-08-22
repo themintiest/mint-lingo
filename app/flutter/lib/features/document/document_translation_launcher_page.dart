@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/app_locale_selector.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
+import 'package:video_translator/features/document/document_reader_cubit.dart';
+import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
-/// The entry boundary for Document Translation before document acquisition.
+/// The Document Translation entry for selecting one local reader source.
 class DocumentTranslationLauncherPage extends StatelessWidget {
   const DocumentTranslationLauncherPage({
     super.key,
@@ -80,10 +83,37 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            localizations.documentLauncherDescription,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            textAlign: TextAlign.center,
+                          BlocBuilder<
+                            DocumentReaderCubit,
+                            DocumentReaderLoadState
+                          >(
+                            builder: (context, state) => Column(
+                              children: [
+                                Text(
+                                  _descriptionForState(localizations, state),
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+                                if (state is DocumentReaderLoading)
+                                  const CircularProgressIndicator()
+                                else
+                                  FilledButton.icon(
+                                    key: const Key('select-document-source'),
+                                    onPressed: () => context
+                                        .read<DocumentReaderCubit>()
+                                        .selectOrReplaceSource(),
+                                    icon: const Icon(
+                                      Icons.folder_open_outlined,
+                                    ),
+                                    label: Text(
+                                      state.source == null
+                                          ? localizations.selectDocument
+                                          : localizations.replaceDocument,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -97,4 +127,17 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
       ),
     );
   }
+
+  String _descriptionForState(
+    AppLocalizations localizations,
+    DocumentReaderLoadState state,
+  ) => switch (state) {
+    DocumentReaderNoSource() => localizations.documentLauncherDescription,
+    DocumentReaderLoading() => localizations.selectingDocument,
+    DocumentReaderReady(:final source) => localizations.documentSelected(
+      source.fileName,
+    ),
+    DocumentReaderUnsupported() => localizations.documentSourceUnsupported,
+    DocumentReaderFailure() => localizations.documentSelectionFailed,
+  };
 }

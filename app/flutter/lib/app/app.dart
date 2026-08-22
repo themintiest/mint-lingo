@@ -8,6 +8,7 @@ import 'package:video_translator/app/engine/engine_client.dart';
 import 'package:video_translator/app/engine/engine_connection_cubit.dart';
 import 'package:video_translator/app/theme/app_theme.dart';
 import 'package:video_translator/app/workflow_selection_page.dart';
+import 'package:video_translator/features/document/document_reader_cubit.dart';
 import 'package:video_translator/features/document/document_translation_launcher_page.dart';
 import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
@@ -109,9 +110,12 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
       case AppWorkflow.documentTranslation:
         Navigator.of(context).push<void>(
           MaterialPageRoute(
-            builder: (context) => DocumentTranslationLauncherPage(
-              localeOverride: _localeOverride,
-              onLocaleSelected: _selectLocale,
+            builder: (context) => BlocProvider(
+              create: (_) => DocumentReaderCubit(),
+              child: DocumentTranslationLauncherPage(
+                localeOverride: _localeOverride,
+                onLocaleSelected: _selectLocale,
+              ),
             ),
           ),
         );
