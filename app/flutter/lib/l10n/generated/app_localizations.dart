@@ -571,6 +571,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Change app language'**
   String get changeAppLanguage;
+
+  /// No description provided for @workflowSelectionQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'What would you like to translate?'**
+  String get workflowSelectionQuestion;
+
+  /// No description provided for @videoTranslationWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Video Translation'**
+  String get videoTranslationWorkflow;
+
+  /// No description provided for @documentTranslationWorkflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Document Translation'**
+  String get documentTranslationWorkflow;
 }
 
 class _AppLocalizationsDelegate

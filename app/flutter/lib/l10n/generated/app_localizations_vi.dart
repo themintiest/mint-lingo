@@ -259,4 +259,13 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get changeAppLanguage => 'Đổi ngôn ngữ ứng dụng';
+
+  @override
+  String get workflowSelectionQuestion => 'Bạn muốn dịch nội dung gì?';
+
+  @override
+  String get videoTranslationWorkflow => 'Dịch video';
+
+  @override
+  String get documentTranslationWorkflow => 'Dịch tài liệu';
 }

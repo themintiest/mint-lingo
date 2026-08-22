@@ -81,5 +81,8 @@
   "engineReady": "Ready",
   "engineUnavailable": "Unavailable",
   "engineCrashed": "Crashed",
-  "changeAppLanguage": "Change app language"
+  "changeAppLanguage": "Change app language",
+  "workflowSelectionQuestion": "What would you like to translate?",
+  "videoTranslationWorkflow": "Video Translation",
+  "documentTranslationWorkflow": "Document Translation"
 }
