@@ -40,19 +40,23 @@ void main() {
 
   test('distinguishes each document reader load state', () {
     const failure = FormatException('Cannot open local source');
+    const unsupportedSource = DocumentSourceReference(
+      path: '/documents/legacy.doc',
+      fileName: 'legacy.doc',
+    );
     final states = <DocumentReaderLoadState>[
       const DocumentReaderNoSource(),
-      const DocumentReaderLoading(epubSource),
+      const DocumentReaderLoading(null),
       const DocumentReaderReady(epubSource),
-      const DocumentReaderUnsupported(epubSource),
+      const DocumentReaderUnsupported(unsupportedSource),
       const DocumentReaderFailure(source: epubSource, error: failure),
     ];
 
     expect(states[0].source, isNull);
-    expect(
-      states.skip(1).map((state) => state.source),
-      everyElement(epubSource),
-    );
+    expect(states[1].source, isNull);
+    expect(states[2].source, epubSource);
+    expect(states[3].source, unsupportedSource);
+    expect(states[4].source, epubSource);
     expect(states.toSet(), hasLength(5));
   });
 

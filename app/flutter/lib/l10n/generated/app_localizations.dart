@@ -593,8 +593,44 @@ abstract class AppLocalizations {
   /// No description provided for @documentLauncherDescription.
   ///
   /// In en, this message translates to:
-  /// **'Document translation will be available here.'**
+  /// **'Select a local EPUB, TXT, or PDF for read-only viewing.'**
   String get documentLauncherDescription;
+
+  /// No description provided for @selectDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Select document'**
+  String get selectDocument;
+
+  /// No description provided for @replaceDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace document'**
+  String get replaceDocument;
+
+  /// No description provided for @selectingDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Selecting document...'**
+  String get selectingDocument;
+
+  /// No description provided for @documentSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected document: {fileName}'**
+  String documentSelected(Object fileName);
+
+  /// No description provided for @documentSourceUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is not supported for document viewing. Choose an EPUB, TXT, or PDF.'**
+  String get documentSourceUnsupported;
+
+  /// No description provided for @documentSelectionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to select the document. Please try again.'**
+  String get documentSelectionFailed;
 }
 
 class _AppLocalizationsDelegate

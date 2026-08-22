@@ -85,5 +85,12 @@
   "workflowSelectionQuestion": "What would you like to translate?",
   "videoTranslationWorkflow": "Video Translation",
   "documentTranslationWorkflow": "Document Translation",
-  "documentLauncherDescription": "Document translation will be available here."
+  "documentLauncherDescription": "Select a local EPUB, TXT, or PDF for read-only viewing.",
+  "selectDocument": "Select document",
+  "replaceDocument": "Replace document",
+  "selectingDocument": "Selecting document...",
+  "documentSelected": "Selected document: {fileName}",
+  "@documentSelected": {"placeholders": {"fileName": {}}},
+  "documentSourceUnsupported": "This file is not supported for document viewing. Choose an EPUB, TXT, or PDF.",
+  "documentSelectionFailed": "Unable to select the document. Please try again."
 }

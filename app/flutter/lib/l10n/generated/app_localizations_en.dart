@@ -272,5 +272,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get documentLauncherDescription =>
-      'Document translation will be available here.';
+      'Select a local EPUB, TXT, or PDF for read-only viewing.';
+
+  @override
+  String get selectDocument => 'Select document';
+
+  @override
+  String get replaceDocument => 'Replace document';
+
+  @override
+  String get selectingDocument => 'Selecting document...';
+
+  @override
+  String documentSelected(Object fileName) {
+    return 'Selected document: $fileName';
+  }
+
+  @override
+  String get documentSourceUnsupported =>
+      'This file is not supported for document viewing. Choose an EPUB, TXT, or PDF.';
+
+  @override
+  String get documentSelectionFailed =>
+      'Unable to select the document. Please try again.';
 }

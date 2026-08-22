@@ -85,5 +85,12 @@
   "workflowSelectionQuestion": "Bạn muốn dịch nội dung gì?",
   "videoTranslationWorkflow": "Dịch video",
   "documentTranslationWorkflow": "Dịch tài liệu",
-  "documentLauncherDescription": "Bản dịch tài liệu sẽ có tại đây."
+  "documentLauncherDescription": "Chọn EPUB, TXT hoặc PDF trên máy để xem chỉ đọc.",
+  "selectDocument": "Chọn tài liệu",
+  "replaceDocument": "Thay tài liệu",
+  "selectingDocument": "Đang chọn tài liệu...",
+  "documentSelected": "Tài liệu đã chọn: {fileName}",
+  "@documentSelected": {"placeholders": {"fileName": {}}},
+  "documentSourceUnsupported": "Tệp này không được hỗ trợ để xem tài liệu. Hãy chọn EPUB, TXT hoặc PDF.",
+  "documentSelectionFailed": "Không thể chọn tài liệu. Vui lòng thử lại."
 }

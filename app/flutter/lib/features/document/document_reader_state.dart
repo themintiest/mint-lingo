@@ -12,12 +12,17 @@ final class DocumentSourceReference {
   const DocumentSourceReference({
     required this.path,
     required this.fileName,
-    required this.format,
+    this.format,
   });
 
   final String path;
   final String fileName;
-  final DocumentReaderFormat format;
+
+  /// The reader format recognized from local source metadata, if any.
+  ///
+  /// A null value is retained only to report that a selected local source is
+  /// unsupported by the Document Translation reader boundary.
+  final DocumentReaderFormat? format;
 
   @override
   bool operator ==(Object other) =>
@@ -60,7 +65,7 @@ final class DocumentReaderLoading extends DocumentReaderLoadState {
   const DocumentReaderLoading(this.source);
 
   @override
-  final DocumentSourceReference source;
+  final DocumentSourceReference? source;
 
   @override
   bool operator ==(Object other) =>
@@ -105,7 +110,7 @@ final class DocumentReaderFailure extends DocumentReaderLoadState {
   const DocumentReaderFailure({required this.source, required this.error});
 
   @override
-  final DocumentSourceReference source;
+  final DocumentSourceReference? source;
   final Object error;
 
   @override

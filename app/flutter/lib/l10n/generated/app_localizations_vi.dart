@@ -270,5 +270,28 @@ class AppLocalizationsVi extends AppLocalizations {
   String get documentTranslationWorkflow => 'Dịch tài liệu';
 
   @override
-  String get documentLauncherDescription => 'Bản dịch tài liệu sẽ có tại đây.';
+  String get documentLauncherDescription =>
+      'Chọn EPUB, TXT hoặc PDF trên máy để xem chỉ đọc.';
+
+  @override
+  String get selectDocument => 'Chọn tài liệu';
+
+  @override
+  String get replaceDocument => 'Thay tài liệu';
+
+  @override
+  String get selectingDocument => 'Đang chọn tài liệu...';
+
+  @override
+  String documentSelected(Object fileName) {
+    return 'Tài liệu đã chọn: $fileName';
+  }
+
+  @override
+  String get documentSourceUnsupported =>
+      'Tệp này không được hỗ trợ để xem tài liệu. Hãy chọn EPUB, TXT hoặc PDF.';
+
+  @override
+  String get documentSelectionFailed =>
+      'Không thể chọn tài liệu. Vui lòng thử lại.';
 }
