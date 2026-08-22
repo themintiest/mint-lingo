@@ -1,4 +1,5 @@
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
+import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
 
 /// Reader formats recognized by the Document Translation presentation flow.
 ///
@@ -104,7 +105,24 @@ final class EpubDocumentReaderReady extends DocumentReaderLoadState {
   final EpubPresentationContent content;
 }
 
-enum DocumentReaderUnsupportedReason { generic, epubFileTooLarge }
+/// A selected local UTF-8 text source is ready for read-only presentation.
+final class PlainTextDocumentReaderReady extends DocumentReaderLoadState {
+  const PlainTextDocumentReaderReady({
+    required this.source,
+    required this.content,
+  });
+
+  @override
+  final DocumentSourceReference source;
+  final PlainTextPresentationContent content;
+}
+
+enum DocumentReaderUnsupportedReason {
+  generic,
+  epubFileTooLarge,
+  plainTextFileTooLarge,
+  plainTextUnsupportedContent,
+}
 
 /// The selected local document cannot be presented by its reader surface.
 final class DocumentReaderUnsupported extends DocumentReaderLoadState {

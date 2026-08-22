@@ -314,4 +314,12 @@ class AppLocalizationsVi extends AppLocalizations {
   @override
   String get epubReaderFileTooLarge =>
       'EPUB này lớn hơn giới hạn trình đọc 50 MiB.';
+
+  @override
+  String get plainTextReaderFileTooLarge =>
+      'Tệp văn bản này lớn hơn giới hạn trình đọc 10 MiB.';
+
+  @override
+  String get plainTextReaderUnsupportedContent =>
+      'Trình đọc này chỉ hỗ trợ văn bản UTF-8; không thể hiển thị nội dung nhị phân hoặc văn bản không hợp lệ.';
 }

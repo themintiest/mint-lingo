@@ -316,4 +316,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get epubReaderFileTooLarge =>
       'This EPUB is larger than the 50 MiB reader limit.';
+
+  @override
+  String get plainTextReaderFileTooLarge =>
+      'This text file is larger than the 10 MiB reader limit.';
+
+  @override
+  String get plainTextReaderUnsupportedContent =>
+      'This reader supports UTF-8 text only; binary or invalid text content cannot be displayed.';
 }

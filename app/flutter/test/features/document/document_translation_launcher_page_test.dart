@@ -8,6 +8,7 @@ import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_source_picker.dart';
 import 'package:video_translator/features/document/document_translation_launcher_page.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
+import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 void main() {
@@ -28,6 +29,7 @@ void main() {
         ),
       ]),
       epubPresentationLoader: const _FakeEpubPresentationLoader(),
+      plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
     );
     addTearDown(cubit.close);
 
@@ -58,11 +60,12 @@ void main() {
     expect(find.byKey(const Key('document-workspace-source')), findsOneWidget);
     expect(find.text('first.txt'), findsOneWidget);
     expect(find.text('Replace document'), findsOneWidget);
-    expect(find.byType(SelectionArea), findsNothing);
+    expect(find.byType(SelectionArea), findsOneWidget);
     expect(
       find.byKey(const Key('document-reader-region-plain-text')),
       findsOneWidget,
     );
+    expect(find.text('First line\n\nSecond line'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('replace-document-source')));
     await tester.pumpAndSettle();
@@ -114,6 +117,7 @@ void main() {
           fileName: 'legacy.doc',
         ),
       ]),
+      plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
     );
     addTearDown(cubit.close);
 
@@ -148,14 +152,16 @@ void main() {
           format: DocumentReaderFormat.plainText,
         ),
       ]),
+      plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
     );
     addTearDown(cubit.close);
 
     await tester.pumpWidget(_launcherApp(cubit));
     await tester.tap(find.byKey(const Key('select-document-source')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.byKey(const Key('plain-text-reader-content')), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const Key('document-workspace-source'))).width,
       lessThan(480),
@@ -184,6 +190,15 @@ final class _FakeEpubPresentationLoader implements EpubPresentationLoader {
         ],
         images: {},
       );
+}
+
+final class _FakePlainTextPresentationLoader
+    implements PlainTextPresentationLoader {
+  const _FakePlainTextPresentationLoader();
+
+  @override
+  Future<PlainTextPresentationContent> load(String localPath) async =>
+      const PlainTextPresentationContent(text: 'First line\n\nSecond line');
 }
 
 Widget _launcherApp(DocumentReaderCubit cubit) => BlocProvider.value(
