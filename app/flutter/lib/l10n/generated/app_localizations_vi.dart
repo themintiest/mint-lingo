@@ -268,4 +268,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get documentTranslationWorkflow => 'Dịch tài liệu';
+
+  @override
+  String get documentLauncherDescription => 'Bản dịch tài liệu sẽ có tại đây.';
 }

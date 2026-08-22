@@ -269,4 +269,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get documentTranslationWorkflow => 'Document Translation';
+
+  @override
+  String get documentLauncherDescription =>
+      'Document translation will be available here.';
 }

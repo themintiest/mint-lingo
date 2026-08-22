@@ -589,6 +589,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Document Translation'**
   String get documentTranslationWorkflow;
+
+  /// No description provided for @documentLauncherDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Document translation will be available here.'**
+  String get documentLauncherDescription;
 }
 
 class _AppLocalizationsDelegate
