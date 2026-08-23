@@ -1,17 +1,23 @@
-# video_translator
+# Video Translator Flutter application
 
-A new Flutter project.
+The desktop UI and application orchestration layer for Video Translator.
 
-## Getting Started
+## Development
 
-This project is a starting point for a Flutter application.
+Install Flutter, enable the desktop target for your operating system, and run:
 
-A few resources to get you started if this is your first Flutter project:
+```sh
+flutter pub get
+flutter run -d windows # Use linux or macos on those platforms.
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Validate changes with:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```sh
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test
+```
+
+Product features and communication with the Python engine are intentionally not
+part of the initial bootstrap.

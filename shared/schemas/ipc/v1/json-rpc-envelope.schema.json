@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:video-translator:ipc:v1:json-rpc-envelope",
+  "title": "Video Translator IPC v1 JSON-RPC envelope",
+  "description": "One framed JSON-RPC 2.0 message for the Video Translator IPC protocol version 1.0.",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/notification" },
+    { "$ref": "#/$defs/successResponse" },
+    { "$ref": "#/$defs/errorResponse" }
+  ],
+  "$defs": {
+    "protocolFields": {
+      "type": "object",
+      "required": ["jsonrpc", "protocolVersion"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "protocolVersion": { "const": "1.0" }
+      }
+    },
+    "requestId": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "integer" }
+      ]
+    },
+    "params": {
+      "oneOf": [
+        { "type": "object" },
+        { "type": "array" }
+      ]
+    },
+    "request": {
+      "allOf": [
+        { "$ref": "#/$defs/protocolFields" },
+        {
+          "type": "object",
+          "required": ["id", "method"],
+          "properties": {
+            "jsonrpc": { "const": "2.0" },
+            "protocolVersion": { "const": "1.0" },
+            "id": { "$ref": "#/$defs/requestId" },
+            "method": { "type": "string", "minLength": 1 },
+            "params": { "$ref": "#/$defs/params" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "notification": {
+      "allOf": [
+        { "$ref": "#/$defs/protocolFields" },
+        {
+          "type": "object",
+          "required": ["method"],
+          "not": { "required": ["id"] },
+          "properties": {
+            "jsonrpc": { "const": "2.0" },
+            "protocolVersion": { "const": "1.0" },
+            "method": { "type": "string", "minLength": 1 },
+            "params": { "$ref": "#/$defs/params" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "successResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/protocolFields" },
+        {
+          "type": "object",
+          "required": ["id", "result"],
+          "not": { "required": ["error"] },
+          "properties": {
+            "jsonrpc": { "const": "2.0" },
+            "protocolVersion": { "const": "1.0" },
+            "id": { "$ref": "#/$defs/requestId" },
+            "result": {}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "errorResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/protocolFields" },
+        {
+          "type": "object",
+          "required": ["id", "error"],
+          "not": { "required": ["result"] },
+          "properties": {
+            "jsonrpc": { "const": "2.0" },
+            "protocolVersion": { "const": "1.0" },
+            "id": {
+              "oneOf": [
+                { "$ref": "#/$defs/requestId" },
+                { "type": "null" }
+              ]
+            },
+            "error": {
+              "type": "object",
+              "required": ["code", "message"],
+              "properties": {
+                "code": { "type": "integer" },
+                "message": { "type": "string", "minLength": 1 },
+                "data": {}
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

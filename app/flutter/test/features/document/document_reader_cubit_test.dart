@@ -1,0 +1,407 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:video_translator/features/document/document_reader_cubit.dart';
+import 'package:video_translator/features/document/document_presentation.dart';
+import 'package:video_translator/features/document/document_reader_state.dart';
+import 'package:video_translator/features/document/document_source_picker.dart';
+import 'package:video_translator/features/document/epub_presentation_loader.dart';
+import 'package:video_translator/features/document/plain_text_presentation_loader.dart';
+import 'package:video_translator/features/document/pdf_presentation_loader.dart';
+
+void main() {
+  test('recognizes only EPUB TXT and PDF filename extensions', () {
+    expect(
+      documentReaderFormatForFileName('BOOK.EPUB'),
+      DocumentReaderFormat.epub,
+    );
+    expect(
+      documentReaderFormatForFileName('notes.txt'),
+      DocumentReaderFormat.plainText,
+    );
+    expect(
+      documentReaderFormatForFileName('guide.pdf'),
+      DocumentReaderFormat.pdf,
+    );
+    expect(documentReaderFormatForFileName('archive.docx'), isNull);
+  });
+
+  test('selects and replaces a recognized local document source', () async {
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([
+        const DocumentSourceReference(
+          path: '/documents/first.txt',
+          fileName: 'first.txt',
+          format: DocumentReaderFormat.plainText,
+        ),
+        const DocumentSourceReference(
+          path: '/documents/second.pdf',
+          fileName: 'second.pdf',
+          format: DocumentReaderFormat.pdf,
+        ),
+      ]),
+      plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
+      pdfPresentationLoader: const _FakePdfPresentationLoader(),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.selectOrReplaceSource();
+    await cubit.selectOrReplaceSource();
+
+    expect(
+      cubit.state,
+      isA<DocumentReaderReady>()
+          .having(
+            (state) => state.source,
+            'source',
+            const DocumentSourceReference(
+              path: '/documents/second.pdf',
+              fileName: 'second.pdf',
+              format: DocumentReaderFormat.pdf,
+            ),
+          )
+          .having(
+            (state) => state.presentation,
+            'presentation',
+            isA<PdfDocumentPresentation>(),
+          ),
+    );
+  });
+
+  test(
+    'restores the prior source when document selection is canceled',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/book.epub',
+        fileName: 'book.epub',
+        format: DocumentReaderFormat.epub,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source, null]),
+        epubPresentationLoader: const _FakeEpubPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+      await cubit.selectOrReplaceSource();
+
+      await cubit.selectOrReplaceSource();
+
+      expect(cubit.state, isA<DocumentReaderReady>());
+      final ready = cubit.state as DocumentReaderReady;
+      expect(ready.source, source);
+      expect(ready.presentation, isA<EpubDocumentPresentation>());
+    },
+  );
+
+  test(
+    'stores only EPUB presentation content after local reader loading',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/book.epub',
+        fileName: 'book.epub',
+        format: DocumentReaderFormat.epub,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+        epubPresentationLoader: const _FakeEpubPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(cubit.state, isA<DocumentReaderReady>());
+      final ready = cubit.state as DocumentReaderReady;
+      expect(ready.source, source);
+      expect(ready.presentation, isA<EpubDocumentPresentation>());
+      expect(
+        (ready.presentation as EpubDocumentPresentation)
+            .content
+            .chapters
+            .single
+            .title,
+        'Chapter',
+      );
+    },
+  );
+
+  test(
+    'stores UTF-8 plain-text presentation content after local loading',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/notes.txt',
+        fileName: 'notes.txt',
+        format: DocumentReaderFormat.plainText,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+        plainTextPresentationLoader: const _FakePlainTextPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(cubit.state, isA<DocumentReaderReady>());
+      final ready = cubit.state as DocumentReaderReady;
+      expect(ready.source, source);
+      expect(ready.presentation, isA<PlainTextDocumentPresentation>());
+      expect(
+        (ready.presentation as PlainTextDocumentPresentation).content.text,
+        'First line\n\nSecond line',
+      );
+    },
+  );
+
+  test('maps unsupported plain-text content to document-owned state', () async {
+    const source = DocumentSourceReference(
+      path: '/documents/invalid.txt',
+      fileName: 'invalid.txt',
+      format: DocumentReaderFormat.plainText,
+    );
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([source]),
+      plainTextPresentationLoader:
+          const _UnsupportedPlainTextPresentationLoader(),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.selectOrReplaceSource();
+
+    expect(
+      cubit.state,
+      const DocumentReaderUnsupported(
+        source,
+        reason: DocumentReaderUnsupportedReason.unsupportedContent,
+      ),
+    );
+  });
+
+  test('releases EPUB presentation content on reader disposal', () async {
+    const source = DocumentSourceReference(
+      path: '/documents/book.epub',
+      fileName: 'book.epub',
+      format: DocumentReaderFormat.epub,
+    );
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([source]),
+      epubPresentationLoader: const _FakeEpubPresentationLoader(),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.selectOrReplaceSource();
+    await cubit.close();
+
+    expect(
+      cubit.state,
+      const DocumentReaderReady(
+        source: source,
+        presentation: DocumentReaderUnavailablePresentation(),
+      ),
+    );
+  });
+
+  test(
+    'reports the EPUB size envelope as document-owned unsupported state',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/book.epub',
+        fileName: 'book.epub',
+        format: DocumentReaderFormat.epub,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+        epubPresentationLoader: const _TooLargeEpubPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(
+        cubit.state,
+        const DocumentReaderUnsupported(
+          source,
+          reason: DocumentReaderUnsupportedReason.fileTooLarge,
+        ),
+      );
+    },
+  );
+
+  test(
+    'reports an unsupported document without claiming a reader format',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/legacy.doc',
+        fileName: 'legacy.doc',
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(cubit.state, const DocumentReaderUnsupported(source));
+      expect(cubit.state.source?.format, isNull);
+    },
+  );
+
+  test('reports picker failures without mutating the prior source', () async {
+    const source = DocumentSourceReference(
+      path: '/documents/guide.pdf',
+      fileName: 'guide.pdf',
+      format: DocumentReaderFormat.pdf,
+    );
+    final error = StateError('Native picker failed.');
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker(
+        [source],
+        error: error,
+        errorOnCall: 2,
+      ),
+    );
+    addTearDown(cubit.close);
+    await cubit.selectOrReplaceSource();
+
+    await cubit.selectOrReplaceSource();
+
+    expect(cubit.state, DocumentReaderFailure(source: source, error: error));
+  });
+
+  test(
+    'maps the PDF size envelope to document-owned unsupported state',
+    () async {
+      const source = DocumentSourceReference(
+        path: '/documents/large.pdf',
+        fileName: 'large.pdf',
+        format: DocumentReaderFormat.pdf,
+      );
+      final cubit = DocumentReaderCubit(
+        sourcePicker: _FakeDocumentSourcePicker([source]),
+        pdfPresentationLoader: const _TooLargePdfPresentationLoader(),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.selectOrReplaceSource();
+
+      expect(
+        cubit.state,
+        const DocumentReaderUnsupported(
+          source,
+          reason: DocumentReaderUnsupportedReason.fileTooLarge,
+        ),
+      );
+    },
+  );
+
+  test('keeps PDF reader failures and page limits document-owned', () async {
+    const source = DocumentSourceReference(
+      path: '/documents/source.pdf',
+      fileName: 'source.pdf',
+      format: DocumentReaderFormat.pdf,
+    );
+    final cubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([source]),
+      pdfPresentationLoader: const _FakePdfPresentationLoader(),
+    );
+    addTearDown(cubit.close);
+    final error = StateError('corrupt PDF');
+
+    await cubit.selectOrReplaceSource();
+    cubit.reportPdfReaderFailure(source, error);
+    expect(cubit.state, DocumentReaderFailure(source: source, error: error));
+
+    final pageLimitCubit = DocumentReaderCubit(
+      sourcePicker: _FakeDocumentSourcePicker([source]),
+      pdfPresentationLoader: const _FakePdfPresentationLoader(),
+    );
+    addTearDown(pageLimitCubit.close);
+    await pageLimitCubit.selectOrReplaceSource();
+    pageLimitCubit.reportPdfPageLimitExceeded(source);
+    expect(
+      pageLimitCubit.state,
+      const DocumentReaderUnsupported(
+        source,
+        reason: DocumentReaderUnsupportedReason.pageLimitExceeded,
+      ),
+    );
+  });
+}
+
+final class _FakeEpubPresentationLoader implements EpubPresentationLoader {
+  const _FakeEpubPresentationLoader();
+
+  @override
+  Future<EpubPresentationContent> load(String localPath) async =>
+      const EpubPresentationContent(
+        chapters: [
+          EpubPresentationChapter(
+            title: 'Chapter',
+            packagePath: 'Text/chapter.xhtml',
+            blocks: [],
+          ),
+        ],
+        images: {},
+      );
+}
+
+final class _TooLargeEpubPresentationLoader implements EpubPresentationLoader {
+  const _TooLargeEpubPresentationLoader();
+
+  @override
+  Future<EpubPresentationContent> load(String localPath) =>
+      Future<EpubPresentationContent>.error(
+        const EpubReaderFileTooLargeException(50 * 1024 * 1024 + 1),
+      );
+}
+
+final class _FakePlainTextPresentationLoader
+    implements PlainTextPresentationLoader {
+  const _FakePlainTextPresentationLoader();
+
+  @override
+  Future<PlainTextPresentationContent> load(String localPath) async =>
+      const PlainTextPresentationContent(text: 'First line\n\nSecond line');
+}
+
+final class _UnsupportedPlainTextPresentationLoader
+    implements PlainTextPresentationLoader {
+  const _UnsupportedPlainTextPresentationLoader();
+
+  @override
+  Future<PlainTextPresentationContent> load(String localPath) =>
+      Future<PlainTextPresentationContent>.error(
+        const PlainTextReaderUnsupportedContentException(),
+      );
+}
+
+final class _FakePdfPresentationLoader implements PdfPresentationLoader {
+  const _FakePdfPresentationLoader();
+
+  @override
+  Future<PdfPresentationContent> load(String localPath) async =>
+      const PdfPresentationContent();
+}
+
+final class _TooLargePdfPresentationLoader implements PdfPresentationLoader {
+  const _TooLargePdfPresentationLoader();
+
+  @override
+  Future<PdfPresentationContent> load(String localPath) =>
+      Future<PdfPresentationContent>.error(
+        const PdfReaderFileTooLargeException(50 * 1024 * 1024 + 1),
+      );
+}
+
+final class _FakeDocumentSourcePicker implements DocumentSourcePicker {
+  _FakeDocumentSourcePicker(this._sources, {this.error, this.errorOnCall});
+
+  final List<DocumentSourceReference?> _sources;
+  final Object? error;
+  final int? errorOnCall;
+  var _callCount = 0;
+
+  @override
+  Future<DocumentSourceReference?> pickDocumentSource() async {
+    _callCount++;
+    if (error != null && _callCount == errorOnCall) {
+      throw error!;
+    }
+    return _sources.removeAt(0);
+  }
+}

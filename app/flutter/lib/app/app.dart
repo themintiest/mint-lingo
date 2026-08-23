@@ -1,0 +1,175 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:video_translator/app/app_workflow.dart';
+import 'package:video_translator/app/engine/engine_client.dart';
+import 'package:video_translator/app/engine/engine_connection_cubit.dart';
+import 'package:video_translator/app/theme/app_theme.dart';
+import 'package:video_translator/app/workflow_selection_page.dart';
+import 'package:video_translator/features/document/document_reader_cubit.dart';
+import 'package:video_translator/features/document/document_translation_launcher_page.dart';
+import 'package:video_translator/features/project/media_inspection_cubit.dart';
+import 'package:video_translator/features/project/project_setup_cubit.dart';
+import 'package:video_translator/features/project/project_workspace_page.dart';
+import 'package:video_translator/features/video/video_player_cubit.dart';
+import 'package:video_translator/l10n/generated/app_localizations.dart';
+
+/// Maps a system locale to one of the two UI locales supported by the app.
+///
+/// Project source and target language values are intentionally not involved in
+/// this resolution.
+Locale resolveAppLocale(
+  List<Locale>? systemLocales,
+  Iterable<Locale> supportedLocales,
+) {
+  for (final systemLocale in systemLocales ?? const [Locale('en')]) {
+    for (final supportedLocale in supportedLocales) {
+      if (supportedLocale.languageCode == systemLocale.languageCode) {
+        return supportedLocale;
+      }
+    }
+  }
+
+  for (final supportedLocale in supportedLocales) {
+    if (supportedLocale.languageCode == 'en') {
+      return supportedLocale;
+    }
+  }
+  return const Locale('en');
+}
+
+class VideoTranslatorApp extends StatefulWidget {
+  const VideoTranslatorApp({
+    super.key,
+    this.startEngineOnLaunch = true,
+    this.engineConnectionCubit,
+    this.projectSetupCubit,
+    this.mediaInspectionCubit,
+    this.videoPlayerCubit,
+  });
+
+  final bool startEngineOnLaunch;
+  final EngineConnectionCubit? engineConnectionCubit;
+  final ProjectSetupCubit? projectSetupCubit;
+  final MediaInspectionCubit? mediaInspectionCubit;
+  final VideoPlayerCubit? videoPlayerCubit;
+
+  @override
+  State<VideoTranslatorApp> createState() => _VideoTranslatorAppState();
+}
+
+class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
+  late final EngineConnectionCubit _engineConnectionCubit;
+  late final bool _ownsEngineConnectionCubit;
+  late final ProjectSetupCubit _projectSetupCubit;
+  late final bool _ownsProjectSetupCubit;
+  late final MediaInspectionCubit _mediaInspectionCubit;
+  late final bool _ownsMediaInspectionCubit;
+  late final VideoPlayerCubit _videoPlayerCubit;
+  late final bool _ownsVideoPlayerCubit;
+  Locale? _localeOverride;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsEngineConnectionCubit = widget.engineConnectionCubit == null;
+    _engineConnectionCubit =
+        widget.engineConnectionCubit ?? EngineConnectionCubit(EngineClient());
+    _ownsProjectSetupCubit = widget.projectSetupCubit == null;
+    _projectSetupCubit = widget.projectSetupCubit ?? ProjectSetupCubit();
+    _ownsMediaInspectionCubit = widget.mediaInspectionCubit == null;
+    _mediaInspectionCubit =
+        widget.mediaInspectionCubit ??
+        MediaInspectionCubit(
+          inspectMedia: _engineConnectionCubit.client.inspectMedia,
+        );
+    _ownsVideoPlayerCubit = widget.videoPlayerCubit == null;
+    _videoPlayerCubit = widget.videoPlayerCubit ?? VideoPlayerCubit();
+    if (widget.startEngineOnLaunch) {
+      unawaited(_engineConnectionCubit.start());
+    }
+  }
+
+  void _selectLocale(Locale locale) {
+    setState(() => _localeOverride = locale);
+  }
+
+  void _selectWorkflow(BuildContext context, AppWorkflow workflow) {
+    switch (workflow) {
+      case AppWorkflow.videoTranslation:
+        Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (context) => ProjectWorkspacePage(
+              localeOverride: _localeOverride,
+              onLocaleSelected: _selectLocale,
+            ),
+          ),
+        );
+      case AppWorkflow.documentTranslation:
+        Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (context) => BlocProvider(
+              create: (_) => DocumentReaderCubit(),
+              child: DocumentTranslationLauncherPage(
+                localeOverride: _localeOverride,
+                onLocaleSelected: _selectLocale,
+              ),
+            ),
+          ),
+        );
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_ownsEngineConnectionCubit) {
+      unawaited(_engineConnectionCubit.close());
+    }
+    if (_ownsProjectSetupCubit) {
+      unawaited(_projectSetupCubit.close());
+    }
+    if (_ownsMediaInspectionCubit) {
+      unawaited(_mediaInspectionCubit.close());
+    }
+    if (_ownsVideoPlayerCubit) {
+      unawaited(_videoPlayerCubit.close());
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: _engineConnectionCubit),
+        BlocProvider.value(value: _projectSetupCubit),
+        BlocProvider.value(value: _mediaInspectionCubit),
+        BlocProvider.value(value: _videoPlayerCubit),
+      ],
+      child: MaterialApp(
+        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        locale: _localeOverride,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        localeListResolutionCallback: resolveAppLocale,
+        home: Builder(
+          builder: (context) => WorkflowSelectionPage(
+            onWorkflowSelected: (workflow) =>
+                _selectWorkflow(context, workflow),
+            localeOverride: _localeOverride,
+            onLocaleSelected: _selectLocale,
+          ),
+        ),
+      ),
+    );
+  }
+}

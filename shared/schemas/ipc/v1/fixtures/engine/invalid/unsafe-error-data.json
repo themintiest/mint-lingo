@@ -1,0 +1,8 @@
+{
+  "engineCode": "engine.internal_error",
+  "safeDetails": {
+    "reason": "unexpected_failure",
+    "retryable": false
+  },
+  "stackTrace": "not allowed"
+}

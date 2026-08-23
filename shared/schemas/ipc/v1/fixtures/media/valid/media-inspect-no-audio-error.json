@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "protocolVersion": "1.0",
+  "id": "media-inspect-001",
+  "error": {
+    "code": -32010,
+    "message": "The source media does not contain an audio stream.",
+    "data": {
+      "mediaCode": "media.audio_stream_missing",
+      "retryable": false
+    }
+  }
+}
