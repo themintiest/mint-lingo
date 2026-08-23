@@ -94,10 +94,10 @@
   "documentSourceUnsupported": "Tệp này không được hỗ trợ để xem tài liệu. Hãy chọn EPUB, TXT hoặc PDF.",
   "documentSelectionFailed": "Không thể chọn tài liệu. Vui lòng thử lại."
   ,
-  "documentWorkspaceTitle": "Không gian làm việc tài liệu",
-  "documentSourceMissing": "Chưa chọn tài liệu nguồn.",
+  "documentWorkspaceTitle": "Xử lý tài liệu",
+  "documentSourceMissing": "Chưa chọn tài liệu",
   "replacingDocument": "Đang thay tài liệu...",
-  "documentReaderUnavailableTitle": "Bề mặt đọc chưa khả dụng",
+  "documentReaderUnavailableTitle": "Chưa hỗ trợ loại file này",
   "documentReaderUnavailableDescription": "Trình đọc chỉ đọc theo từng định dạng sẽ được thêm trong tác vụ riêng.",
   "epubReaderFileTooLarge": "EPUB này lớn hơn giới hạn trình đọc 50 MiB.",
   "plainTextReaderFileTooLarge": "Tệp văn bản này lớn hơn giới hạn trình đọc 10 MiB.",

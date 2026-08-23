@@ -296,16 +296,16 @@ class AppLocalizationsVi extends AppLocalizations {
       'Không thể chọn tài liệu. Vui lòng thử lại.';
 
   @override
-  String get documentWorkspaceTitle => 'Không gian làm việc tài liệu';
+  String get documentWorkspaceTitle => 'Xử lý tài liệu';
 
   @override
-  String get documentSourceMissing => 'Chưa chọn tài liệu nguồn.';
+  String get documentSourceMissing => 'Chưa chọn tài liệu';
 
   @override
   String get replacingDocument => 'Đang thay tài liệu...';
 
   @override
-  String get documentReaderUnavailableTitle => 'Bề mặt đọc chưa khả dụng';
+  String get documentReaderUnavailableTitle => 'Chưa hỗ trợ loại file này';
 
   @override
   String get documentReaderUnavailableDescription =>
