@@ -721,6 +721,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Page {current} of {total}'**
   String pdfReaderPageStatus(Object current, Object total);
+
+  /// No description provided for @processingStatusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing'**
+  String get processingStatusTitle;
+
+  /// No description provided for @processingPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing processing...'**
+  String get processingPreparing;
+
+  /// No description provided for @processingWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'Working...'**
+  String get processingWorking;
+
+  /// No description provided for @processingProgressUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'{completed} of {total} units'**
+  String processingProgressUnits(Object completed, Object total);
+
+  /// No description provided for @cancelProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancelProcessing;
+
+  /// No description provided for @cancellationRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation requested'**
+  String get cancellationRequested;
+
+  /// No description provided for @processingCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing completed.'**
+  String get processingCompleted;
+
+  /// No description provided for @processingFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing failed.'**
+  String get processingFailed;
+
+  /// No description provided for @processingCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing cancelled.'**
+  String get processingCancelled;
+
+  /// No description provided for @processingRecoveryAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing can be recovered.'**
+  String get processingRecoveryAvailable;
+
+  /// No description provided for @processingRecoveryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing could not be recovered.'**
+  String get processingRecoveryFailed;
 }
 
 class _AppLocalizationsDelegate

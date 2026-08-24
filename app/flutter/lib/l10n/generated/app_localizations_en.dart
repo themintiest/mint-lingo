@@ -349,4 +349,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String pdfReaderPageStatus(Object current, Object total) {
     return 'Page $current of $total';
   }
+
+  @override
+  String get processingStatusTitle => 'Processing';
+
+  @override
+  String get processingPreparing => 'Preparing processing...';
+
+  @override
+  String get processingWorking => 'Working...';
+
+  @override
+  String processingProgressUnits(Object completed, Object total) {
+    return '$completed of $total units';
+  }
+
+  @override
+  String get cancelProcessing => 'Cancel';
+
+  @override
+  String get cancellationRequested => 'Cancellation requested';
+
+  @override
+  String get processingCompleted => 'Processing completed.';
+
+  @override
+  String get processingFailed => 'Processing failed.';
+
+  @override
+  String get processingCancelled => 'Processing cancelled.';
+
+  @override
+  String get processingRecoveryAvailable => 'Processing can be recovered.';
+
+  @override
+  String get processingRecoveryFailed => 'Processing could not be recovered.';
 }
