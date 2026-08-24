@@ -83,7 +83,7 @@ void main() {
       final client = EngineClient(
         startWorker: () => Process.start(
           Platform.isWindows ? 'python' : 'python3',
-          const ['-m', 'video_translator_engine.worker'],
+          const ['-m', 'mint_lingo_engine.worker'],
         ),
       );
       addTearDown(client.dispose);

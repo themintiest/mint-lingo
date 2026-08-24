@@ -15,7 +15,7 @@ import 'package:video_translator/features/video/video_player_cubit.dart';
 import 'package:video_translator/features/video/video_player_surface.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
-class ProjectWorkspacePage extends StatelessWidget {
+class ProjectWorkspacePage extends StatefulWidget {
   const ProjectWorkspacePage({
     super.key,
     required this.onLocaleSelected,
@@ -29,23 +29,58 @@ class ProjectWorkspacePage extends StatelessWidget {
   final Locale? localeOverride;
 
   @override
+  State<ProjectWorkspacePage> createState() => _ProjectWorkspacePageState();
+}
+
+class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> {
+  var _isLeaving = false;
+  late final VideoPlayerCubit _videoPlayerCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _videoPlayerCubit = context.read<VideoPlayerCubit>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _synchronizeVideoPreview();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_videoPlayerCubit.clear());
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context).appTitle),
+        automaticallyImplyLeading: false,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                key: const Key('leave-video-workspace'),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: () => unawaited(_leaveWorkspace()),
+                icon: const BackButtonIcon(),
+              )
+            : null,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: AppSpacing.sm),
             child: AppLocaleSelector(
-              localeOverride: localeOverride,
-              onLocaleSelected: onLocaleSelected,
+              localeOverride: widget.localeOverride,
+              onLocaleSelected: widget.onLocaleSelected,
             ),
           ),
         ],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final horizontalPadding = constraints.maxWidth < _compactWidth
+          final horizontalPadding =
+              constraints.maxWidth < ProjectWorkspacePage._compactWidth
               ? AppSpacing.lg
               : AppSpacing.xl;
           return BlocListener<ProjectSetupCubit, ProjectSetupState>(
@@ -57,15 +92,7 @@ class ProjectWorkspacePage extends StatelessWidget {
               if (inspectionCubit.state.source != state.draft?.source) {
                 inspectionCubit.clear();
               }
-              final videoPlayerCubit = context.read<VideoPlayerCubit>();
-              final source = state.draft?.source;
-              if (videoPlayerCubit.state.source != source) {
-                if (source == null) {
-                  unawaited(videoPlayerCubit.clear());
-                } else {
-                  unawaited(videoPlayerCubit.open(source));
-                }
-              }
+              _synchronizeVideoPreview();
               if (state is ProjectSetupError) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -88,7 +115,9 @@ class ProjectWorkspacePage extends StatelessWidget {
               ),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                  constraints: const BoxConstraints(
+                    maxWidth: ProjectWorkspacePage._maxContentWidth,
+                  ),
                   child: SizedBox(
                     width: double.infinity,
                     child: BlocBuilder<ProjectSetupCubit, ProjectSetupState>(
@@ -128,6 +157,32 @@ class ProjectWorkspacePage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<void> _leaveWorkspace() async {
+    if (_isLeaving) {
+      return;
+    }
+    _isLeaving = true;
+    await _videoPlayerCubit.clear();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _synchronizeVideoPreview() {
+    if (_isLeaving) {
+      return;
+    }
+    final source = context.read<ProjectSetupCubit>().state.draft?.source;
+    if (_videoPlayerCubit.state.source == source) {
+      return;
+    }
+    if (source == null) {
+      unawaited(_videoPlayerCubit.clear());
+    } else {
+      unawaited(_videoPlayerCubit.open(source));
+    }
   }
 
   void _checkSetup(BuildContext context) {

@@ -5,7 +5,7 @@ import unittest
 from datetime import timedelta
 from pathlib import Path
 
-from video_translator_engine.media import (
+from mint_lingo_engine.media import (
     MediaDimensions,
     MediaMetadata,
     MediaStream,
@@ -13,17 +13,17 @@ from video_translator_engine.media import (
     MediaValidationError,
     MediaValidationErrorCode,
 )
-from video_translator_engine.media_validation import (
+from mint_lingo_engine.media_validation import (
     MediaValidationFailure,
     MediaValidationSuccess,
 )
-from video_translator_engine.worker import handle_message
+from mint_lingo_engine.worker import handle_message
 
 
 class WorkerProtocolTest(unittest.TestCase):
     def setUp(self) -> None:
         self.process = subprocess.Popen(
-            [sys.executable, "-m", "video_translator_engine.worker"],
+            [sys.executable, "-m", "mint_lingo_engine.worker"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

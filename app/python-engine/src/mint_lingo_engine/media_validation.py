@@ -7,12 +7,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from video_translator_engine.media import (
+from mint_lingo_engine.media import (
     MediaMetadata,
     MediaValidationError,
     MediaValidationErrorCode,
 )
-from video_translator_engine.media_probe import (
+from mint_lingo_engine.media_probe import (
     FfprobeMetadataParseError,
     MediaProbe,
     parse_ffprobe_metadata,

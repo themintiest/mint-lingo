@@ -142,7 +142,7 @@ class EngineClient {
     final executable = Platform.isWindows ? 'python' : 'python3';
     return Process.start(executable, const [
       '-m',
-      'video_translator_engine.worker',
+      'mint_lingo_engine.worker',
     ]);
   }
 

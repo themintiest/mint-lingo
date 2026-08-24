@@ -114,6 +114,46 @@ void main() {
     },
   );
 
+  testWidgets('releases a playing preview before leaving the video workspace', (
+    tester,
+  ) async {
+    final setupCubit = ProjectSetupCubit(
+      sourceVideoPicker: _FakeSourceVideoPicker([
+        const ProjectSourceReference(
+          path: '/videos/source.mp4',
+          fileName: 'source.mp4',
+        ),
+      ]),
+    );
+    final playbackFactory = _FakeVideoPlaybackControllerFactory();
+    final videoCubit = VideoPlayerCubit(controllerFactory: playbackFactory);
+    addTearDown(setupCubit.close);
+    addTearDown(videoCubit.close);
+
+    await tester.pumpWidget(
+      VideoTranslatorApp(
+        startEngineOnLaunch: false,
+        projectSetupCubit: setupCubit,
+        videoPlayerCubit: videoCubit,
+      ),
+    );
+    await _enterVideoWorkflow(tester);
+    await tester.tap(find.text('Open a video'));
+    await tester.pump();
+    await tester.pump();
+    await tester.ensureVisible(find.byTooltip('Play video'));
+    await tester.tap(find.byTooltip('Play video'));
+
+    await tester.tap(find.byKey(const Key('leave-video-workspace')));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+
+    expect(playbackFactory.controller.playCount, 1);
+    expect(playbackFactory.controller.disposeCount, 1);
+    expect(videoCubit.state, const VideoPlayerIdle());
+    expect(find.byKey(const Key('workflow-selection-page')), findsOneWidget);
+  });
+
   testWidgets('opens and replaces one source video', (
     WidgetTester tester,
   ) async {
@@ -569,12 +609,13 @@ final class _FakeVideoPlaybackControllerFactory
 }
 
 final class _FakeVideoPlaybackController implements VideoPlaybackController {
-  final durationEvents = StreamController<Duration>.broadcast();
-  final playingEvents = StreamController<bool>.broadcast();
-  final positionEvents = StreamController<Duration>.broadcast();
-  final volumeEvents = StreamController<double>.broadcast();
+  final durationEvents = StreamController<Duration>.broadcast(sync: true);
+  final playingEvents = StreamController<bool>.broadcast(sync: true);
+  final positionEvents = StreamController<Duration>.broadcast(sync: true);
+  final volumeEvents = StreamController<double>.broadcast(sync: true);
   int pauseCount = 0;
   int playCount = 0;
+  int disposeCount = 0;
   final seekPositions = <Duration>[];
 
   @override
@@ -590,7 +631,9 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   Stream<Duration> get position => positionEvents.stream;
 
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    disposeCount++;
+  }
 
   @override
   Future<void> open(String sourcePath) async {}

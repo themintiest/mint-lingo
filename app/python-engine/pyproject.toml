@@ -1,5 +1,5 @@
 [project]
-name = "video-translator-engine"
+name = "mint-lingo-engine"
 version = "0.1.0"
 description = "Local processing engine for Video Translator"
 readme = "README.md"

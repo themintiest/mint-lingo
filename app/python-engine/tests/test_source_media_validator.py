@@ -2,9 +2,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from video_translator_engine.media import MediaValidationErrorCode
-from video_translator_engine.media_probe import FfprobeProcessResult
-from video_translator_engine.media_validation import (
+from mint_lingo_engine.media import MediaValidationErrorCode
+from mint_lingo_engine.media_probe import FfprobeProcessResult
+from mint_lingo_engine.media_validation import (
     MediaValidationFailure,
     MediaValidationSuccess,
     SourceMediaValidator,

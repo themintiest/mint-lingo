@@ -2,8 +2,8 @@ from datetime import timedelta
 from pathlib import Path
 import unittest
 
-from video_translator_engine.media import MediaDimensions, MediaStreamKind
-from video_translator_engine.media_probe import (
+from mint_lingo_engine.media import MediaDimensions, MediaStreamKind
+from mint_lingo_engine.media_probe import (
     FfprobeMetadataParseError,
     parse_ffprobe_metadata,
 )

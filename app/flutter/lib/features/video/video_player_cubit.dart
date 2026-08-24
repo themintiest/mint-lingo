@@ -227,7 +227,7 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
     final operation = ++_operation;
     final previousController = _controller;
     _controller = null;
-    await _cancelPlaybackSubscriptions();
+    final cancellation = _cancelPlaybackSubscriptions();
     if (previousController != null) {
       try {
         await previousController.dispose();
@@ -238,6 +238,7 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
         return;
       }
     }
+    await cancellation;
     if (!_isCurrent(operation)) {
       return;
     }
@@ -271,10 +272,11 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
     final operation = ++_operation;
     final controller = _controller;
     _controller = null;
-    await _cancelPlaybackSubscriptions();
+    final cancellation = _cancelPlaybackSubscriptions();
     if (controller != null) {
       await _disposeIgnoringErrors(controller);
     }
+    await cancellation;
     if (_isCurrent(operation)) {
       emit(const VideoPlayerIdle());
     }
@@ -345,10 +347,11 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
     ++_operation;
     final controller = _controller;
     _controller = null;
-    await _cancelPlaybackSubscriptions();
+    final cancellation = _cancelPlaybackSubscriptions();
     if (controller != null) {
       await _disposeIgnoringErrors(controller);
     }
+    await cancellation;
     return super.close();
   }
 

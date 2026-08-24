@@ -11,16 +11,16 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from video_translator_engine import __version__
-from video_translator_engine.media import MediaMetadata, MediaValidationError
-from video_translator_engine.media_probe import (
+from mint_lingo_engine import __version__
+from mint_lingo_engine.media import MediaMetadata, MediaValidationError
+from mint_lingo_engine.media_probe import (
     FfprobeExecutableResolver,
     FfprobeResolutionFailure,
     MediaProbe,
     MediaToolResolutionMode,
     SubprocessFfprobeProcessRunner,
 )
-from video_translator_engine.media_validation import (
+from mint_lingo_engine.media_validation import (
     MediaValidationFailure,
     SourceMediaValidator,
 )

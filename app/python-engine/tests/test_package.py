@@ -1,11 +1,11 @@
 import unittest
 
-import video_translator_engine
+import mint_lingo_engine
 
 
 class PackageImportTest(unittest.TestCase):
     def test_package_is_importable(self) -> None:
         self.assertEqual(
-            video_translator_engine.__name__,
-            "video_translator_engine",
+            mint_lingo_engine.__name__,
+            "mint_lingo_engine",
         )

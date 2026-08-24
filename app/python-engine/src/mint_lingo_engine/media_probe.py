@@ -19,7 +19,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
 
-from video_translator_engine.media import (
+from mint_lingo_engine.media import (
     MediaDimensions,
     MediaMetadata,
     MediaStream,

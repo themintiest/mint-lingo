@@ -22,7 +22,7 @@ python -m unittest discover -s tests
 To run the development worker after installation:
 
 ```sh
-python -m video_translator_engine.worker
+python -m mint_lingo_engine.worker
 ```
 
 The worker receives and emits UTF-8 NDJSON JSON-RPC frames. Its standard output
