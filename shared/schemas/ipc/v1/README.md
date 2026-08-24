@@ -115,11 +115,12 @@ registry or a promise that the inert engine worker can execute a workflow yet.
 
 Job state contains only the stable UUIDv4 job ID and shared lifecycle. A
 cancel result means a request was accepted, not that work has stopped; the
-cooperative cancellation implementation is a later M4 boundary. State-change
-notifications represent running, completed, failed, or cancelled lifecycle
-values. Progress notifications carry opaque workflow stage IDs and either exact
-completed/total units or explicit indeterminate progress. They do not prescribe
-stage ordering or invent percentages.
+runner's cooperative cancellation boundary delivers that request to its active
+workflow and its registered direct child processes. State-change notifications
+represent running, completed, failed, or cancelled lifecycle values. Progress
+notifications carry opaque workflow stage IDs and either exact completed/total
+units or explicit indeterminate progress. They do not prescribe stage ordering
+or invent percentages. Worker dispatch remains separate from the runner.
 
 Job fixtures live under `fixtures/jobs`. They define a versioned contract only;
 worker dispatch and concrete workflow composition remain separate work.
