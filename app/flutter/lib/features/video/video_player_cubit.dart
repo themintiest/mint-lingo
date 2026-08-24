@@ -214,6 +214,7 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
   VideoPlaybackController? _controller;
   final List<StreamSubscription<Object>> _playbackSubscriptions = [];
   VideoFullscreenToggler? _fullscreenToggler;
+  Future<void>? _clearFuture;
   static const skipInterval = Duration(seconds: 10);
   int _operation = 0;
 
@@ -268,7 +269,23 @@ final class VideoPlayerCubit extends Cubit<VideoPlayerState> {
     }
   }
 
-  Future<void> clear() async {
+  Future<void> clear() {
+    final activeClear = _clearFuture;
+    if (activeClear != null) {
+      return activeClear;
+    }
+
+    late final Future<void> clearFuture;
+    clearFuture = _clear().whenComplete(() {
+      if (identical(_clearFuture, clearFuture)) {
+        _clearFuture = null;
+      }
+    });
+    _clearFuture = clearFuture;
+    return clearFuture;
+  }
+
+  Future<void> _clear() async {
     final operation = ++_operation;
     final controller = _controller;
     _controller = null;

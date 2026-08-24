@@ -48,6 +48,7 @@ class VideoTranslatorApp extends StatefulWidget {
     this.projectSetupCubit,
     this.mediaInspectionCubit,
     this.videoPlayerCubit,
+    this.documentReaderCubitFactory,
   });
 
   final bool startEngineOnLaunch;
@@ -55,6 +56,12 @@ class VideoTranslatorApp extends StatefulWidget {
   final ProjectSetupCubit? projectSetupCubit;
   final MediaInspectionCubit? mediaInspectionCubit;
   final VideoPlayerCubit? videoPlayerCubit;
+
+  /// Creates the feature-owned reader Cubit when Document Translation opens.
+  ///
+  /// The factory keeps the application-level navigation regression testable
+  /// without moving document state into the Video flow or app state.
+  final DocumentReaderCubit Function()? documentReaderCubitFactory;
 
   @override
   State<VideoTranslatorApp> createState() => _VideoTranslatorAppState();
@@ -70,6 +77,7 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
   late final VideoPlayerCubit _videoPlayerCubit;
   late final bool _ownsVideoPlayerCubit;
   Locale? _localeOverride;
+  var _isOpeningDocumentWorkflow = false;
 
   @override
   void initState() {
@@ -108,17 +116,35 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
           ),
         );
       case AppWorkflow.documentTranslation:
-        Navigator.of(context).push<void>(
-          MaterialPageRoute(
-            builder: (context) => BlocProvider(
-              create: (_) => DocumentReaderCubit(),
-              child: DocumentTranslationLauncherPage(
-                localeOverride: _localeOverride,
-                onLocaleSelected: _selectLocale,
-              ),
+        unawaited(_openDocumentWorkflow(Navigator.of(context)));
+    }
+  }
+
+  Future<void> _openDocumentWorkflow(NavigatorState navigator) async {
+    if (_isOpeningDocumentWorkflow) {
+      return;
+    }
+    _isOpeningDocumentWorkflow = true;
+    try {
+      await _videoPlayerCubit.clear();
+      if (!mounted) {
+        return;
+      }
+      navigator.push<void>(
+        MaterialPageRoute(
+          builder: (context) => BlocProvider(
+            create: (_) =>
+                widget.documentReaderCubitFactory?.call() ??
+                DocumentReaderCubit(),
+            child: DocumentTranslationLauncherPage(
+              localeOverride: _localeOverride,
+              onLocaleSelected: _selectLocale,
             ),
           ),
-        );
+        ),
+      );
+    } finally {
+      _isOpeningDocumentWorkflow = false;
     }
   }
 
