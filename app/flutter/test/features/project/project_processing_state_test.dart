@@ -80,6 +80,38 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test(
+    'preserves substitute workflow identity but rejects damaged enum values',
+    () {
+      final substituteState = ProjectProcessingState(
+        jobId: 'd77fd6f7-a2ea-440d-97bc-5006d5695b81',
+        lifecycle: ProjectProcessingLifecycle.failed,
+        workflowId: 'substituteWorkflow.variant',
+        checkpointReferences: const ['artifacts/checkpoints/opaque-work.json'],
+        recoveryStatus: ProjectRecoveryStatus.pendingReconciliation,
+      );
+
+      expect(
+        ProjectProcessingState.fromManifestJson(
+          substituteState.toManifestJson(),
+        ),
+        _hasState(substituteState),
+      );
+      expect(
+        () => ProjectProcessingState.fromManifestJson({
+          'job': {
+            'id': substituteState.jobId,
+            'lifecycle': 'interrupted',
+            'workflowId': substituteState.workflowId,
+          },
+          'checkpointReferences': substituteState.checkpointReferences,
+          'recoveryStatus': 'pendingReconciliation',
+        }),
+        throwsA(isA<ProjectProcessingStateFormatException>()),
+      );
+    },
+  );
 }
 
 Matcher _hasState(ProjectProcessingState expected) => predicate(

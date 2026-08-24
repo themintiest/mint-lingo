@@ -74,6 +74,56 @@ void main() {
     },
   );
 
+  test(
+    'keeps the previous manifest when atomic promotion is interrupted',
+    () async {
+      final projectDirectory = await _temporaryProjectDirectory();
+      addTearDown(() => projectDirectory.delete(recursive: true));
+      final initialManifest = _documentManifest();
+      final stableStore = ProjectManifestStore();
+      await stableStore.save(projectDirectory, initialManifest);
+      final interruptedStore = ProjectManifestStore(
+        promoteTemporaryFile: (_, _) =>
+            throw const FileSystemException('Simulated interrupted promotion.'),
+      );
+
+      await expectLater(
+        () => interruptedStore.save(projectDirectory, _videoManifest()),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      expect(await stableStore.load(projectDirectory), initialManifest);
+      expect(
+        await projectDirectory
+            .list()
+            .where((entity) => entity.path.endsWith('.tmp'))
+            .isEmpty,
+        isTrue,
+      );
+    },
+  );
+
+  test('preserves an unknown version and workflow-owned section without Video assumptions', () async {
+    final projectDirectory = await _temporaryProjectDirectory();
+    addTearDown(() => projectDirectory.delete(recursive: true));
+    final manifest = {
+      'manifestVersion': 27,
+      'workflow': 'substituteWorkflow',
+      'workflowState': {
+        'substituteWorkflow': {
+          'opaqueConfiguration': {'retention': 'workflow-owned'},
+          'artifactReferences': [
+            {'reference': 'artifacts/substitute/retained-value'},
+          ],
+        },
+      },
+    };
+
+    await ProjectManifestStore().save(projectDirectory, manifest);
+
+    expect(await ProjectManifestStore().load(projectDirectory), manifest);
+  });
+
   test('rejects a non-object JSON manifest', () async {
     final projectDirectory = await _temporaryProjectDirectory();
     addTearDown(() => projectDirectory.delete(recursive: true));
@@ -82,6 +132,21 @@ void main() {
       '${ProjectManifestStore.fileName}',
     );
     await manifestFile.writeAsString('[]');
+
+    await expectLater(
+      () => ProjectManifestStore().load(projectDirectory),
+      throwsA(isA<ProjectManifestFormatException>()),
+    );
+  });
+
+  test('rejects a syntactically damaged JSON manifest', () async {
+    final projectDirectory = await _temporaryProjectDirectory();
+    addTearDown(() => projectDirectory.delete(recursive: true));
+    final manifestFile = File(
+      '${projectDirectory.path}${Platform.pathSeparator}'
+      '${ProjectManifestStore.fileName}',
+    );
+    await manifestFile.writeAsString('{"manifestVersion":');
 
     await expectLater(
       () => ProjectManifestStore().load(projectDirectory),
