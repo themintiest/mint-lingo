@@ -222,6 +222,32 @@ void main() {
   });
 
   test(
+    'shares an active controller release across repeated clear requests',
+    () async {
+      final disposeCompleter = Completer<void>();
+      final controller = _FakeVideoPlaybackController(
+        disposeFuture: disposeCompleter.future,
+      );
+      final cubit = VideoPlayerCubit(
+        controllerFactory: _FakeVideoPlaybackControllerFactory([controller]),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.open(firstSource);
+      final firstClear = cubit.clear();
+      final secondClear = cubit.clear();
+
+      expect(identical(firstClear, secondClear), isTrue);
+      expect(controller.disposeCount, 1);
+
+      disposeCompleter.complete();
+      await Future.wait([firstClear, secondClear]);
+
+      expect(cubit.state, const VideoPlayerIdle());
+    },
+  );
+
+  test(
     'cancels old playback streams so they cannot update a replacement',
     () async {
       final firstController = _FakeVideoPlaybackController();
@@ -285,7 +311,11 @@ final class _FakeVideoPlaybackControllerFactory
 }
 
 final class _FakeVideoPlaybackController implements VideoPlaybackController {
-  _FakeVideoPlaybackController({this.openError, this.openFuture}) {
+  _FakeVideoPlaybackController({
+    this.openError,
+    this.openFuture,
+    this.disposeFuture,
+  }) {
     playingEvents = StreamController<bool>.broadcast(
       sync: true,
       onListen: _recordStartedSubscription,
@@ -310,6 +340,7 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
 
   final Object? openError;
   final Future<void>? openFuture;
+  final Future<void>? disposeFuture;
   final List<String> openedPaths = [];
   final List<Duration> seekPositions = [];
   final List<double> volumeValues = [];
@@ -338,6 +369,7 @@ final class _FakeVideoPlaybackController implements VideoPlaybackController {
   @override
   Future<void> dispose() async {
     disposeCount++;
+    await disposeFuture;
   }
 
   @override
