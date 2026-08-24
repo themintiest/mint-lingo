@@ -1,6 +1,8 @@
 import subprocess
 import sys
 import threading
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 from mint_lingo_engine.job import Job, JobLifecycle
@@ -15,7 +17,9 @@ from mint_lingo_engine.job_runner import (
 
 class JobRunnerTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.runner = JobRunner()
+        temporary_directory = self.enterContext(TemporaryDirectory())
+        self.temporary_root = Path(temporary_directory) / "temporary"
+        self.runner = JobRunner(self.temporary_root)
         self.addCleanup(self.runner.close)
 
     def test_runs_one_already_selected_invocation_and_rejects_conflicts(self) -> None:
@@ -23,8 +27,9 @@ class JobRunnerTest(unittest.TestCase):
         release = threading.Event()
         invocations: list[str] = []
 
-        def first_workflow(_context: JobExecutionContext) -> None:
+        def first_workflow(context: JobExecutionContext) -> None:
             invocations.append("first")
+            (context.workspace.path / "opaque-work").write_text("temporary")
             started.set()
             self.assertTrue(release.wait(timeout=1))
 
@@ -54,9 +59,18 @@ class JobRunnerTest(unittest.TestCase):
         self.assertEqual(completed.lifecycle, JobLifecycle.COMPLETED)
         self.assertIsNone(self.runner.active_job)
         self.assertEqual(self.runner.get_job(started_job.id), completed)
+        self.assertFalse(
+            (self.temporary_root / f"job-{started_job.id.value}").exists()
+        )
 
     def test_records_failure_without_an_error_payload_and_releases_the_runner(self) -> None:
-        def failing_workflow(_context: JobExecutionContext) -> None:
+        workspace_path: Path | None = None
+
+        def failing_workflow(context: JobExecutionContext) -> None:
+            nonlocal workspace_path
+            workspace_path = context.workspace.path
+            (workspace_path / "nested").mkdir()
+            (workspace_path / "nested" / "opaque-work").write_text("temporary")
             raise RuntimeError("workflow failure")
 
         failed_job = self.runner.start(failing_workflow)
@@ -67,6 +81,9 @@ class JobRunnerTest(unittest.TestCase):
 
         self.assertEqual(completed.lifecycle, JobLifecycle.FAILED)
         self.assertIsNone(self.runner.active_job)
+        self.assertIsNotNone(workspace_path)
+        assert workspace_path is not None
+        self.assertFalse(workspace_path.exists())
 
         next_job = self.runner.start(lambda _context: None)
         self.assertIsInstance(next_job, Job)
@@ -87,7 +104,12 @@ class JobRunnerTest(unittest.TestCase):
     def test_cancellation_reaches_the_active_workflow_and_marks_it_cancelled(self) -> None:
         started = threading.Event()
 
+        workspace_path: Path | None = None
+
         def cancellable_workflow(context: JobExecutionContext) -> None:
+            nonlocal workspace_path
+            workspace_path = context.workspace.path
+            (workspace_path / "opaque-work").write_text("temporary")
             started.set()
             self.assertTrue(context.cancellation.wait(timeout=1))
             context.cancellation.raise_if_cancelled()
@@ -104,6 +126,9 @@ class JobRunnerTest(unittest.TestCase):
         completed = self.runner.wait_for_completion(started_job.id, timeout=1)
         self.assertEqual(completed.lifecycle, JobLifecycle.CANCELLED)
         self.assertIsNone(self.runner.active_job)
+        self.assertIsNotNone(workspace_path)
+        assert workspace_path is not None
+        self.assertFalse(workspace_path.exists())
 
         missing = self.runner.cancel(started_job.id)
         self.assertEqual(

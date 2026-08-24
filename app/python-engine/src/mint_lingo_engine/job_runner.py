@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 from subprocess import TimeoutExpired
 from threading import Event, Lock
 from typing import Protocol
 
 from mint_lingo_engine.job import Job, JobId, JobLifecycle
+from mint_lingo_engine.job_workspace import JobWorkspace, JobWorkspaceManager
 
 
 @dataclass(frozen=True)
@@ -81,10 +83,23 @@ class CancellationToken:
 
 
 class JobExecutionContext:
-    """Cancellation and direct-child ownership for one concrete invocation."""
+    """Temporary-resource, cancellation, and child ownership for one invocation."""
 
-    def __init__(self, job_id: JobId, *, child_termination_timeout: float) -> None:
+    def __init__(
+        self,
+        job_id: JobId,
+        workspace: JobWorkspace,
+        *,
+        child_termination_timeout: float,
+    ) -> None:
+        if not isinstance(job_id, JobId):
+            raise TypeError("job_id must be a JobId")
+        if not isinstance(workspace, JobWorkspace):
+            raise TypeError("workspace must be a JobWorkspace")
+        if workspace.job_id != job_id:
+            raise ValueError("workspace must belong to job_id")
         self.job_id = job_id
+        self.workspace = workspace
         self.cancellation = CancellationToken()
         self._child_termination_timeout = child_termination_timeout
         self._lock = Lock()
@@ -222,10 +237,16 @@ class JobRunner:
     behavior.
     """
 
-    def __init__(self, *, child_termination_timeout: float = 1.0) -> None:
+    def __init__(
+        self,
+        temporary_root: Path | str,
+        *,
+        child_termination_timeout: float = 1.0,
+    ) -> None:
         if child_termination_timeout <= 0:
             raise ValueError("child_termination_timeout must be greater than zero")
         self._registry = JobRegistry()
+        self._workspace_manager = JobWorkspaceManager(temporary_root)
         self._executor = ThreadPoolExecutor(
             max_workers=1,
             thread_name_prefix="mint-lingo-job",
@@ -265,8 +286,15 @@ class JobRunner:
             if conflict is not None:
                 return conflict
 
+            try:
+                workspace = self._workspace_manager.allocate(job.id)
+            except Exception:
+                self._registry.complete_active(job.id, JobLifecycle.FAILED)
+                raise
+
             context = JobExecutionContext(
                 job.id,
+                workspace,
                 child_termination_timeout=self._child_termination_timeout,
             )
             self._contexts[job.id] = context
@@ -352,6 +380,9 @@ class JobRunner:
                 else JobLifecycle.COMPLETED
             )
         finally:
-            with self._lock:
-                self._registry.complete_active(job_id, lifecycle)
-                self._contexts.pop(job_id, None)
+            try:
+                self._workspace_manager.cleanup(context.workspace)
+            finally:
+                with self._lock:
+                    self._registry.complete_active(job_id, lifecycle)
+                    self._contexts.pop(job_id, None)
