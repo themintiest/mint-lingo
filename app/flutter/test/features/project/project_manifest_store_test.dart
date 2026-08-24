@@ -110,7 +110,6 @@ Map<String, Object?> _documentManifest() => {
     'retainedArtifacts': [
       {'reference': 'artifacts/document/opaque-package.json'},
     ],
-    'checkpoints': [],
   },
   'workflowState': {
     'documentTranslation': {
@@ -136,7 +135,7 @@ Map<String, Object?> _videoManifest() => {
       'target': {'tag': 'vi'},
     },
   },
-  'processingReferences': {'retainedArtifacts': [], 'checkpoints': []},
+  'processingReferences': {'retainedArtifacts': []},
   'workflowState': {
     'videoTranslation': {
       'state': {'futureVideoOwnedValue': 'preserved without interpretation'},
