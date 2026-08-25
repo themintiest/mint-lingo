@@ -347,4 +347,39 @@ class AppLocalizationsVi extends AppLocalizations {
   String pdfReaderPageStatus(Object current, Object total) {
     return 'Trang $current trên $total';
   }
+
+  @override
+  String get processingStatusTitle => 'Đang xử lý';
+
+  @override
+  String get processingPreparing => 'Đang chuẩn bị xử lý...';
+
+  @override
+  String get processingWorking => 'Đang xử lý...';
+
+  @override
+  String processingProgressUnits(Object completed, Object total) {
+    return '$completed trên $total đơn vị';
+  }
+
+  @override
+  String get cancelProcessing => 'Hủy';
+
+  @override
+  String get cancellationRequested => 'Đã yêu cầu hủy';
+
+  @override
+  String get processingCompleted => 'Đã xử lý xong.';
+
+  @override
+  String get processingFailed => 'Xử lý thất bại.';
+
+  @override
+  String get processingCancelled => 'Đã hủy xử lý.';
+
+  @override
+  String get processingRecoveryAvailable => 'Có thể phục hồi xử lý.';
+
+  @override
+  String get processingRecoveryFailed => 'Không thể phục hồi xử lý.';
 }

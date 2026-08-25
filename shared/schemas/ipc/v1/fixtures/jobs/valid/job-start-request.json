@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","protocolVersion":"1.0","id":"job-start-001","method":"job.start","params":{"workflowId":"example.workflow","workflowPayload":{"concreteOption":"value"}}}

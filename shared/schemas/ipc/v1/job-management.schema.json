@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:video-translator:ipc:v1:job-management",
+  "title": "Video Translator IPC v1 job-management messages",
+  "oneOf": [
+    { "$ref": "#/$defs/startRequest" },
+    { "$ref": "#/$defs/startResponse" },
+    { "$ref": "#/$defs/cancelRequest" },
+    { "$ref": "#/$defs/cancelResponse" },
+    { "$ref": "#/$defs/getRequest" },
+    { "$ref": "#/$defs/getResponse" },
+    { "$ref": "#/$defs/stateChangedNotification" },
+    { "$ref": "#/$defs/progressNotification" },
+    { "$ref": "#/$defs/activeJobConflictError" },
+    { "$ref": "#/$defs/jobNotFoundError" }
+  ],
+  "$defs": {
+    "id": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "integer" }] },
+    "jobId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "lifecycle": { "enum": ["created", "running", "completed", "failed", "cancelled"] },
+    "request": {
+      "type": "object",
+      "required": ["jsonrpc", "protocolVersion", "id", "method"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "protocolVersion": { "const": "1.0" },
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "type": "string" },
+        "params": {}
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": ["jsonrpc", "protocolVersion", "id", "result"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "protocolVersion": { "const": "1.0" },
+        "id": { "$ref": "#/$defs/id" },
+        "result": {}
+      },
+      "additionalProperties": false
+    },
+    "notification": {
+      "type": "object",
+      "required": ["jsonrpc", "protocolVersion", "method"],
+      "not": { "required": ["id"] },
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "protocolVersion": { "const": "1.0" },
+        "method": { "type": "string" },
+        "params": {}
+      },
+      "additionalProperties": false
+    },
+    "errorResponse": {
+      "type": "object",
+      "required": ["jsonrpc", "protocolVersion", "id", "error"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "protocolVersion": { "const": "1.0" },
+        "id": { "$ref": "#/$defs/id" },
+        "error": {
+          "type": "object",
+          "required": ["code", "message", "data"],
+          "properties": { "code": { "type": "integer" }, "message": { "type": "string" }, "data": {} },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "workflowInvocation": {
+      "type": "object",
+      "required": ["workflowId", "workflowPayload"],
+      "properties": {
+        "workflowId": { "type": "string", "minLength": 1 },
+        "workflowPayload": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "jobState": {
+      "type": "object",
+      "required": ["jobId", "lifecycle"],
+      "properties": { "jobId": { "$ref": "#/$defs/jobId" }, "lifecycle": { "$ref": "#/$defs/lifecycle" } },
+      "additionalProperties": false
+    },
+    "jobIdParams": {
+      "type": "object",
+      "required": ["jobId"],
+      "properties": { "jobId": { "$ref": "#/$defs/jobId" } },
+      "additionalProperties": false
+    },
+    "determinateProgress": {
+      "type": "object",
+      "required": ["kind", "completedUnits", "totalUnits"],
+      "properties": {
+        "kind": { "const": "determinate" },
+        "completedUnits": { "type": "integer", "minimum": 0 },
+        "totalUnits": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "indeterminateProgress": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": { "kind": { "const": "indeterminate" } },
+      "additionalProperties": false
+    },
+    "progress": { "oneOf": [{ "$ref": "#/$defs/determinateProgress" }, { "$ref": "#/$defs/indeterminateProgress" }] },
+    "startRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/request" },
+        { "required": ["params"], "properties": { "method": { "const": "job.start" }, "params": { "$ref": "#/$defs/workflowInvocation" } } }
+      ]
+    },
+    "startResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/response" },
+        { "properties": { "result": { "type": "object", "required": ["job"], "properties": { "job": { "$ref": "#/$defs/jobState" } }, "additionalProperties": false } } }
+      ]
+    },
+    "cancelRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/request" },
+        { "required": ["params"], "properties": { "method": { "const": "job.cancel" }, "params": { "$ref": "#/$defs/jobIdParams" } } }
+      ]
+    },
+    "cancelResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/response" },
+        { "properties": { "result": { "type": "object", "required": ["jobId", "cancellationRequested"], "properties": { "jobId": { "$ref": "#/$defs/jobId" }, "cancellationRequested": { "const": true } }, "additionalProperties": false } } }
+      ]
+    },
+    "getRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/request" },
+        { "required": ["params"], "properties": { "method": { "const": "job.get" }, "params": { "$ref": "#/$defs/jobIdParams" } } }
+      ]
+    },
+    "getResponse": {
+      "allOf": [
+        { "$ref": "#/$defs/response" },
+        { "properties": { "result": { "type": "object", "required": ["job"], "properties": { "job": { "$ref": "#/$defs/jobState" } }, "additionalProperties": false } } }
+      ]
+    },
+    "stateChangedNotification": {
+      "allOf": [
+        { "$ref": "#/$defs/notification" },
+        { "required": ["params"], "properties": { "method": { "const": "job.stateChanged" }, "params": { "$ref": "#/$defs/jobState" } } }
+      ]
+    },
+    "progressNotification": {
+      "allOf": [
+        { "$ref": "#/$defs/notification" },
+        { "required": ["params"], "properties": { "method": { "const": "job.progress" }, "params": { "type": "object", "required": ["jobId", "stageId", "progress"], "properties": { "jobId": { "$ref": "#/$defs/jobId" }, "stageId": { "type": "string", "minLength": 1 }, "progress": { "$ref": "#/$defs/progress" } }, "additionalProperties": false } } }
+      ]
+    },
+    "activeJobConflictError": {
+      "allOf": [
+        { "$ref": "#/$defs/errorResponse" },
+        { "properties": { "error": { "properties": { "code": { "const": -32020 }, "message": { "const": "Another job is already active." }, "data": { "type": "object", "required": ["jobCode", "retryable", "activeJobId"], "properties": { "jobCode": { "const": "job.active_job_conflict" }, "retryable": { "const": false }, "activeJobId": { "$ref": "#/$defs/jobId" } }, "additionalProperties": false } } } } }
+      ]
+    },
+    "jobNotFoundError": {
+      "allOf": [
+        { "$ref": "#/$defs/errorResponse" },
+        { "properties": { "error": { "properties": { "code": { "const": -32021 }, "message": { "const": "Job not found." }, "data": { "type": "object", "required": ["jobCode", "retryable"], "properties": { "jobCode": { "const": "job.not_found" }, "retryable": { "const": false } }, "additionalProperties": false } } } } }
+      ]
+    }
+  }
+}

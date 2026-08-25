@@ -2,8 +2,8 @@
 
 This directory is the authoritative, runtime-neutral contract for version 1 of
 the Flutter-to-Python IPC boundary. It defines framing, JSON-RPC envelopes,
-engine-handshake messages, and media inspection. It does not define processing
-jobs, AI providers, or other product-feature payloads.
+engine-handshake messages, media inspection, and workload-agnostic job method
+shapes. It does not define AI providers or concrete product-workflow payloads.
 
 ## Version
 
@@ -99,6 +99,31 @@ Expected validation failures use JSON-RPC code `-32010` with a stable
 `error.data.mediaCode`; unavailable FFprobe tooling uses `-32011` with
 `error.data.toolCode`. Neither error payload may contain the supplied source
 path. The media fixtures live under `fixtures/media`.
+
+## Job-management messages
+
+[`job-management.schema.json`](job-management.schema.json) defines the M4
+contract shapes for `job.start`, `job.cancel`, and `job.get`, plus
+`job.stateChanged` and `job.progress` notifications. It also defines stable
+active-job-conflict and job-not-found error shapes.
+
+`job.start` accepts an explicit opaque `workflowId` and an object-valued
+`workflowPayload`. The job contract deliberately gives no source, format,
+stage, artifact, language, provider, or checkpoint fields a shared meaning;
+each selected concrete workflow owns its payload. This is not a workflow
+registry or a promise that the inert engine worker can execute a workflow yet.
+
+Job state contains only the stable UUIDv4 job ID and shared lifecycle. A
+cancel result means a request was accepted, not that work has stopped; the
+runner's cooperative cancellation boundary delivers that request to its active
+workflow and its registered direct child processes. State-change notifications
+represent running, completed, failed, or cancelled lifecycle values. Progress
+notifications carry opaque workflow stage IDs and either exact completed/total
+units or explicit indeterminate progress. They do not prescribe stage ordering
+or invent percentages. Worker dispatch remains separate from the runner.
+
+Job fixtures live under `fixtures/jobs`. They define a versioned contract only;
+worker dispatch and concrete workflow composition remain separate work.
 
 ## Engine errors
 

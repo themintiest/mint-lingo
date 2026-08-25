@@ -109,5 +109,17 @@
   "pdfReaderZoomOut": "Thu nhỏ",
   "pdfReaderZoomIn": "Phóng to",
   "pdfReaderPageStatus": "Trang {current} trên {total}",
-  "@pdfReaderPageStatus": {"placeholders": {"current": {}, "total": {}}}
+  "@pdfReaderPageStatus": {"placeholders": {"current": {}, "total": {}}},
+  "processingStatusTitle": "Đang xử lý",
+  "processingPreparing": "Đang chuẩn bị xử lý...",
+  "processingWorking": "Đang xử lý...",
+  "processingProgressUnits": "{completed} trên {total} đơn vị",
+  "@processingProgressUnits": {"placeholders": {"completed": {}, "total": {}}},
+  "cancelProcessing": "Hủy",
+  "cancellationRequested": "Đã yêu cầu hủy",
+  "processingCompleted": "Đã xử lý xong.",
+  "processingFailed": "Xử lý thất bại.",
+  "processingCancelled": "Đã hủy xử lý.",
+  "processingRecoveryAvailable": "Có thể phục hồi xử lý.",
+  "processingRecoveryFailed": "Không thể phục hồi xử lý."
 }

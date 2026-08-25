@@ -109,5 +109,17 @@
   "pdfReaderZoomOut": "Zoom out",
   "pdfReaderZoomIn": "Zoom in",
   "pdfReaderPageStatus": "Page {current} of {total}",
-  "@pdfReaderPageStatus": {"placeholders": {"current": {}, "total": {}}}
+  "@pdfReaderPageStatus": {"placeholders": {"current": {}, "total": {}}},
+  "processingStatusTitle": "Processing",
+  "processingPreparing": "Preparing processing...",
+  "processingWorking": "Working...",
+  "processingProgressUnits": "{completed} of {total} units",
+  "@processingProgressUnits": {"placeholders": {"completed": {}, "total": {}}},
+  "cancelProcessing": "Cancel",
+  "cancellationRequested": "Cancellation requested",
+  "processingCompleted": "Processing completed.",
+  "processingFailed": "Processing failed.",
+  "processingCancelled": "Processing cancelled.",
+  "processingRecoveryAvailable": "Processing can be recovered.",
+  "processingRecoveryFailed": "Processing could not be recovered."
 }

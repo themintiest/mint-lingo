@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","protocolVersion":"1.0","method":"job.progress","params":{"jobId":"6b6ce719-5bf7-4a6e-9648-7f56e4900001","stageId":"workflow_specific_stage","progress":{"kind":"determinate","percent":68}}}
