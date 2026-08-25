@@ -62,6 +62,11 @@ validation, and one immediate granular validation retry into one ordered
 `TranslationArtifact`. Workflows remain responsible for job lifecycle, stage
 order, checkpointing, and merge-back into their own artifacts.
 
+`mint_lingo_engine.ollama_availability.OllamaAvailabilityDetector` checks for
+the local `ollama` executable and its `/api/version` health endpoint, returning
+distinct uninstalled, unreachable, or ready states. It does not discover
+models or implement translation.
+
 ## EPUB source acquisition
 
 `mint_lingo_engine.epub_source` accepts the concrete EPUB acquisition payload
