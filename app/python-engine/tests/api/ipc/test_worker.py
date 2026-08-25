@@ -219,7 +219,7 @@ class _FakeMediaValidator:
 def _media_fixture(name: str) -> dict[str, object]:
     return json.loads(
         (
-            Path(__file__).parents[3]
+            Path(__file__).parents[5]
             / "shared"
             / "schemas"
             / "ipc"

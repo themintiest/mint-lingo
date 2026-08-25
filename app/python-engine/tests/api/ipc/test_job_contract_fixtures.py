@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-CONTRACT_ROOT = Path(__file__).parents[3] / "shared" / "schemas" / "ipc" / "v1"
+CONTRACT_ROOT = Path(__file__).parents[5] / "shared" / "schemas" / "ipc" / "v1"
 _JOB_ID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 )

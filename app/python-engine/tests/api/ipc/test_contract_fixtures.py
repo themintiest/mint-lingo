@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 
-CONTRACT_ROOT = Path(__file__).parents[3] / "shared" / "schemas" / "ipc" / "v1"
+CONTRACT_ROOT = Path(__file__).parents[5] / "shared" / "schemas" / "ipc" / "v1"
 
 
 def _is_request_id(value: Any) -> bool:

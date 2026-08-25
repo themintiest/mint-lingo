@@ -58,4 +58,4 @@ class FfprobeMetadataParserTest(unittest.TestCase):
 
 
 def _fixture_path(name: str) -> Path:
-    return Path(__file__).parent / "fixtures" / "media" / "ffprobe" / "valid" / name
+    return Path(__file__).parents[1] / "fixtures" / "media" / "ffprobe" / "valid" / name
