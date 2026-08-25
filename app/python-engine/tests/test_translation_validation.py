@@ -56,6 +56,7 @@ class TranslationArtifactValidationTest(unittest.TestCase):
             result,
             TranslationValidationErrorCode.TARGET_LANGUAGE_MISMATCH,
         )
+        self.assertEqual(result.unit_ids, ())  # type: ignore[union-attr]
 
     def test_rejects_missing_extra_duplicate_and_malformed_unit_results(self) -> None:
         cases = (
@@ -66,6 +67,7 @@ class TranslationArtifactValidationTest(unittest.TestCase):
                     units=[TranslatedTextUnit(unit_id="unit.1", translated_text="One")],
                 ),
                 TranslationValidationErrorCode.MISSING_UNIT_ID,
+                ("unit.2",),
             ),
             (
                 "unexpected",
@@ -78,6 +80,7 @@ class TranslationArtifactValidationTest(unittest.TestCase):
                     ],
                 ),
                 TranslationValidationErrorCode.UNEXPECTED_UNIT_ID,
+                ("unit.3",),
             ),
             (
                 "duplicate",
@@ -89,6 +92,7 @@ class TranslationArtifactValidationTest(unittest.TestCase):
                     ],
                 ),
                 TranslationValidationErrorCode.DUPLICATE_UNIT_ID,
+                ("unit.1",),
             ),
             (
                 "malformed identifier",
@@ -100,6 +104,7 @@ class TranslationArtifactValidationTest(unittest.TestCase):
                     ],
                 ),
                 TranslationValidationErrorCode.MALFORMED_UNIT_ID,
+                (" unit.1",),
             ),
             (
                 "empty translation",
@@ -111,15 +116,18 @@ class TranslationArtifactValidationTest(unittest.TestCase):
                     ],
                 ),
                 TranslationValidationErrorCode.EMPTY_TRANSLATED_TEXT,
+                ("unit.1",),
             ),
         )
 
-        for name, artifact, expected_code in cases:
+        for name, artifact, expected_code, expected_unit_ids in cases:
             with self.subTest(name=name):
+                result = validate_translation_artifact(self.request, artifact)
                 self.assert_validation_error(
-                    validate_translation_artifact(self.request, artifact),
+                    result,
                     expected_code,
                 )
+                self.assertEqual(result.unit_ids, expected_unit_ids)  # type: ignore[union-attr]
 
     def test_rejects_non_translation_models(self) -> None:
         with self.assertRaisesRegex(TypeError, "TranslationRequest"):

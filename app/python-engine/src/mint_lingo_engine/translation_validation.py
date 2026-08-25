@@ -25,6 +25,7 @@ class TranslationValidationError:
 
     code: TranslationValidationErrorCode
     message: str
+    unit_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.code, TranslationValidationErrorCode):
@@ -33,6 +34,14 @@ class TranslationValidationError:
             raise TypeError("message must be a string")
         if not self.message or self.message.strip() != self.message:
             raise ValueError("message must not be blank or padded")
+        if isinstance(self.unit_ids, (str, bytes)):
+            raise TypeError("unit_ids must be an iterable of strings")
+        unit_ids = tuple(self.unit_ids)
+        if any(not isinstance(unit_id, str) for unit_id in unit_ids):
+            raise TypeError("unit_ids must contain only strings")
+        if len(set(unit_ids)) != len(unit_ids):
+            raise ValueError("unit_ids must be unique")
+        object.__setattr__(self, "unit_ids", unit_ids)
 
 
 def validate_translation_artifact(
@@ -57,33 +66,45 @@ def validate_translation_artifact(
             return _error(
                 TranslationValidationErrorCode.MALFORMED_UNIT_ID,
                 "Translated result contains a blank or padded unit ID.",
+                unit_ids=(unit.unit_id,),
             )
         if not unit.translated_text or not unit.translated_text.strip():
             return _error(
                 TranslationValidationErrorCode.EMPTY_TRANSLATED_TEXT,
                 f"Translated result for unit ID {unit.unit_id!r} is empty.",
+                unit_ids=(unit.unit_id,),
             )
         returned_unit_ids.append(unit.unit_id)
 
-    if len(set(returned_unit_ids)) != len(returned_unit_ids):
+    duplicate_unit_ids = _duplicate_unit_ids(returned_unit_ids)
+    if duplicate_unit_ids:
         return _error(
             TranslationValidationErrorCode.DUPLICATE_UNIT_ID,
             "Translated result contains duplicate unit IDs.",
+            unit_ids=duplicate_unit_ids,
         )
 
     requested_unit_ids = {unit.unit_id for unit in request.artifact.units}
     returned_unit_id_set = set(returned_unit_ids)
-    unexpected_unit_ids = returned_unit_id_set - requested_unit_ids
+    unexpected_unit_ids = tuple(
+        unit_id for unit_id in returned_unit_ids if unit_id not in requested_unit_ids
+    )
     if unexpected_unit_ids:
         return _error(
             TranslationValidationErrorCode.UNEXPECTED_UNIT_ID,
             "Translated result contains unit IDs that were not requested.",
+            unit_ids=unexpected_unit_ids,
         )
-    missing_unit_ids = requested_unit_ids - returned_unit_id_set
+    missing_unit_ids = tuple(
+        unit.unit_id
+        for unit in request.artifact.units
+        if unit.unit_id not in returned_unit_id_set
+    )
     if missing_unit_ids:
         return _error(
             TranslationValidationErrorCode.MISSING_UNIT_ID,
             "Translated result is missing requested unit IDs.",
+            unit_ids=missing_unit_ids,
         )
     return artifact
 
@@ -91,5 +112,16 @@ def validate_translation_artifact(
 def _error(
     code: TranslationValidationErrorCode,
     message: str,
+    unit_ids: tuple[str, ...] = (),
 ) -> TranslationValidationError:
-    return TranslationValidationError(code=code, message=message)
+    return TranslationValidationError(code=code, message=message, unit_ids=unit_ids)
+
+
+def _duplicate_unit_ids(unit_ids: list[str]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    duplicate_unit_ids: list[str] = []
+    for unit_id in unit_ids:
+        if unit_id in seen and unit_id not in duplicate_unit_ids:
+            duplicate_unit_ids.append(unit_id)
+        seen.add(unit_id)
+    return tuple(duplicate_unit_ids)
