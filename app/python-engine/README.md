@@ -46,6 +46,13 @@ providers must normalize vendor payloads at this boundary; provider
 capabilities, prompts, validation, retries, and concrete adapters remain later
 work.
 
+CTX-01 defines `mint_lingo_engine.translation_context`
+`build_translation_context_windows`. It partitions ordered source-neutral units
+into bounded, non-overlapping `TranslationRequest` values while preserving each
+stable unit ID and language. The caller supplies the unit bound; it is not a
+provider capability or token estimate. Controlled overlap, prompts, validation,
+retries, provider calls, and workflow composition remain later work.
+
 ## EPUB source acquisition
 
 `mint_lingo_engine.epub_source` accepts the concrete EPUB acquisition payload
