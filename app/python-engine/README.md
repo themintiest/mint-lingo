@@ -38,3 +38,10 @@ language and optional textual context; results retain each unit ID with its
 translated text. Projection, context construction, provider calls, validation,
 retry, checkpointing, merge-back, and workflow composition are intentionally
 outside this seam.
+
+## EPUB source acquisition
+
+`mint_lingo_engine.epub_source` accepts the concrete EPUB acquisition payload
+containing only a selected local `sourcePath`. It deliberately does not open or
+validate the referenced file, and never accepts document bytes or reader-ready
+state; EPUB package validation and artifacts are later format-owned work.
