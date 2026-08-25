@@ -1,7 +1,7 @@
 from dataclasses import FrozenInstanceError
 import unittest
 
-from mint_lingo_engine.llm_provider import LlmProvider
+from mint_lingo_engine.llm_provider import LlmProvider, LlmProviderCapabilities
 from mint_lingo_engine.translation import (
     StructuredTextArtifact,
     StructuredTextUnit,
@@ -16,6 +16,15 @@ class FakeLlmProvider(LlmProvider):
 
     def __init__(self) -> None:
         self.requests: list[TranslationRequest] = []
+
+    @property
+    def capabilities(self) -> LlmProviderCapabilities:
+        return LlmProviderCapabilities(
+            model_ids=("fake-translation",),
+            context_window_tokens=None,
+            supports_structured_output=False,
+            supports_streaming=False,
+        )
 
     def translate(self, request: TranslationRequest) -> TranslationArtifact:
         self.requests.append(request)
@@ -142,6 +151,7 @@ class LlmProviderTest(unittest.TestCase):
         result = provider.translate(request)
 
         self.assertEqual(provider.requests, [request])  # type: ignore[attr-defined]
+        self.assertEqual(provider.capabilities.model_ids, ("fake-translation",))
         self.assertEqual(result.target_language, "vi")
         self.assertEqual(
             [(unit.unit_id, unit.translated_text) for unit in result.units],
@@ -151,3 +161,50 @@ class LlmProviderTest(unittest.TestCase):
     def test_provider_contract_requires_normalized_translation_operation(self) -> None:
         with self.assertRaises(TypeError):
             LlmProvider()
+
+
+class LlmProviderCapabilitiesTest(unittest.TestCase):
+    def test_preserves_models_context_limit_and_support_flags(self) -> None:
+        capabilities = LlmProviderCapabilities(
+            model_ids=["local-model", "remote-model"],
+            context_window_tokens=32_768,
+            supports_structured_output=True,
+            supports_streaming=False,
+        )
+
+        self.assertEqual(capabilities.model_ids, ("local-model", "remote-model"))
+        self.assertEqual(capabilities.context_window_tokens, 32_768)
+        self.assertTrue(capabilities.supports_structured_output)
+        self.assertFalse(capabilities.supports_streaming)
+
+    def test_allows_unknown_context_limit_and_rejects_malformed_metadata(self) -> None:
+        capabilities = LlmProviderCapabilities(
+            model_ids=[],
+            context_window_tokens=None,
+            supports_structured_output=False,
+            supports_streaming=True,
+        )
+        self.assertEqual(capabilities.model_ids, ())
+        self.assertIsNone(capabilities.context_window_tokens)
+
+        with self.assertRaisesRegex(ValueError, "model_ids must be unique"):
+            LlmProviderCapabilities(
+                model_ids=["same", "same"],
+                context_window_tokens=None,
+                supports_structured_output=False,
+                supports_streaming=False,
+            )
+        with self.assertRaisesRegex(ValueError, "at least 1"):
+            LlmProviderCapabilities(
+                model_ids=[],
+                context_window_tokens=0,
+                supports_structured_output=False,
+                supports_streaming=False,
+            )
+        with self.assertRaisesRegex(TypeError, "supports_streaming"):
+            LlmProviderCapabilities(
+                model_ids=[],
+                context_window_tokens=None,
+                supports_structured_output=False,
+                supports_streaming="no",  # type: ignore[arg-type]
+            )

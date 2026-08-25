@@ -53,6 +53,11 @@ stable unit ID and language. The caller supplies the unit bound; it is not a
 provider capability or token estimate. Controlled overlap, prompts, validation,
 retries, provider calls, and workflow composition remain later work.
 
+LLM-03 defines `LlmProviderCapabilities` on `LlmProvider`. A capability
+snapshot expresses available model IDs, an optional reported token context
+limit, and structured-output and streaming support. It performs no provider
+discovery, configuration, request-limit selection, or concrete adapter work.
+
 ## EPUB source acquisition
 
 `mint_lingo_engine.epub_source` accepts the concrete EPUB acquisition payload
