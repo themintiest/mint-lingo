@@ -19,11 +19,16 @@ class EpubPackageInspectorTest(unittest.TestCase):
             archive.writestr("mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED)
             archive.writestr("META-INF/container.xml", '<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>')
             archive.writestr("OEBPS/content.opf", '<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/"><metadata><dc:title>Book</dc:title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="one" href="one.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="one"/></spine></package>')
+            archive.writestr("OEBPS/one.xhtml", "<html><body><p>Chapter one</p></body></html>")
+            archive.writestr("OEBPS/nav.xhtml", "<html><body><nav/></body></html>")
         result = self.inspector.inspect(EpubSourceReference(path))
         self.assertIsInstance(result, EpubDocumentArtifact)
         assert isinstance(result, EpubDocumentArtifact)
         self.assertEqual(result.package_metadata.title, "Book")
         self.assertEqual(result.navigation.href, "OEBPS/nav.xhtml")
+        self.assertEqual(result.xhtml_documents[0].manifest_item_id, "one")
+        self.assertEqual(result.xhtml_documents[0].serialized_xhtml, "<html><body><p>Chapter one</p></body></html>")
+        self.assertEqual(result.preserved_resources[0].manifest_item_id, "nav")
 
     def test_reports_missing_or_invalid_container_structures(self) -> None:
         missing = self.inspector.inspect(EpubSourceReference(self.root / "missing.epub"))

@@ -13,7 +13,9 @@ from mint_lingo_engine.epub_document import (
     EpubPackageMetadata,
     EpubPackageValidationError,
     EpubPackageValidationErrorCode,
+    EpubPreservedResource,
     EpubSpineItem,
+    EpubXhtmlDocument,
 )
 from mint_lingo_engine.epub_source import EpubSourceReference
 
@@ -74,6 +76,28 @@ class EpubPackageInspector:
                 if nav is None:
                     return _error(EpubPackageValidationErrorCode.NAVIGATION_MISSING, "EPUB navigation document is missing.")
                 metadata = package.find(f"{_OPF_NAMESPACE}metadata")
+                manifest_by_id = {item.item_id: item for item in manifest}
+                spine_ids = {item.manifest_item_id for item in spine}
+                package_root = PurePosixPath(package_path).parent
+                try:
+                    xhtml_documents = tuple(
+                        EpubXhtmlDocument(
+                            manifest_item_id=spine_item.manifest_item_id,
+                            archive_path=str(package_root / manifest_by_id[spine_item.manifest_item_id].href),
+                            serialized_xhtml=archive.read(
+                                str(package_root / manifest_by_id[spine_item.manifest_item_id].href)
+                            ).decode("utf-8"),
+                        )
+                        for spine_item in spine
+                        if manifest_by_id[spine_item.manifest_item_id].media_type == "application/xhtml+xml"
+                    )
+                except (KeyError, UnicodeDecodeError, OSError):
+                    return _error(EpubPackageValidationErrorCode.PACKAGE_DOCUMENT_INVALID, "EPUB spine content is invalid.")
+                preserved_resources = tuple(
+                    EpubPreservedResource(item.item_id, str(package_root / item.href))
+                    for item in manifest
+                    if item.item_id not in spine_ids
+                )
                 return EpubDocumentArtifact(
                     source=source,
                     package_metadata=EpubPackageMetadata(
@@ -83,7 +107,7 @@ class EpubPackageInspector:
                         language=_metadata_value(metadata, "language"),
                     ), manifest=manifest, spine=spine,
                     navigation=EpubNavigationReference(str(PurePosixPath(package_path).parent / nav.href)),
-                    preserved_resources=(), xhtml_documents=(), merge_targets=(),
+                    preserved_resources=preserved_resources, xhtml_documents=xhtml_documents, merge_targets=(),
                 )
         except (OSError, zipfile.BadZipFile):
             return _error(EpubPackageValidationErrorCode.INVALID_CONTAINER, "EPUB container cannot be opened.")
