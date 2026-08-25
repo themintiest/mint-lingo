@@ -11,19 +11,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mint_lingo_engine.epub_document import (
+from mint_lingo_engine.epub.document import (
     EpubDocumentArtifact,
     EpubPackageValidationError,
 )
-from mint_lingo_engine.epub_inspection import EpubPackageInspector
-from mint_lingo_engine.epub_projection import (
+from mint_lingo_engine.epub.inspection import EpubPackageInspector
+from mint_lingo_engine.epub.projection import (
     EpubStructuredTextProjection,
     EpubStructuredTextProjector,
 )
-from mint_lingo_engine.epub_source import EpubSourceAcquisition
-from mint_lingo_engine.translation import TranslationArtifact, TranslationRequest
-from mint_lingo_engine.translation_service import TranslationService
-from mint_lingo_engine.translation_validation import validate_translation_artifact
+from mint_lingo_engine.epub.source import EpubSourceAcquisition
+from mint_lingo_engine.translation.models import TranslationArtifact, TranslationRequest
+from mint_lingo_engine.translation.service import TranslationService
+from mint_lingo_engine.translation.validation import validate_translation_artifact
 
 
 @dataclass(frozen=True)

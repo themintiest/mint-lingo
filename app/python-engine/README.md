@@ -31,7 +31,7 @@ is protocol-only; diagnostics go to standard error.
 ## Shared structured-text translation seam
 
 LLM-01 defines source-agnostic Python domain models in
-`mint_lingo_engine.translation`: `StructuredTextArtifact`, `TranslationRequest`,
+`mint_lingo_engine.translation.models`: `StructuredTextArtifact`, `TranslationRequest`,
 and `TranslationArtifact`. A concrete workflow supplies only a canonical source
 language and ordered stable unit IDs/text; a request adds a canonical target
 language and optional structured reference context; results retain each unit ID with its
@@ -39,12 +39,12 @@ translated text. Projection, context construction, provider calls, validation,
 retry, checkpointing, merge-back, and workflow composition are intentionally
 outside this seam.
 
-`mint_lingo_engine.llm_provider.LlmProvider` accepts a normalized
+`mint_lingo_engine.providers.translation.base.LlmProvider` accepts a normalized
 `TranslationRequest` plus provider-neutral instructions and returns a
 `TranslationArtifact`, without importing a vendor adapter. Concrete providers
 must normalize vendor payloads at this boundary.
 
-CTX-01 defines `mint_lingo_engine.translation_context`
+CTX-01 defines `mint_lingo_engine.translation.context`
 `build_translation_context_windows`. It partitions ordered source-neutral units
 into bounded, non-overlapping `TranslationRequest` values while preserving each
 stable unit ID and language. The caller supplies the unit bound; it is not a
@@ -56,32 +56,32 @@ snapshot expresses available model IDs, an optional reported token context
 limit, and structured-output and streaming support. It performs no provider
 discovery, configuration, request-limit selection, or concrete adapter work.
 
-`mint_lingo_engine.translation_service.TranslationService` composes bounded
+`mint_lingo_engine.translation.service.TranslationService` composes bounded
 context windows, provider-neutral instructions, `LlmProvider` calls, result
 validation, and one immediate granular validation retry into one ordered
 `TranslationArtifact`. Workflows remain responsible for job lifecycle, stage
 order, checkpointing, and merge-back into their own artifacts.
 
-`mint_lingo_engine.ollama_availability.OllamaAvailabilityDetector` checks for
+`mint_lingo_engine.providers.translation.ollama_availability.OllamaAvailabilityDetector` checks for
 the local `ollama` executable and its `/api/version` health endpoint, returning
 distinct uninstalled, unreachable, or ready states. It does not discover
 models or implement translation.
 
-`mint_lingo_engine.ollama_discovery.OllamaModelDiscovery` reads the local
+`mint_lingo_engine.providers.translation.ollama_discovery.OllamaModelDiscovery` reads the local
 service's `/api/tags` inventory and `/api/show` data for each installed model.
 It exposes the service-reported model IDs, capability names, and optional model
 context length without selecting or running a model.
 
 ## EPUB source acquisition
 
-`mint_lingo_engine.epub_source` accepts the concrete EPUB acquisition payload
+`mint_lingo_engine.epub.source` accepts the concrete EPUB acquisition payload
 containing only a selected local `sourcePath`. It deliberately does not open or
 validate the referenced file, and never accepts document bytes or reader-ready
 state; EPUB package validation and artifacts are later format-owned work.
 
 ## EPUB document boundary
 
-`mint_lingo_engine.epub_document` defines normalized package-validation errors
+`mint_lingo_engine.epub.document` defines normalized package-validation errors
 and the EPUB-owned `EpubDocumentArtifact` shape. Package metadata, manifest and
 spine references, navigation, retained resources, serialized XHTML, and merge
 targets remain there rather than in shared jobs or translation models.

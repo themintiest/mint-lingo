@@ -9,7 +9,7 @@ prompt, or provider call.
 
 from __future__ import annotations
 
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     TranslationContext,
     TranslationRequest,

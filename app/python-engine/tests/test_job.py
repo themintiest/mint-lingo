@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError
 import unittest
 from uuid import UUID
 
-from mint_lingo_engine.job import Job, JobId, JobLifecycle, JobTransitionError
+from mint_lingo_engine.processing.job import Job, JobId, JobLifecycle, JobTransitionError
 
 
 class JobIdTest(unittest.TestCase):

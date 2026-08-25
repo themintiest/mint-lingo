@@ -6,8 +6,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
 
-from mint_lingo_engine.checkpoint import CheckpointFormatError, CheckpointStore
-from mint_lingo_engine.job import Job, JobLifecycle
+from mint_lingo_engine.processing.checkpoint import CheckpointFormatError, CheckpointStore
+from mint_lingo_engine.processing.job import Job, JobLifecycle
 
 
 class RecoveryDisposition(str, Enum):

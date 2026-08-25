@@ -1,8 +1,8 @@
 from dataclasses import FrozenInstanceError
 import unittest
 
-from mint_lingo_engine.llm_provider import LlmProvider, LlmProviderCapabilities
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.providers.translation.base import LlmProvider, LlmProviderCapabilities
+from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
     TranslatedTextUnit,

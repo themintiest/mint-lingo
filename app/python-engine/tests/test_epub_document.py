@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError
 from pathlib import Path
 import unittest
 
-from mint_lingo_engine.epub_document import (
+from mint_lingo_engine.epub.document import (
     EpubDocumentArtifact,
     EpubManifestItem,
     EpubNavigationReference,
@@ -14,7 +14,7 @@ from mint_lingo_engine.epub_document import (
     EpubTextMergeTarget,
     EpubXhtmlDocument,
 )
-from mint_lingo_engine.epub_source import EpubSourceReference
+from mint_lingo_engine.epub.source import EpubSourceReference
 
 
 class EpubDocumentArtifactTest(unittest.TestCase):

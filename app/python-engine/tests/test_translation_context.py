@@ -1,7 +1,7 @@
 import unittest
 
-from mint_lingo_engine.translation import StructuredTextArtifact, StructuredTextUnit
-from mint_lingo_engine.translation_context import build_translation_context_windows
+from mint_lingo_engine.translation.models import StructuredTextArtifact, StructuredTextUnit
+from mint_lingo_engine.translation.context import build_translation_context_windows
 
 
 class TranslationContextWindowTest(unittest.TestCase):

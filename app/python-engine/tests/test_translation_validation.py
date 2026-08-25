@@ -1,13 +1,13 @@
 import unittest
 
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
     TranslatedTextUnit,
     TranslationArtifact,
     TranslationRequest,
 )
-from mint_lingo_engine.translation_validation import (
+from mint_lingo_engine.translation.validation import (
     TranslationValidationError,
     TranslationValidationErrorCode,
     validate_translation_artifact,

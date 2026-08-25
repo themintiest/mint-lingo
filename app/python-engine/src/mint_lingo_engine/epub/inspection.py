@@ -6,7 +6,7 @@ from pathlib import Path, PurePosixPath
 import xml.etree.ElementTree as ElementTree
 import zipfile
 
-from mint_lingo_engine.epub_document import (
+from mint_lingo_engine.epub.document import (
     EpubDocumentArtifact,
     EpubManifestItem,
     EpubNavigationReference,
@@ -17,7 +17,7 @@ from mint_lingo_engine.epub_document import (
     EpubSpineItem,
     EpubXhtmlDocument,
 )
-from mint_lingo_engine.epub_source import EpubSourceReference
+from mint_lingo_engine.epub.source import EpubSourceReference
 
 
 _CONTAINER_PATH = "META-INF/container.xml"

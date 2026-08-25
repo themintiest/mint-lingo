@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from mint_lingo_engine.checkpoint import (
+from mint_lingo_engine.processing.checkpoint import (
     Checkpoint,
     CheckpointConflictError,
     CheckpointFormatError,

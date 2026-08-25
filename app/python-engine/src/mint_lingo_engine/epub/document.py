@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from mint_lingo_engine.epub_source import EpubSourceReference
+from mint_lingo_engine.epub.source import EpubSourceReference
 
 
 class EpubPackageValidationErrorCode(str, Enum):

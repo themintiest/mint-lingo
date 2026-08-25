@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from mint_lingo_engine.ollama_availability import DEFAULT_OLLAMA_SERVICE_URL
+from mint_lingo_engine.providers.translation.ollama_availability import DEFAULT_OLLAMA_SERVICE_URL
 
 
 _DISCOVERY_TIMEOUT_SECONDS = 2.0

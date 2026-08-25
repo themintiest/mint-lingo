@@ -5,8 +5,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from mint_lingo_engine.job import Job, JobLifecycle
-from mint_lingo_engine.job_runner import (
+from mint_lingo_engine.processing.job import Job, JobLifecycle
+from mint_lingo_engine.processing.runner import (
     JobCancellationAccepted,
     JobCancellationNotFound,
     JobExecutionContext,

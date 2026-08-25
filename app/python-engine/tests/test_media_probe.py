@@ -3,7 +3,7 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from mint_lingo_engine.media_probe import (
+from mint_lingo_engine.media.probe import (
     FfprobeExecutable,
     FfprobeExecutableResolver,
     FfprobeProcessResult,
@@ -129,7 +129,7 @@ class MediaProbeTest(unittest.TestCase):
             stderr="probe error",
         )
         with patch(
-            "mint_lingo_engine.media_probe.subprocess.run",
+            "mint_lingo_engine.media.probe.subprocess.run",
             return_value=completed,
         ) as run:
             result = SubprocessFfprobeProcessRunner().run(

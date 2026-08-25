@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mint_lingo_engine.job import JobId
+from mint_lingo_engine.processing.job import JobId
 
 
 @dataclass(frozen=True)

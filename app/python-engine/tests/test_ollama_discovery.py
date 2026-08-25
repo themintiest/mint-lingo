@@ -2,7 +2,7 @@ import io
 import unittest
 from unittest.mock import patch
 
-from mint_lingo_engine.ollama_discovery import (
+from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaDiscoveryError,
     OllamaModelCapabilities,
     OllamaModelDiscovery,
@@ -98,7 +98,7 @@ class OllamaModelDiscoveryTest(unittest.TestCase):
 
     def test_uses_documented_inventory_and_model_detail_http_requests(self) -> None:
         with patch(
-            "mint_lingo_engine.ollama_discovery.urlopen",
+            "mint_lingo_engine.providers.translation.ollama_discovery.urlopen",
             side_effect=(
                 _Response(b'{"models":[{"name":"model:latest"}]}'),
                 _Response(

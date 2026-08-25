@@ -1,7 +1,7 @@
 from pathlib import Path
 import unittest
 
-from mint_lingo_engine.epub_source import EpubSourceAcquisition, EpubSourceReference
+from mint_lingo_engine.epub.source import EpubSourceAcquisition, EpubSourceReference
 
 
 class EpubSourceAcquisitionTest(unittest.TestCase):

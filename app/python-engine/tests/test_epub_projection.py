@@ -1,9 +1,9 @@
 from pathlib import Path
 import unittest
 
-from mint_lingo_engine.epub_document import EpubDocumentArtifact, EpubPackageMetadata, EpubXhtmlDocument
-from mint_lingo_engine.epub_projection import EpubStructuredTextProjector
-from mint_lingo_engine.epub_source import EpubSourceReference
+from mint_lingo_engine.epub.document import EpubDocumentArtifact, EpubPackageMetadata, EpubXhtmlDocument
+from mint_lingo_engine.epub.projection import EpubStructuredTextProjector
+from mint_lingo_engine.epub.source import EpubSourceReference
 
 
 class EpubStructuredTextProjectorTest(unittest.TestCase):

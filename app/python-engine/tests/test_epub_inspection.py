@@ -3,9 +3,9 @@ from tempfile import TemporaryDirectory
 import unittest
 import zipfile
 
-from mint_lingo_engine.epub_document import EpubDocumentArtifact, EpubPackageValidationError, EpubPackageValidationErrorCode
-from mint_lingo_engine.epub_inspection import EpubPackageInspector
-from mint_lingo_engine.epub_source import EpubSourceReference
+from mint_lingo_engine.epub.document import EpubDocumentArtifact, EpubPackageValidationError, EpubPackageValidationErrorCode
+from mint_lingo_engine.epub.inspection import EpubPackageInspector
+from mint_lingo_engine.epub.source import EpubSourceReference
 
 
 class EpubPackageInspectorTest(unittest.TestCase):

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from shutil import rmtree
 
-from mint_lingo_engine.job import JobId
+from mint_lingo_engine.processing.job import JobId
 
 
 @dataclass(frozen=True)

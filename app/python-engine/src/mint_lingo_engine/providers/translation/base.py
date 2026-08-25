@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from mint_lingo_engine.translation import TranslationArtifact, TranslationRequest
+from mint_lingo_engine.translation.models import TranslationArtifact, TranslationRequest
 
 
 @dataclass(frozen=True)

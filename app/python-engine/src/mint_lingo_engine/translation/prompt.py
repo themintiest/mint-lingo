@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from mint_lingo_engine.translation import TranslationRequest
+from mint_lingo_engine.translation.models import TranslationRequest
 
 
 def build_structured_translation_instructions(request: TranslationRequest) -> str:

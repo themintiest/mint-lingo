@@ -3,15 +3,15 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import zipfile
 
-from mint_lingo_engine.epub_document import EpubPackageValidationError
-from mint_lingo_engine.epub_translation_workflow import EpubTranslationWorkflow
-from mint_lingo_engine.llm_provider import LlmProvider, LlmProviderCapabilities
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.epub.document import EpubPackageValidationError
+from mint_lingo_engine.epub.translation_workflow import EpubTranslationWorkflow
+from mint_lingo_engine.providers.translation.base import LlmProvider, LlmProviderCapabilities
+from mint_lingo_engine.translation.models import (
     TranslatedTextUnit,
     TranslationArtifact,
     TranslationRequest,
 )
-from mint_lingo_engine.translation_service import TranslationService
+from mint_lingo_engine.translation.service import TranslationService
 
 
 class EpubTranslationWorkflowTest(unittest.TestCase):

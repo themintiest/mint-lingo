@@ -2,8 +2,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import xml.etree.ElementTree as ElementTree
-from mint_lingo_engine.epub_document import EpubDocumentArtifact, EpubTextMergeTarget
-from mint_lingo_engine.translation import StructuredTextArtifact, StructuredTextUnit
+from mint_lingo_engine.epub.document import EpubDocumentArtifact, EpubTextMergeTarget
+from mint_lingo_engine.translation.models import StructuredTextArtifact, StructuredTextUnit
 
 @dataclass(frozen=True)
 class EpubStructuredTextProjection:

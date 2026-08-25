@@ -5,7 +5,7 @@ import unittest
 from datetime import timedelta
 from pathlib import Path
 
-from mint_lingo_engine.media import (
+from mint_lingo_engine.media.models import (
     MediaDimensions,
     MediaMetadata,
     MediaStream,
@@ -13,7 +13,7 @@ from mint_lingo_engine.media import (
     MediaValidationError,
     MediaValidationErrorCode,
 )
-from mint_lingo_engine.media_validation import (
+from mint_lingo_engine.media.validation import (
     MediaValidationFailure,
     MediaValidationSuccess,
 )

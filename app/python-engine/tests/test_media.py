@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError
 from datetime import timedelta
 import unittest
 
-from mint_lingo_engine.media import (
+from mint_lingo_engine.media.models import (
     MediaDimensions,
     MediaMetadata,
     MediaStream,

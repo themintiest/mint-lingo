@@ -3,12 +3,12 @@ import json
 import unittest
 from unittest.mock import patch
 
-from mint_lingo_engine.ollama_discovery import (
+from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaModelCapabilities,
     OllamaModelInventory,
 )
-from mint_lingo_engine.ollama_provider import OllamaProvider, OllamaProviderError
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.providers.translation.ollama import OllamaProvider, OllamaProviderError
+from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
     TranslationContext,
@@ -125,7 +125,7 @@ class OllamaProviderTest(unittest.TestCase):
             {"translations": [{"unitId": "unit.1", "translatedText": "Mot"}]}
         ).encode("utf-8")
         with patch(
-            "mint_lingo_engine.ollama_provider.urlopen",
+            "mint_lingo_engine.providers.translation.ollama.urlopen",
             return_value=_Response(
                 b'{"message":{"content":' + json.dumps(response_content.decode()).encode() + b"}}"
             ),

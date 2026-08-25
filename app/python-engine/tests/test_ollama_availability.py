@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import URLError
 
-from mint_lingo_engine.ollama_availability import (
+from mint_lingo_engine.providers.translation.ollama_availability import (
     DEFAULT_OLLAMA_SERVICE_URL,
     OllamaAvailability,
     OllamaAvailabilityDetector,
@@ -58,7 +58,7 @@ class OllamaAvailabilityDetectorTest(unittest.TestCase):
     def test_uses_the_version_endpoint_as_the_concrete_health_check(self) -> None:
         response = _Response(b'{"version":"0.12.6"}')
         with patch(
-            "mint_lingo_engine.ollama_availability.urlopen",
+            "mint_lingo_engine.providers.translation.ollama_availability.urlopen",
             return_value=response,
         ) as open_url:
             result = OllamaAvailabilityDetector(
@@ -73,7 +73,7 @@ class OllamaAvailabilityDetectorTest(unittest.TestCase):
 
     def test_treats_invalid_health_responses_as_unreachable(self) -> None:
         with patch(
-            "mint_lingo_engine.ollama_availability.urlopen",
+            "mint_lingo_engine.providers.translation.ollama_availability.urlopen",
             return_value=_Response(b'{"version":" "}'),
         ):
             result = OllamaAvailabilityDetector(
@@ -84,7 +84,7 @@ class OllamaAvailabilityDetectorTest(unittest.TestCase):
 
     def test_treats_a_refused_version_endpoint_as_unreachable(self) -> None:
         with patch(
-            "mint_lingo_engine.ollama_availability.urlopen",
+            "mint_lingo_engine.providers.translation.ollama_availability.urlopen",
             side_effect=URLError("connection refused"),
         ):
             result = OllamaAvailabilityDetector(

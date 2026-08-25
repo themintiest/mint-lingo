@@ -1,12 +1,12 @@
 import unittest
 
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
     TranslationContext,
     TranslationRequest,
 )
-from mint_lingo_engine.translation_prompt import (
+from mint_lingo_engine.translation.prompt import (
     build_structured_translation_instructions,
 )
 

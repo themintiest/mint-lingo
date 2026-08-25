@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from mint_lingo_engine.translation import TranslationRequest
-from mint_lingo_engine.translation_validation import (
+from mint_lingo_engine.translation.models import TranslationRequest
+from mint_lingo_engine.translation.validation import (
     TranslationValidationError,
     TranslationValidationErrorCode,
 )

@@ -1,8 +1,8 @@
 from dataclasses import FrozenInstanceError
 import unittest
 
-from mint_lingo_engine.job import JobId
-from mint_lingo_engine.job_progress import (
+from mint_lingo_engine.processing.job import JobId
+from mint_lingo_engine.processing.progress import (
     DeterminateProgress,
     IndeterminateProgress,
     JobProgressNotification,

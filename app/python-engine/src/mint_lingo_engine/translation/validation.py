@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from mint_lingo_engine.translation import TranslationArtifact, TranslationRequest
+from mint_lingo_engine.translation.models import TranslationArtifact, TranslationRequest
 
 
 class TranslationValidationErrorCode(str, Enum):

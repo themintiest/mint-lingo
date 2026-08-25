@@ -7,13 +7,13 @@ from collections.abc import Callable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from mint_lingo_engine.llm_provider import LlmProvider, LlmProviderCapabilities
-from mint_lingo_engine.ollama_availability import DEFAULT_OLLAMA_SERVICE_URL
-from mint_lingo_engine.ollama_discovery import (
+from mint_lingo_engine.providers.translation.base import LlmProvider, LlmProviderCapabilities
+from mint_lingo_engine.providers.translation.ollama_availability import DEFAULT_OLLAMA_SERVICE_URL
+from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaModelCapabilities,
     OllamaModelInventory,
 )
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.translation.models import (
     TranslatedTextUnit,
     TranslationArtifact,
     TranslationRequest,

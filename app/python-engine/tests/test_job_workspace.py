@@ -2,8 +2,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from mint_lingo_engine.job import JobId
-from mint_lingo_engine.job_workspace import JobWorkspace, JobWorkspaceManager
+from mint_lingo_engine.processing.job import JobId
+from mint_lingo_engine.processing.workspace import JobWorkspace, JobWorkspaceManager
 
 
 class JobWorkspaceManagerTest(unittest.TestCase):

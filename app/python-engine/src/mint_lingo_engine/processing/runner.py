@@ -10,8 +10,8 @@ from subprocess import TimeoutExpired
 from threading import Event, Lock
 from typing import Protocol
 
-from mint_lingo_engine.job import Job, JobId, JobLifecycle
-from mint_lingo_engine.job_workspace import JobWorkspace, JobWorkspaceManager
+from mint_lingo_engine.processing.job import Job, JobId, JobLifecycle
+from mint_lingo_engine.processing.workspace import JobWorkspace, JobWorkspaceManager
 
 
 @dataclass(frozen=True)

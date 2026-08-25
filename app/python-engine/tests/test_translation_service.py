@@ -1,18 +1,18 @@
 import unittest
 
-from mint_lingo_engine.llm_provider import LlmProvider, LlmProviderCapabilities
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.providers.translation.base import LlmProvider, LlmProviderCapabilities
+from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
     TranslatedTextUnit,
     TranslationArtifact,
     TranslationRequest,
 )
-from mint_lingo_engine.translation_service import (
+from mint_lingo_engine.translation.service import (
     TranslationService,
     TranslationServiceValidationError,
 )
-from mint_lingo_engine.translation_validation import TranslationValidationErrorCode
+from mint_lingo_engine.translation.validation import TranslationValidationErrorCode
 
 
 class TranslationServiceTest(unittest.TestCase):

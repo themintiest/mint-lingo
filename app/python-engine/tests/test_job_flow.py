@@ -5,18 +5,18 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from mint_lingo_engine.checkpoint import Checkpoint, CheckpointStore
-from mint_lingo_engine.job import Job, JobLifecycle, JobTransitionError
-from mint_lingo_engine.job_progress import (
+from mint_lingo_engine.processing.checkpoint import Checkpoint, CheckpointStore
+from mint_lingo_engine.processing.job import Job, JobLifecycle, JobTransitionError
+from mint_lingo_engine.processing.progress import (
     DeterminateProgress,
     IndeterminateProgress,
     JobProgressNotification,
 )
-from mint_lingo_engine.job_recovery import (
+from mint_lingo_engine.processing.recovery import (
     JobRecoveryReconciler,
     RecoveryDisposition,
 )
-from mint_lingo_engine.job_runner import (
+from mint_lingo_engine.processing.runner import (
     JobCancellationAccepted,
     JobExecutionContext,
     JobRunner,

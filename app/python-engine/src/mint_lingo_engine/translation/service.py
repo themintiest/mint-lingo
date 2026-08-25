@@ -10,21 +10,21 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from mint_lingo_engine.llm_provider import LlmProvider
-from mint_lingo_engine.translation import (
+from mint_lingo_engine.providers.translation.base import LlmProvider
+from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
     TranslatedTextUnit,
     TranslationArtifact,
     TranslationRequest,
 )
-from mint_lingo_engine.translation_context import build_translation_context_windows
-from mint_lingo_engine.translation_prompt import build_structured_translation_instructions
-from mint_lingo_engine.translation_retry import (
+from mint_lingo_engine.translation.context import build_translation_context_windows
+from mint_lingo_engine.translation.prompt import build_structured_translation_instructions
+from mint_lingo_engine.translation.retry import (
     TranslationRetryScope,
     classify_translation_retry,
 )
-from mint_lingo_engine.translation_validation import (
+from mint_lingo_engine.translation.validation import (
     TranslationValidationError,
     validate_translation_artifact,
 )
