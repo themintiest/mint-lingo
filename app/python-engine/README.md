@@ -67,6 +67,11 @@ the local `ollama` executable and its `/api/version` health endpoint, returning
 distinct uninstalled, unreachable, or ready states. It does not discover
 models or implement translation.
 
+`mint_lingo_engine.ollama_discovery.OllamaModelDiscovery` reads the local
+service's `/api/tags` inventory and `/api/show` data for each installed model.
+It exposes the service-reported model IDs, capability names, and optional model
+context length without selecting or running a model.
+
 ## EPUB source acquisition
 
 `mint_lingo_engine.epub_source` accepts the concrete EPUB acquisition payload
