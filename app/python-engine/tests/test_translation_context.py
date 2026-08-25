@@ -42,6 +42,44 @@ class TranslationContextWindowTest(unittest.TestCase):
             ["chapter.1", "chapter.2", "chapter.3", "chapter.4", "chapter.5"],
         )
 
+    def test_repeats_only_neighboring_units_as_non_authoritative_context(self) -> None:
+        artifact = StructuredTextArtifact(
+            source_language="en",
+            units=[
+                StructuredTextUnit(unit_id="unit.1", text="One"),
+                StructuredTextUnit(unit_id="unit.2", text="Two"),
+                StructuredTextUnit(unit_id="unit.3", text="Three"),
+                StructuredTextUnit(unit_id="unit.4", text="Four"),
+                StructuredTextUnit(unit_id="unit.5", text="Five"),
+            ],
+        )
+
+        windows = build_translation_context_windows(
+            artifact,
+            "vi",
+            max_units_per_window=2,
+            overlap_units=1,
+        )
+
+        self.assertEqual(
+            [[unit.unit_id for unit in window.artifact.units] for window in windows],
+            [["unit.1", "unit.2"], ["unit.3", "unit.4"], ["unit.5"]],
+        )
+        self.assertEqual(
+            [
+                [unit.unit_id for unit in window.context.units]
+                if window.context is not None
+                else []
+                for window in windows
+            ],
+            [["unit.3"], ["unit.2", "unit.5"], ["unit.4"]],
+        )
+        requested_ids = [
+            unit.unit_id for window in windows for unit in window.artifact.units
+        ]
+        self.assertEqual(requested_ids, ["unit.1", "unit.2", "unit.3", "unit.4", "unit.5"])
+        self.assertEqual(len(requested_ids), len(set(requested_ids)))
+
     def test_rejects_invalid_window_inputs(self) -> None:
         artifact = StructuredTextArtifact(
             source_language="en",
@@ -65,4 +103,11 @@ class TranslationContextWindowTest(unittest.TestCase):
                 artifact,
                 "vi",
                 max_units_per_window=0,
+            )
+        with self.assertRaisesRegex(ValueError, "overlap_units must not be negative"):
+            build_translation_context_windows(
+                artifact,
+                "vi",
+                max_units_per_window=1,
+                overlap_units=-1,
             )

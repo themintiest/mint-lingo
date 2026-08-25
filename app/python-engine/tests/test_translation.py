@@ -7,6 +7,7 @@ from mint_lingo_engine.translation import (
     StructuredTextUnit,
     TranslatedTextUnit,
     TranslationArtifact,
+    TranslationContext,
     TranslationRequest,
 )
 
@@ -76,21 +77,24 @@ class StructuredTextArtifactTest(unittest.TestCase):
 
 
 class TranslationRequestTest(unittest.TestCase):
-    def test_carries_target_language_and_optional_context_without_batch_behavior(self) -> None:
+    def test_carries_target_language_and_optional_reference_context(self) -> None:
         artifact = StructuredTextArtifact(
             source_language="ja",
             units=[StructuredTextUnit(unit_id="paragraph.1", text="Source")],
+        )
+        context = TranslationContext(
+            units=[StructuredTextUnit(unit_id="paragraph.0", text="Before")]
         )
 
         request = TranslationRequest(
             artifact=artifact,
             target_language="pt-BR",
-            context="Previous paragraph summary.",
+            context=context,
         )
 
         self.assertIs(request.artifact, artifact)
         self.assertEqual(request.target_language, "pt-BR")
-        self.assertEqual(request.context, "Previous paragraph summary.")
+        self.assertIs(request.context, context)
 
     def test_rejects_invalid_request_values(self) -> None:
         artifact = StructuredTextArtifact(
@@ -102,8 +106,30 @@ class TranslationRequestTest(unittest.TestCase):
             TranslationRequest(artifact="source", target_language="vi")  # type: ignore[arg-type]
         with self.assertRaisesRegex(ValueError, "target_language"):
             TranslationRequest(artifact=artifact, target_language=" ")
-        with self.assertRaisesRegex(TypeError, "context"):
-            TranslationRequest(artifact=artifact, target_language="vi", context=42)  # type: ignore[arg-type]
+        with self.assertRaisesRegex(TypeError, "TranslationContext"):
+            TranslationRequest(
+                artifact=artifact,
+                target_language="vi",
+                context="source",  # type: ignore[arg-type]
+            )
+
+
+class TranslationContextTest(unittest.TestCase):
+    def test_preserves_unique_reference_unit_identity(self) -> None:
+        context = TranslationContext(
+            units=[StructuredTextUnit(unit_id="previous", text="Before")]
+        )
+
+        self.assertEqual(context.units[0].unit_id, "previous")
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            TranslationContext(units=[])
+        with self.assertRaisesRegex(ValueError, "unique unit_id"):
+            TranslationContext(
+                units=[
+                    StructuredTextUnit(unit_id="same", text="One"),
+                    StructuredTextUnit(unit_id="same", text="Two"),
+                ]
+            )
 
 
 class TranslationArtifactTest(unittest.TestCase):

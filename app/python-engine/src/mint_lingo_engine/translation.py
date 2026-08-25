@@ -47,17 +47,33 @@ class StructuredTextArtifact:
 
 
 @dataclass(frozen=True)
+class TranslationContext:
+    """Source units supplied as reference, never as translation output targets."""
+
+    units: tuple[StructuredTextUnit, ...]
+
+    def __post_init__(self) -> None:
+        units = _to_tuple(self.units, "units")
+        if not units:
+            raise ValueError("units must not be empty")
+        if any(not isinstance(unit, StructuredTextUnit) for unit in units):
+            raise TypeError("units must contain only StructuredTextUnit values")
+        _require_unique_unit_ids(units)
+        object.__setattr__(self, "units", units)
+
+
+@dataclass(frozen=True)
 class TranslationRequest:
     """A provider-neutral request to translate structured source text.
 
-    ``context`` is optional workflow-neutral text supplied with this request.
-    Context construction, batch ownership, and provider prompting remain later
-    shared translation capabilities.
+    ``context`` is optional workflow-neutral reference text supplied with this
+    request. Its units are not translation output targets. Provider prompting
+    remains a later shared translation capability.
     """
 
     artifact: StructuredTextArtifact
     target_language: str
-    context: str | None = None
+    context: TranslationContext | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.artifact, StructuredTextArtifact):
@@ -68,8 +84,8 @@ class TranslationRequest:
             _require_language(self.target_language, "target_language"),
         )
         if self.context is not None:
-            if not isinstance(self.context, str):
-                raise TypeError("context must be a string or None")
+            if not isinstance(self.context, TranslationContext):
+                raise TypeError("context must be a TranslationContext or None")
 
 
 @dataclass(frozen=True)

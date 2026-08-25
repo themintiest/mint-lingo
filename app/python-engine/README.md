@@ -34,7 +34,7 @@ LLM-01 defines source-agnostic Python domain models in
 `mint_lingo_engine.translation`: `StructuredTextArtifact`, `TranslationRequest`,
 and `TranslationArtifact`. A concrete workflow supplies only a canonical source
 language and ordered stable unit IDs/text; a request adds a canonical target
-language and optional textual context; results retain each unit ID with its
+language and optional structured reference context; results retain each unit ID with its
 translated text. Projection, context construction, provider calls, validation,
 retry, checkpointing, merge-back, and workflow composition are intentionally
 outside this seam.
