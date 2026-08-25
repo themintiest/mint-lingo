@@ -39,6 +39,13 @@ translated text. Projection, context construction, provider calls, validation,
 retry, checkpointing, merge-back, and workflow composition are intentionally
 outside this seam.
 
+LLM-02 defines `mint_lingo_engine.llm_provider.LlmProvider`. Translation
+orchestration can depend on its `translate(TranslationRequest) ->
+TranslationArtifact` operation without importing a vendor adapter. Concrete
+providers must normalize vendor payloads at this boundary; provider
+capabilities, prompts, validation, retries, and concrete adapters remain later
+work.
+
 ## EPUB source acquisition
 
 `mint_lingo_engine.epub_source` accepts the concrete EPUB acquisition payload

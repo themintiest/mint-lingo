@@ -1,6 +1,7 @@
 from dataclasses import FrozenInstanceError
 import unittest
 
+from mint_lingo_engine.llm_provider import LlmProvider
 from mint_lingo_engine.translation import (
     StructuredTextArtifact,
     StructuredTextUnit,
@@ -8,6 +9,26 @@ from mint_lingo_engine.translation import (
     TranslationArtifact,
     TranslationRequest,
 )
+
+
+class FakeLlmProvider(LlmProvider):
+    """Offline substitute proving callers depend only on the shared contract."""
+
+    def __init__(self) -> None:
+        self.requests: list[TranslationRequest] = []
+
+    def translate(self, request: TranslationRequest) -> TranslationArtifact:
+        self.requests.append(request)
+        return TranslationArtifact(
+            target_language=request.target_language,
+            units=[
+                TranslatedTextUnit(
+                    unit_id=unit.unit_id,
+                    translated_text=f"translated: {unit.text}",
+                )
+                for unit in request.artifact.units
+            ],
+        )
 
 
 class StructuredTextArtifactTest(unittest.TestCase):
@@ -105,3 +126,28 @@ class TranslationArtifactTest(unittest.TestCase):
         self.assertEqual(artifact.units[0].translated_text, "")
         self.assertEqual(artifact.units[1].unit_id, "unexpected")
         self.assertEqual(TranslationArtifact(target_language="vi", units=[]).units, ())
+
+
+class LlmProviderTest(unittest.TestCase):
+    def test_fake_provider_uses_only_the_shared_translation_contract(self) -> None:
+        request = TranslationRequest(
+            artifact=StructuredTextArtifact(
+                source_language="en",
+                units=[StructuredTextUnit(unit_id="paragraph.1", text="Source")],
+            ),
+            target_language="vi",
+        )
+        provider: LlmProvider = FakeLlmProvider()
+
+        result = provider.translate(request)
+
+        self.assertEqual(provider.requests, [request])  # type: ignore[attr-defined]
+        self.assertEqual(result.target_language, "vi")
+        self.assertEqual(
+            [(unit.unit_id, unit.translated_text) for unit in result.units],
+            [("paragraph.1", "translated: Source")],
+        )
+
+    def test_provider_contract_requires_normalized_translation_operation(self) -> None:
+        with self.assertRaises(TypeError):
+            LlmProvider()
