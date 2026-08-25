@@ -39,12 +39,10 @@ translated text. Projection, context construction, provider calls, validation,
 retry, checkpointing, merge-back, and workflow composition are intentionally
 outside this seam.
 
-LLM-02 defines `mint_lingo_engine.llm_provider.LlmProvider`. Translation
-orchestration can depend on its `translate(TranslationRequest) ->
-TranslationArtifact` operation without importing a vendor adapter. Concrete
-providers must normalize vendor payloads at this boundary; provider
-capabilities, prompts, validation, retries, and concrete adapters remain later
-work.
+`mint_lingo_engine.llm_provider.LlmProvider` accepts a normalized
+`TranslationRequest` plus provider-neutral instructions and returns a
+`TranslationArtifact`, without importing a vendor adapter. Concrete providers
+must normalize vendor payloads at this boundary.
 
 CTX-01 defines `mint_lingo_engine.translation_context`
 `build_translation_context_windows`. It partitions ordered source-neutral units
@@ -57,6 +55,12 @@ LLM-03 defines `LlmProviderCapabilities` on `LlmProvider`. A capability
 snapshot expresses available model IDs, an optional reported token context
 limit, and structured-output and streaming support. It performs no provider
 discovery, configuration, request-limit selection, or concrete adapter work.
+
+`mint_lingo_engine.translation_service.TranslationService` composes bounded
+context windows, provider-neutral instructions, `LlmProvider` calls, result
+validation, and one immediate granular validation retry into one ordered
+`TranslationArtifact`. Workflows remain responsible for job lifecycle, stage
+order, checkpointing, and merge-back into their own artifacts.
 
 ## EPUB source acquisition
 

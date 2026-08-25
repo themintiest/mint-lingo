@@ -55,8 +55,17 @@ class LlmProvider(ABC):
         """Return the provider's normalized capability metadata."""
 
     @abstractmethod
-    def translate(self, request: TranslationRequest) -> TranslationArtifact:
-        """Return normalized translated units for ``request``."""
+    def translate(
+        self,
+        request: TranslationRequest,
+        instructions: str,
+    ) -> TranslationArtifact:
+        """Return normalized translated units for one request and instructions.
+
+        ``instructions`` is provider-neutral text prepared by the shared
+        translation capability. Concrete adapters decide how to place it and
+        the structured source/context content in their vendor request.
+        """
 
 
 def _normalize_model_ids(value: object) -> tuple[str, ...]:

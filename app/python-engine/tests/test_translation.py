@@ -27,7 +27,13 @@ class FakeLlmProvider(LlmProvider):
             supports_streaming=False,
         )
 
-    def translate(self, request: TranslationRequest) -> TranslationArtifact:
+    def translate(
+        self,
+        request: TranslationRequest,
+        instructions: str,
+    ) -> TranslationArtifact:
+        if not instructions:
+            raise ValueError("instructions must not be blank")
         self.requests.append(request)
         return TranslationArtifact(
             target_language=request.target_language,
@@ -174,7 +180,7 @@ class LlmProviderTest(unittest.TestCase):
         )
         provider: LlmProvider = FakeLlmProvider()
 
-        result = provider.translate(request)
+        result = provider.translate(request, "Translate the requested source units.")
 
         self.assertEqual(provider.requests, [request])  # type: ignore[attr-defined]
         self.assertEqual(provider.capabilities.model_ids, ("fake-translation",))
