@@ -45,3 +45,10 @@ outside this seam.
 containing only a selected local `sourcePath`. It deliberately does not open or
 validate the referenced file, and never accepts document bytes or reader-ready
 state; EPUB package validation and artifacts are later format-owned work.
+
+## EPUB document boundary
+
+`mint_lingo_engine.epub_document` defines normalized package-validation errors
+and the EPUB-owned `EpubDocumentArtifact` shape. Package metadata, manifest and
+spine references, navigation, retained resources, serialized XHTML, and merge
+targets remain there rather than in shared jobs or translation models.
