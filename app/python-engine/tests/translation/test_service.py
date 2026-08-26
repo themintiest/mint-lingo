@@ -92,6 +92,35 @@ class TranslationServiceTest(unittest.TestCase):
             provider.calls[1][1],
         )
 
+    def test_notifies_only_after_each_request_has_a_valid_translation(self) -> None:
+        provider = _FakeLlmProvider(
+            responses=(
+                _artifact("vi", ("unit.2", "Two"), ("unit.1", "One")),
+                _artifact("vi", ("unit.3", "Three")),
+            )
+        )
+        service = TranslationService(provider, max_units_per_window=2)
+        completed: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
+
+        service.translate(
+            _source_artifact(),
+            "vi",
+            on_request_translated=lambda request, translation: completed.append(
+                (
+                    tuple(unit.unit_id for unit in request.artifact.units),
+                    tuple(unit.unit_id for unit in translation.units),
+                )
+            ),
+        )
+
+        self.assertEqual(
+            completed,
+            [
+                (("unit.1", "unit.2"), ("unit.1", "unit.2")),
+                (("unit.3",), ("unit.3",)),
+            ],
+        )
+
     def test_retries_the_whole_batch_when_result_structure_is_unsafe(self) -> None:
         provider = _FakeLlmProvider(
             responses=(
@@ -148,6 +177,12 @@ class TranslationServiceTest(unittest.TestCase):
             TranslationService(provider, max_units_per_window=0)
         with self.assertRaisesRegex(ValueError, "must not be negative"):
             TranslationService(provider, max_units_per_window=1, overlap_units=-1)
+        with self.assertRaisesRegex(TypeError, "on_request_translated"):
+            TranslationService(provider, max_units_per_window=1).translate(
+                _source_artifact(),
+                "vi",
+                on_request_translated="callback",  # type: ignore[arg-type]
+            )
 
 
 class _FakeLlmProvider(LlmProvider):

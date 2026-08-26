@@ -1,12 +1,19 @@
+from collections.abc import Callable
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import zipfile
 
 from mint_lingo_engine.epub.document import EpubPackageValidationError
+from mint_lingo_engine.epub.translation_checkpoint import (
+    EpubTranslationCheckpointStore,
+)
 from mint_lingo_engine.epub.translation_workflow import EpubTranslationWorkflow
+from mint_lingo_engine.processing.runner import CancellationToken, JobCancelled
 from mint_lingo_engine.providers.translation.base import LlmProvider, LlmProviderCapabilities
 from mint_lingo_engine.translation.models import (
+    StructuredTextArtifact,
+    StructuredTextUnit,
     TranslatedTextUnit,
     TranslationArtifact,
     TranslationRequest,
@@ -32,7 +39,8 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
                 provider,
                 max_units_per_window=1,
                 overlap_units=1,
-            )
+            ),
+            self._checkpoint_store(),
         )
 
         result = workflow.translate(
@@ -63,11 +71,22 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
             ],
             [["chapter.text.2"], ["chapter.text.1"]],
         )
+        self.assertEqual(
+            [
+                (unit.target.target_id, unit.target.manifest_item_id, unit.translated_text)
+                for unit in result.merged_translation.units
+            ],
+            [
+                ("chapter.text.1", "chapter", "Mot"),
+                ("chapter.text.2", "chapter", "Hai"),
+            ],
+        )
 
     def test_returns_epub_owned_package_error_without_calling_provider(self) -> None:
         provider = _FakeLlmProvider(responses=())
         workflow = EpubTranslationWorkflow(
-            TranslationService(provider, max_units_per_window=1)
+            TranslationService(provider, max_units_per_window=1),
+            self._checkpoint_store(),
         )
 
         result = workflow.translate(
@@ -89,7 +108,8 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
             )
         )
         workflow = EpubTranslationWorkflow(
-            TranslationService(provider, max_units_per_window=2)
+            TranslationService(provider, max_units_per_window=2),
+            self._checkpoint_store(),
         )
 
         result = workflow.translate(
@@ -109,10 +129,131 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
             [["chapter.text.1", "chapter.text.2"], ["chapter.text.2"]],
         )
 
+    def test_resumes_from_completed_unit_checkpoints_after_a_provider_failure(self) -> None:
+        book_path = self.root / "book.epub"
+        _write_epub(book_path)
+        checkpoint_store = self._checkpoint_store()
+        first_provider = _FakeLlmProvider(
+            responses=(
+                _translation("vi", ("chapter.text.1", "Mot")),
+                RuntimeError("simulated provider failure"),
+            )
+        )
+        first_workflow = EpubTranslationWorkflow(
+            TranslationService(first_provider, max_units_per_window=1),
+            checkpoint_store,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "simulated provider failure"):
+            first_workflow.translate(
+                {"sourcePath": str(book_path)},
+                source_language="en",
+                target_language="vi",
+            )
+
+        resumed_provider = _FakeLlmProvider(
+            responses=(_translation("vi", ("chapter.text.2", "Hai")),)
+        )
+        result = EpubTranslationWorkflow(
+            TranslationService(resumed_provider, max_units_per_window=1),
+            checkpoint_store,
+        ).translate(
+            {"sourcePath": str(book_path)},
+            source_language="en",
+            target_language="vi",
+        )
+
+        self.assertNotIsInstance(result, EpubPackageValidationError)
+        assert not isinstance(result, EpubPackageValidationError)
+        self.assertEqual(
+            [(unit.unit_id, unit.translated_text) for unit in result.translation.units],
+            [("chapter.text.1", "Mot"), ("chapter.text.2", "Hai")],
+        )
+        self.assertEqual(
+            [[unit.unit_id for unit in request.artifact.units] for request in resumed_provider.calls],
+            [["chapter.text.2"]],
+        )
+
+    def test_checkpoints_a_completed_unit_before_observed_cancellation(self) -> None:
+        book_path = self.root / "book.epub"
+        _write_epub(book_path)
+        checkpoint_store = self._checkpoint_store()
+        cancellation = CancellationToken()
+        cancelling_provider = _FakeLlmProvider(
+            responses=(
+                _translation("vi", ("chapter.text.1", "Mot")),
+                _translation("vi", ("chapter.text.2", "Hai")),
+            ),
+            after_call=lambda call_count: cancellation._cancel()
+            if call_count == 1
+            else None,
+        )
+        workflow = EpubTranslationWorkflow(
+            TranslationService(cancelling_provider, max_units_per_window=1),
+            checkpoint_store,
+        )
+
+        with self.assertRaises(JobCancelled):
+            workflow.translate(
+                {"sourcePath": str(book_path)},
+                source_language="en",
+                target_language="vi",
+                cancellation=cancellation,
+            )
+
+        resumed_provider = _FakeLlmProvider(
+            responses=(_translation("vi", ("chapter.text.2", "Hai")),)
+        )
+        result = EpubTranslationWorkflow(
+            TranslationService(resumed_provider, max_units_per_window=1),
+            checkpoint_store,
+        ).translate(
+            {"sourcePath": str(book_path)},
+            source_language="en",
+            target_language="vi",
+        )
+
+        self.assertNotIsInstance(result, EpubPackageValidationError)
+        assert not isinstance(result, EpubPackageValidationError)
+        self.assertEqual(
+            [[unit.unit_id for unit in request.artifact.units] for request in resumed_provider.calls],
+            [["chapter.text.2"]],
+        )
+
+    def test_rejects_a_checkpoint_when_its_source_text_no_longer_matches(self) -> None:
+        checkpoint_store = self._checkpoint_store()
+        original = StructuredTextArtifact(
+            source_language="en",
+            units=(StructuredTextUnit("chapter.text.1", "First"),),
+        )
+        checkpoint_store.record(
+            TranslationRequest(original, "vi"),
+            _translation("vi", ("chapter.text.1", "Mot")),
+        )
+        changed = StructuredTextArtifact(
+            source_language="en",
+            units=(StructuredTextUnit("chapter.text.1", "Revised first"),),
+        )
+
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            checkpoint_store.load_completed(changed, "vi")
+
+    def _checkpoint_store(self) -> EpubTranslationCheckpointStore:
+        return EpubTranslationCheckpointStore(
+            self.root / "project" / "artifacts",
+            checkpoint_namespace="book-translation",
+        )
+
 
 class _FakeLlmProvider(LlmProvider):
-    def __init__(self, *, responses: tuple[TranslationArtifact, ...]) -> None:
+    def __init__(
+        self,
+        *,
+        responses: tuple[TranslationArtifact | Exception, ...],
+        after_call: Callable[[int], None] | None = None,
+    ) -> None:
         self._responses = iter(responses)
+        self._after_call = after_call
         self.calls: list[TranslationRequest] = []
 
     @property
@@ -130,7 +271,12 @@ class _FakeLlmProvider(LlmProvider):
         instructions: str,
     ) -> TranslationArtifact:
         self.calls.append(request)
-        return next(self._responses)
+        response = next(self._responses)
+        if self._after_call is not None:
+            self._after_call(len(self.calls))
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def _translation(

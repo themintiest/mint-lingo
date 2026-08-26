@@ -8,7 +8,7 @@ and merge-back responsibilities.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from mint_lingo_engine.providers.translation.base import LlmProvider
 from mint_lingo_engine.translation.models import (
@@ -65,11 +65,21 @@ class TranslationService:
         self,
         artifact: StructuredTextArtifact,
         target_language: str,
+        *,
+        on_request_translated: Callable[[TranslationRequest, TranslationArtifact], None]
+        | None = None,
     ) -> TranslationArtifact:
-        """Translate every source unit and return results in source-unit order."""
+        """Translate every source unit and return results in source-unit order.
+
+        ``on_request_translated`` observes only a fully validated request
+        result. It adds no checkpoint, source-format, or workflow semantics;
+        concrete workflows may use it to retain their own completed work.
+        """
 
         if not isinstance(artifact, StructuredTextArtifact):
             raise TypeError("artifact must be a StructuredTextArtifact")
+        if on_request_translated is not None and not callable(on_request_translated):
+            raise TypeError("on_request_translated must be callable or None")
 
         translated_by_id: dict[str, TranslatedTextUnit] = {}
         requests = build_translation_context_windows(
@@ -79,7 +89,16 @@ class TranslationService:
             overlap_units=self._overlap_units,
         )
         for request in requests:
-            translated_by_id.update(self._translate_request(request))
+            request_units = self._translate_request(request)
+            request_translation = TranslationArtifact(
+                target_language=target_language,
+                units=tuple(
+                    request_units[unit.unit_id] for unit in request.artifact.units
+                ),
+            )
+            if on_request_translated is not None:
+                on_request_translated(request, request_translation)
+            translated_by_id.update(request_units)
 
         return TranslationArtifact(
             target_language=target_language,
