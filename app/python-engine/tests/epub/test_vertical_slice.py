@@ -162,6 +162,47 @@ class EpubVerticalSliceTest(unittest.TestCase):
         self.assertEqual(len(list(checkpoint_directory.glob("*.json"))), 2)
         self.assertTrue(all("Vietnamese" in instruction for instruction in provider.instructions))
 
+    def test_rejects_an_oversized_unit_without_provider_input_or_source_details(self) -> None:
+        source = self.root / "source.epub"
+        destination = self.root / "translated.epub"
+        secret_source_text = "confidential EPUB source text " * 400
+        _write_epub_fixture(source, chapter_texts=(secret_source_text, "Second"))
+        terminal = Event()
+        provider = _FakeLlmProvider(context_window_tokens=32_768)
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary"),
+            executor=EpubJobExecutor(provider_factory=lambda _: provider),
+            on_terminal=lambda _: terminal.set(),
+        )
+        self.addCleanup(dispatcher.close)
+
+        started = dispatcher.start(
+            _workflow_payload(
+                source=source,
+                destination=destination,
+                artifact_root=self.root / "artifacts",
+                checkpoint_namespace="oversized-fixture",
+            )
+        )
+
+        self.assertTrue(terminal.wait(timeout=2))
+        job = dispatcher.get(started.id.value)
+        assert job is not None
+        self.assertEqual(job.lifecycle.value, "failed")
+        self.assertEqual(provider.request_unit_ids, [])
+        self.assertFalse(destination.exists())
+        self.assertFalse((self.root / "artifacts").exists())
+        diagnostic = dispatcher.failure_diagnostic(started.id.value)
+        assert diagnostic is not None
+        self.assertEqual(diagnostic.code, "epub.translation_unit_too_large")
+        self.assertEqual(
+            diagnostic.message,
+            "This EPUB contains text that is too large to translate safely. "
+            "Split the source content and try again.",
+        )
+        self.assertFalse(diagnostic.retryable)
+        self.assertNotIn(secret_source_text, diagnostic.message)
+
 
 class _FakeLlmProvider(LlmProvider):
     def __init__(self, *, context_window_tokens: int | None = None) -> None:
@@ -200,7 +241,29 @@ class _FakeLlmProvider(LlmProvider):
         )
 
 
-def _write_epub_fixture(path: Path) -> None:
+def _workflow_payload(
+    *,
+    source: Path,
+    destination: Path,
+    artifact_root: Path,
+    checkpoint_namespace: str,
+) -> dict[str, object]:
+    return {
+        "sourcePath": str(source),
+        "sourceLanguage": "en",
+        "targetLanguage": "vi",
+        "destinationPath": str(destination),
+        "artifactRoot": str(artifact_root),
+        "checkpointNamespace": checkpoint_namespace,
+        "provider": {"providerId": "ollama", "modelId": "offline-test-model"},
+    }
+
+
+def _write_epub_fixture(
+    path: Path,
+    *,
+    chapter_texts: tuple[str, str] = ("First", "Second"),
+) -> None:
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(
             "mimetype",
@@ -221,7 +284,9 @@ def _write_epub_fixture(path: Path) -> None:
         )
         archive.writestr(
             "OEBPS/chapter.xhtml",
-            '<html xmlns="http://www.w3.org/1999/xhtml" lang="en"><body><p id="start">First</p><p>Second</p></body></html>',
+            '<html xmlns="http://www.w3.org/1999/xhtml" lang="en"><body>'
+            f'<p id="start">{chapter_texts[0]}</p><p>{chapter_texts[1]}</p>'
+            "</body></html>",
         )
         archive.writestr("OEBPS/book.css", b"p { color: #123456; }")
         archive.writestr("OEBPS/images/cover.jpg", b"image-bytes")

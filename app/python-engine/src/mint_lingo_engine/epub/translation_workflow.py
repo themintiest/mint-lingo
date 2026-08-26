@@ -33,6 +33,9 @@ from mint_lingo_engine.epub.source import EpubSourceAcquisition
 from mint_lingo_engine.epub.translation_checkpoint import (
     EpubTranslationCheckpointStore,
 )
+from mint_lingo_engine.epub.translation_guard import (
+    reject_oversized_epub_translation_units,
+)
 from mint_lingo_engine.epub.translation_merge import (
     EpubMergedTranslationArtifact,
     merge_translation_artifact,
@@ -175,6 +178,7 @@ class EpubTranslationWorkflow:
             if unit.unit_id not in translated_by_id
         )
         if pending_units:
+            reject_oversized_epub_translation_units(pending_units)
             pending_artifact = StructuredTextArtifact(
                 source_language=projection.structured_text.source_language,
                 units=pending_units,

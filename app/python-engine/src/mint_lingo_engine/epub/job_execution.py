@@ -14,6 +14,7 @@ from mint_lingo_engine.epub.export import (
 )
 from mint_lingo_engine.epub.translation_checkpoint import EpubTranslationCheckpointStore
 from mint_lingo_engine.epub.translation_batching import EpubTranslationBatchingPolicy
+from mint_lingo_engine.epub.translation_guard import EpubTranslationUnitTooLargeError
 from mint_lingo_engine.epub.translation_workflow import EpubTranslationWorkflow
 from mint_lingo_engine.processing.job import Job, JobId
 from mint_lingo_engine.processing.progress import (
@@ -262,6 +263,15 @@ def _sanitize_failure(error: Exception) -> EpubJobFailureDiagnostic:
                 "or choose a different model."
             ),
             retryable=True,
+        )
+    if isinstance(error, EpubTranslationUnitTooLargeError):
+        return EpubJobFailureDiagnostic(
+            code="epub.translation_unit_too_large",
+            message=(
+                "This EPUB contains text that is too large to translate safely. "
+                "Split the source content and try again."
+            ),
+            retryable=False,
         )
     if isinstance(error, (EpubPackageExportValidationError, OSError)):
         return EpubJobFailureDiagnostic(
