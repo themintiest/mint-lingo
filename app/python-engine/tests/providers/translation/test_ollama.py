@@ -191,7 +191,7 @@ class OllamaProviderTest(unittest.TestCase):
         request = open_url.call_args.args[0]
         self.assertEqual(request.full_url, "http://localhost:11434/api/chat")
         self.assertEqual(request.get_method(), "POST")
-        self.assertEqual(open_url.call_args.kwargs["timeout"], 60.0)
+        self.assertEqual(open_url.call_args.kwargs["timeout"], 300.0)
         payload = json.loads(request.data)
         self.assertEqual(payload["model"], "qwen3:8b")
         self.assertFalse(payload["stream"])

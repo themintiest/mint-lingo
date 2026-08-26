@@ -51,7 +51,7 @@ class TranslationServiceTest(unittest.TestCase):
             ],
             [["unit.3"], ["unit.2"]],
         )
-        self.assertIn("Target language: vi", provider.calls[0][1])
+        self.assertIn("Target language: Vietnamese (vi)", provider.calls[0][1])
         self.assertIn(
             "Reference context is supplied only for comprehension",
             provider.calls[0][1],
