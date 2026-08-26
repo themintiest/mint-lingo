@@ -22,6 +22,10 @@ from mint_lingo_engine.epub.projection import (
     EpubStructuredTextProjection,
     EpubStructuredTextProjector,
 )
+from mint_lingo_engine.epub.restoration import (
+    EpubDocumentRestorer,
+    EpubRestoredDocumentArtifact,
+)
 from mint_lingo_engine.epub.source import EpubSourceAcquisition
 from mint_lingo_engine.epub.translation_checkpoint import (
     EpubTranslationCheckpointStore,
@@ -45,14 +49,16 @@ class EpubTranslationWorkflowResult:
     """EPUB-owned inputs and the validated, provider-neutral translation result.
 
     ``document`` and ``projection`` retain EPUB package and merge-target data
-    within the EPUB workflow boundary. ``translation`` is the shared result
-    that a later EPUB-only merge stage will consume by stable ID.
+    within the EPUB workflow boundary. ``translation`` remains shared, while
+    ``merged_translation`` and ``restored_document`` retain the EPUB-only
+    stable-ID and XHTML-restoration results for a later package builder.
     """
 
     document: EpubDocumentArtifact
     projection: EpubStructuredTextProjection
     translation: TranslationArtifact
     merged_translation: EpubMergedTranslationArtifact
+    restored_document: EpubRestoredDocumentArtifact
 
     def __post_init__(self) -> None:
         if not isinstance(self.document, EpubDocumentArtifact):
@@ -63,6 +69,8 @@ class EpubTranslationWorkflowResult:
             raise TypeError("translation must be a TranslationArtifact")
         if not isinstance(self.merged_translation, EpubMergedTranslationArtifact):
             raise TypeError("merged_translation must be an EpubMergedTranslationArtifact")
+        if not isinstance(self.restored_document, EpubRestoredDocumentArtifact):
+            raise TypeError("restored_document must be an EpubRestoredDocumentArtifact")
 
 
 class EpubTranslationWorkflow:
@@ -83,6 +91,7 @@ class EpubTranslationWorkflow:
         source_acquisition: EpubSourceAcquisition | None = None,
         package_inspector: EpubPackageInspector | None = None,
         text_projector: EpubStructuredTextProjector | None = None,
+        document_restorer: EpubDocumentRestorer | None = None,
     ) -> None:
         if not isinstance(translation_service, TranslationService):
             raise TypeError("translation_service must be a TranslationService")
@@ -100,12 +109,17 @@ class EpubTranslationWorkflow:
             text_projector, EpubStructuredTextProjector
         ):
             raise TypeError("text_projector must be an EpubStructuredTextProjector")
+        if document_restorer is not None and not isinstance(
+            document_restorer, EpubDocumentRestorer
+        ):
+            raise TypeError("document_restorer must be an EpubDocumentRestorer")
 
         self._translation_service = translation_service
         self._checkpoint_store = checkpoint_store
         self._source_acquisition = source_acquisition or EpubSourceAcquisition()
         self._package_inspector = package_inspector or EpubPackageInspector()
         self._text_projector = text_projector or EpubStructuredTextProjector()
+        self._document_restorer = document_restorer or EpubDocumentRestorer()
 
     def translate(
         self,
@@ -115,7 +129,7 @@ class EpubTranslationWorkflow:
         target_language: str,
         cancellation: CancellationToken | None = None,
     ) -> EpubTranslationWorkflowResult | EpubPackageValidationError:
-        """Run EPUB acquisition, inspection, translation, checkpoint, and merge.
+        """Run EPUB acquisition, inspection, translation, merge, and restoration.
 
         Package validation failures return the existing EPUB-owned error. A
         provider result that fails shared validation is handled by the supplied
@@ -172,11 +186,16 @@ class EpubTranslationWorkflow:
         if not isinstance(validation, TranslationArtifact):
             raise AssertionError("TranslationService returned an invalid translation")
 
+        merged_translation = merge_translation_artifact(projection, validation)
         return EpubTranslationWorkflowResult(
             document=inspected,
             projection=projection,
             translation=validation,
-            merged_translation=merge_translation_artifact(projection, validation),
+            merged_translation=merged_translation,
+            restored_document=self._document_restorer.restore(
+                inspected,
+                merged_translation,
+            ),
         )
 
     def _checkpoint_and_observe_cancellation(

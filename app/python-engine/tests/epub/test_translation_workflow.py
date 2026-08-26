@@ -81,6 +81,10 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
                 ("chapter.text.2", "chapter", "Hai"),
             ],
         )
+        self.assertEqual(result.restored_document.package_metadata.language, "vi")
+        self.assertIn("<p>Mot</p><p>Hai</p>", result.restored_document.xhtml_documents[0].serialized_xhtml)
+        assert result.restored_document.navigation_document is not None
+        self.assertIn('lang="vi"', result.restored_document.navigation_document.serialized_xhtml)
 
     def test_returns_epub_owned_package_error_without_calling_provider(self) -> None:
         provider = _FakeLlmProvider(responses=())
