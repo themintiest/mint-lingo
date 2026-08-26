@@ -5,6 +5,9 @@ import 'package:video_translator/app/theme/app_spacing.dart';
 import 'package:video_translator/features/document/document_reader_cubit.dart';
 import 'package:video_translator/features/document/document_reader_feedback.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
+import 'package:video_translator/features/document/document_presentation.dart';
+import 'package:video_translator/features/document/epub_translation_cubit.dart';
+import 'package:video_translator/features/document/epub_translation_workspace.dart';
 import 'package:video_translator/features/document/reader/document_reader_host.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
@@ -16,6 +19,7 @@ class DocumentWorkspacePage extends StatefulWidget {
     super.key,
     required this.localeOverride,
     required this.onLocaleSelected,
+    this.epubTranslationCubit,
   });
 
   static const _maxContentWidth = 1040.0;
@@ -23,6 +27,7 @@ class DocumentWorkspacePage extends StatefulWidget {
 
   final Locale? localeOverride;
   final ValueChanged<Locale> onLocaleSelected;
+  final EpubTranslationCubit? epubTranslationCubit;
 
   @override
   State<DocumentWorkspacePage> createState() => _DocumentWorkspacePageState();
@@ -88,7 +93,11 @@ class _DocumentWorkspacePageState extends State<DocumentWorkspacePage> {
                             _DocumentSourceChrome(state: state),
                             const SizedBox(height: AppSpacing.lg),
                             Expanded(
-                              child: _PrimaryWorkspaceRegion(state: state),
+                              child: _PrimaryWorkspaceRegion(
+                                state: state,
+                                epubTranslationCubit:
+                                    widget.epubTranslationCubit,
+                              ),
                             ),
                           ],
                         ),
@@ -172,12 +181,22 @@ class _DocumentSourceChrome extends StatelessWidget {
 }
 
 class _PrimaryWorkspaceRegion extends StatelessWidget {
-  const _PrimaryWorkspaceRegion({required this.state});
+  const _PrimaryWorkspaceRegion({
+    required this.state,
+    required this.epubTranslationCubit,
+  });
 
   final DocumentReaderLoadState state;
+  final EpubTranslationCubit? epubTranslationCubit;
 
   @override
   Widget build(BuildContext context) => switch (state) {
+    DocumentReaderReady(
+      :final source,
+      presentation: final EpubDocumentPresentation presentation,
+    )
+        when epubTranslationCubit != null =>
+      EpubTranslationWorkspace(source: source, presentation: presentation),
     DocumentReaderReady(:final source, :final presentation) =>
       DocumentReaderHost(source: source, presentation: presentation),
     DocumentReaderLoading() => const _WorkspaceFeedbackRegion(

@@ -119,6 +119,17 @@ class EngineRpcException implements Exception {
   String toString() => 'JSON-RPC $code: $message';
 }
 
+/// One validated JSON-RPC notification from the engine.
+///
+/// The client retains no workflow-stage meaning; concrete features interpret
+/// only the notifications they explicitly own.
+class EngineNotification {
+  const EngineNotification({required this.method, required this.params});
+
+  final String method;
+  final Map<String, Object?> params;
+}
+
 class EngineClient {
   EngineClient({
     WorkerStarter? startWorker,
@@ -130,6 +141,8 @@ class EngineClient {
   final Map<int, Completer<Map<String, Object?>>> _pending = {};
   final StreamController<Object> _failures =
       StreamController<Object>.broadcast();
+  final StreamController<EngineNotification> _notifications =
+      StreamController<EngineNotification>.broadcast();
   int _nextRequestId = 0;
   Process? _process;
   StreamSubscription<String>? _stdoutSubscription;
@@ -137,13 +150,11 @@ class EngineClient {
   bool _stopping = false;
 
   Stream<Object> get failures => _failures.stream;
+  Stream<EngineNotification> get notifications => _notifications.stream;
 
   static Future<Process> _startDefaultWorker() {
     final executable = Platform.isWindows ? 'python' : 'python3';
-    return Process.start(executable, const [
-      '-m',
-      'mint_lingo_engine.worker',
-    ]);
+    return Process.start(executable, const ['-m', 'mint_lingo_engine.worker']);
   }
 
   Future<void> start() async {
@@ -264,6 +275,20 @@ class EngineClient {
         throw const EngineProtocolException('Malformed engine protocol frame.');
       }
       final message = Map<String, Object?>.from(decoded);
+      final method = message['method'];
+      if (method is String && !message.containsKey('id')) {
+        final params = message['params'];
+        if (params is! Map<String, dynamic>) {
+          throw const EngineProtocolException('Malformed engine notification.');
+        }
+        _notifications.add(
+          EngineNotification(
+            method: method,
+            params: Map<String, Object?>.from(params),
+          ),
+        );
+        return;
+      }
       final id = message['id'];
       if (id is! int) {
         return;
@@ -337,5 +362,6 @@ class EngineClient {
   Future<void> dispose() async {
     await stop();
     await _failures.close();
+    await _notifications.close();
   }
 }

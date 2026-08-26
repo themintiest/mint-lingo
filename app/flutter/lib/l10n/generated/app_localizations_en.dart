@@ -384,4 +384,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get processingRecoveryFailed => 'Processing could not be recovered.';
+
+  @override
+  String get epubTranslationTitle => 'Translate EPUB';
+
+  @override
+  String get epubModelLabel => 'Local Ollama model';
+
+  @override
+  String get epubModelHint => 'Enter the installed model ID';
+
+  @override
+  String get translateEpub => 'Translate EPUB';
+
+  @override
+  String get epubOriginal => 'Original';
+
+  @override
+  String get epubTranslated => 'Translated';
+
+  @override
+  String get epubStageTranslating => 'Translating EPUB...';
+
+  @override
+  String get epubStageExporting => 'Validating and exporting EPUB...';
+
+  @override
+  String get epubStageWorking => 'Processing EPUB...';
+
+  @override
+  String get epubStartFailed =>
+      'Unable to start EPUB translation. Check the engine and try again.';
+
+  @override
+  String get epubCancelFailed =>
+      'Unable to request cancellation. The engine may still finish the job.';
+
+  @override
+  String get epubLoadingOutput => 'Opening the validated translated EPUB...';
+
+  @override
+  String get epubOutputLoadFailed =>
+      'The EPUB was exported but could not be opened in this reader.';
 }

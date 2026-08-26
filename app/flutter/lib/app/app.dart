@@ -10,6 +10,7 @@ import 'package:video_translator/app/theme/app_theme.dart';
 import 'package:video_translator/app/workflow_selection_page.dart';
 import 'package:video_translator/features/document/document_reader_cubit.dart';
 import 'package:video_translator/features/document/document_translation_launcher_page.dart';
+import 'package:video_translator/features/document/epub_translation_cubit.dart';
 import 'package:video_translator/features/project/media_inspection_cubit.dart';
 import 'package:video_translator/features/project/project_setup_cubit.dart';
 import 'package:video_translator/features/project/project_workspace_page.dart';
@@ -109,9 +110,11 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
       case AppWorkflow.videoTranslation:
         Navigator.of(context).push<void>(
           MaterialPageRoute(
-            builder: (context) => ProjectWorkspacePage(
-              localeOverride: _localeOverride,
-              onLocaleSelected: _selectLocale,
+            builder: (context) => SelectionArea(
+              child: ProjectWorkspacePage(
+                localeOverride: _localeOverride,
+                onLocaleSelected: _selectLocale,
+              ),
             ),
           ),
         );
@@ -132,13 +135,27 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
       }
       navigator.push<void>(
         MaterialPageRoute(
-          builder: (context) => BlocProvider(
-            create: (_) =>
-                widget.documentReaderCubitFactory?.call() ??
-                DocumentReaderCubit(),
-            child: DocumentTranslationLauncherPage(
-              localeOverride: _localeOverride,
-              onLocaleSelected: _selectLocale,
+          builder: (context) => SelectionArea(
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (_) =>
+                      widget.documentReaderCubitFactory?.call() ??
+                      DocumentReaderCubit(),
+                ),
+                BlocProvider(
+                  create: (_) => EpubTranslationCubit(
+                    engine: _engineConnectionCubit.client,
+                  ),
+                ),
+              ],
+              child: Builder(
+                builder: (context) => DocumentTranslationLauncherPage(
+                  localeOverride: _localeOverride,
+                  onLocaleSelected: _selectLocale,
+                  epubTranslationCubit: context.read<EpubTranslationCubit>(),
+                ),
+              ),
             ),
           ),
         ),
@@ -188,11 +205,13 @@ class _VideoTranslatorAppState extends State<VideoTranslatorApp> {
         supportedLocales: AppLocalizations.supportedLocales,
         localeListResolutionCallback: resolveAppLocale,
         home: Builder(
-          builder: (context) => WorkflowSelectionPage(
-            onWorkflowSelected: (workflow) =>
-                _selectWorkflow(context, workflow),
-            localeOverride: _localeOverride,
-            onLocaleSelected: _selectLocale,
+          builder: (context) => SelectionArea(
+            child: WorkflowSelectionPage(
+              onWorkflowSelected: (workflow) =>
+                  _selectWorkflow(context, workflow),
+              localeOverride: _localeOverride,
+              onLocaleSelected: _selectLocale,
+            ),
           ),
         ),
       ),

@@ -66,7 +66,7 @@ void main() {
     );
     expect(find.byKey(const Key('select-document-source')), findsOneWidget);
     expect(find.text(localizations.selectDocument), findsOneWidget);
-    expect(find.byType(SelectionArea), findsNothing);
+    expect(find.byType(SelectionArea), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();

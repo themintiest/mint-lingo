@@ -91,7 +91,10 @@ void main() {
     expect(find.byKey(const Key('document-workspace-source')), findsOneWidget);
     expect(find.text('first.txt'), findsOneWidget);
     expect(find.text('Replace document'), findsOneWidget);
-    expect(find.byType(SelectionArea), findsOneWidget);
+    expect(
+      find.byKey(const Key('document-workspace-selection-area')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const Key('document-reader-region-plain-text')),
       findsOneWidget,

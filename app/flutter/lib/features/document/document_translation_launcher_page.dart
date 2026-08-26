@@ -7,6 +7,7 @@ import 'package:video_translator/features/document/document_reader_feedback.dart
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_workspace_page.dart';
+import 'package:video_translator/features/document/epub_translation_cubit.dart';
 import 'package:video_translator/l10n/generated/app_localizations.dart';
 
 /// Whether a prepared reader presentation should open the workspace.
@@ -23,6 +24,7 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
     super.key,
     required this.localeOverride,
     required this.onLocaleSelected,
+    this.epubTranslationCubit,
   });
 
   static const _maxContentWidth = 520.0;
@@ -30,6 +32,7 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
 
   final Locale? localeOverride;
   final ValueChanged<Locale> onLocaleSelected;
+  final EpubTranslationCubit? epubTranslationCubit;
 
   @override
   Widget build(BuildContext context) {
@@ -44,13 +47,31 @@ class DocumentTranslationLauncherPage extends StatelessWidget {
         }
         Navigator.of(context).push<void>(
           MaterialPageRoute(
-            builder: (_) => BlocProvider.value(
-              value: context.read<DocumentReaderCubit>(),
-              child: DocumentWorkspacePage(
-                localeOverride: localeOverride,
-                onLocaleSelected: onLocaleSelected,
-              ),
-            ),
+            builder: (_) {
+              final workspace = SelectionArea(
+                key: const Key('document-workspace-selection-area'),
+                child: DocumentWorkspacePage(
+                  localeOverride: localeOverride,
+                  onLocaleSelected: onLocaleSelected,
+                  epubTranslationCubit: epubTranslationCubit,
+                ),
+              );
+              if (epubTranslationCubit == null) {
+                return BlocProvider.value(
+                  value: context.read<DocumentReaderCubit>(),
+                  child: workspace,
+                );
+              }
+              return MultiBlocProvider(
+                providers: [
+                  BlocProvider.value(
+                    value: context.read<DocumentReaderCubit>(),
+                  ),
+                  BlocProvider.value(value: epubTranslationCubit!),
+                ],
+                child: workspace,
+              );
+            },
           ),
         );
       },

@@ -30,11 +30,9 @@ class MediaInspectionPanel extends StatelessWidget {
           MediaInspectionIdle() => _InspectionPrompt(source: selectedSource),
         };
         if (state.source != selectedSource) {
-          return SelectionArea(
-            child: _InspectionPrompt(source: selectedSource),
-          );
+          return _InspectionPrompt(source: selectedSource);
         }
-        return SelectionArea(child: content);
+        return content;
       },
     );
   }

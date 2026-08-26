@@ -252,7 +252,7 @@ def handle_message(
             False,
         )
 
-    if method in {"job.start", "job.cancel", "job.get", "epub.getExport"}:
+    if method in {"job.start", "job.cancel", "job.get", "epub.getExport", "epub.getFailure"}:
         if is_notification or epub_dispatcher is None:
             return _invalid_request(message, reason="unsupported_method")
         try:
@@ -322,6 +322,20 @@ def _handle_epub_job_method(message: dict[str, Any], dispatcher: EpubJobDispatch
         return _job_not_found_response(request_id)
     if method == "job.get":
         return _success_response(request_id, {"job": _job_to_json(job)})
+    if method == "epub.getFailure":
+        diagnostic = dispatcher.failure_diagnostic(params["jobId"])
+        if diagnostic is None:
+            return _job_not_found_response(request_id)
+        return _success_response(
+            request_id,
+            {
+                "failure": {
+                    "code": diagnostic.code,
+                    "message": diagnostic.message,
+                    "retryable": diagnostic.retryable,
+                }
+            },
+        )
     reference = dispatcher.exported_artifact_reference(params["jobId"])
     if reference is None:
         return _job_not_found_response(request_id)

@@ -382,4 +382,46 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get processingRecoveryFailed => 'Không thể phục hồi xử lý.';
+
+  @override
+  String get epubTranslationTitle => 'Dich EPUB';
+
+  @override
+  String get epubModelLabel => 'Mo hinh Ollama cuc bo';
+
+  @override
+  String get epubModelHint => 'Nhap ID mo hinh da cai dat';
+
+  @override
+  String get translateEpub => 'Dich EPUB';
+
+  @override
+  String get epubOriginal => 'Ban goc';
+
+  @override
+  String get epubTranslated => 'Ban dich';
+
+  @override
+  String get epubStageTranslating => 'Dang dich EPUB...';
+
+  @override
+  String get epubStageExporting => 'Dang kiem tra va xuat EPUB...';
+
+  @override
+  String get epubStageWorking => 'Dang xu ly EPUB...';
+
+  @override
+  String get epubStartFailed =>
+      'Khong the bat dau dich EPUB. Hay kiem tra bo may va thu lai.';
+
+  @override
+  String get epubCancelFailed =>
+      'Khong the yeu cau huy. Bo may co the van hoan tat cong viec.';
+
+  @override
+  String get epubLoadingOutput => 'Dang mo EPUB dich da duoc kiem tra...';
+
+  @override
+  String get epubOutputLoadFailed =>
+      'EPUB da duoc xuat nhung khong the mo trong trinh doc nay.';
 }

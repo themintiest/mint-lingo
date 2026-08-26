@@ -787,6 +787,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Processing could not be recovered.'**
   String get processingRecoveryFailed;
+
+  /// No description provided for @epubTranslationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate EPUB'**
+  String get epubTranslationTitle;
+
+  /// No description provided for @epubModelLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Local Ollama model'**
+  String get epubModelLabel;
+
+  /// No description provided for @epubModelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the installed model ID'**
+  String get epubModelHint;
+
+  /// No description provided for @translateEpub.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate EPUB'**
+  String get translateEpub;
+
+  /// No description provided for @epubOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'Original'**
+  String get epubOriginal;
+
+  /// No description provided for @epubTranslated.
+  ///
+  /// In en, this message translates to:
+  /// **'Translated'**
+  String get epubTranslated;
+
+  /// No description provided for @epubStageTranslating.
+  ///
+  /// In en, this message translates to:
+  /// **'Translating EPUB...'**
+  String get epubStageTranslating;
+
+  /// No description provided for @epubStageExporting.
+  ///
+  /// In en, this message translates to:
+  /// **'Validating and exporting EPUB...'**
+  String get epubStageExporting;
+
+  /// No description provided for @epubStageWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing EPUB...'**
+  String get epubStageWorking;
+
+  /// No description provided for @epubStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to start EPUB translation. Check the engine and try again.'**
+  String get epubStartFailed;
+
+  /// No description provided for @epubCancelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to request cancellation. The engine may still finish the job.'**
+  String get epubCancelFailed;
+
+  /// No description provided for @epubLoadingOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening the validated translated EPUB...'**
+  String get epubLoadingOutput;
+
+  /// No description provided for @epubOutputLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The EPUB was exported but could not be opened in this reader.'**
+  String get epubOutputLoadFailed;
 }
 
 class _AppLocalizationsDelegate

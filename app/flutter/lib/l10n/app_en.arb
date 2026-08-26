@@ -121,5 +121,18 @@
   "processingFailed": "Processing failed.",
   "processingCancelled": "Processing cancelled.",
   "processingRecoveryAvailable": "Processing can be recovered.",
-  "processingRecoveryFailed": "Processing could not be recovered."
+  "processingRecoveryFailed": "Processing could not be recovered.",
+  "epubTranslationTitle": "Translate EPUB",
+  "epubModelLabel": "Local Ollama model",
+  "epubModelHint": "Enter the installed model ID",
+  "translateEpub": "Translate EPUB",
+  "epubOriginal": "Original",
+  "epubTranslated": "Translated",
+  "epubStageTranslating": "Translating EPUB...",
+  "epubStageExporting": "Validating and exporting EPUB...",
+  "epubStageWorking": "Processing EPUB...",
+  "epubStartFailed": "Unable to start EPUB translation. Check the engine and try again.",
+  "epubCancelFailed": "Unable to request cancellation. The engine may still finish the job.",
+  "epubLoadingOutput": "Opening the validated translated EPUB...",
+  "epubOutputLoadFailed": "The EPUB was exported but could not be opened in this reader."
 }
