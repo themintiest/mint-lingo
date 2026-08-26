@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from io import BytesIO
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -85,6 +86,11 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
         self.assertIn("<p>Mot</p><p>Hai</p>", result.restored_document.xhtml_documents[0].serialized_xhtml)
         assert result.restored_document.navigation_document is not None
         self.assertIn('lang="vi"', result.restored_document.navigation_document.serialized_xhtml)
+        with zipfile.ZipFile(BytesIO(result.rebuilt_package.package_bytes)) as rebuilt:
+            self.assertEqual(
+                rebuilt.read("OEBPS/chapter.xhtml"),
+                b'<html lang="vi"><body><p>Mot</p><p>Hai</p></body></html>',
+            )
 
     def test_returns_epub_owned_package_error_without_calling_provider(self) -> None:
         provider = _FakeLlmProvider(responses=())

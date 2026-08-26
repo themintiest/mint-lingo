@@ -1,11 +1,10 @@
-"""Concrete EPUB translation composition before EPUB rebuilding.
+"""Concrete EPUB translation composition through in-memory package rebuilding.
 
 The workflow owns the EPUB stage sequence: acquire a selected EPUB path,
-inspect its package, project its translatable text, and translate that
-projection. ``TranslationService`` owns the source-neutral context, provider
-call, retry, and validation work. This workflow checkpoints completed EPUB
-units and pairs results with EPUB-owned merge targets; XHTML restoration,
-rebuilding, and export remain later EPUB workflow stages.
+inspect its package, project its translatable text, translate that projection,
+restore XHTML, and rebuild an in-memory package. ``TranslationService`` owns
+the source-neutral context, provider call, retry, and validation work.
+Validation and destination export remain later EPUB workflow stages.
 """
 
 from __future__ import annotations
@@ -16,6 +15,10 @@ from dataclasses import dataclass
 from mint_lingo_engine.epub.document import (
     EpubDocumentArtifact,
     EpubPackageValidationError,
+)
+from mint_lingo_engine.epub.builder import (
+    EpubPackageBuilder,
+    EpubRebuiltPackageArtifact,
 )
 from mint_lingo_engine.epub.inspection import EpubPackageInspector
 from mint_lingo_engine.epub.projection import (
@@ -51,7 +54,8 @@ class EpubTranslationWorkflowResult:
     ``document`` and ``projection`` retain EPUB package and merge-target data
     within the EPUB workflow boundary. ``translation`` remains shared, while
     ``merged_translation`` and ``restored_document`` retain the EPUB-only
-    stable-ID and XHTML-restoration results for a later package builder.
+    stable-ID and XHTML-restoration results, while ``rebuilt_package`` holds
+    the in-memory package for a later validation/export stage.
     """
 
     document: EpubDocumentArtifact
@@ -59,6 +63,7 @@ class EpubTranslationWorkflowResult:
     translation: TranslationArtifact
     merged_translation: EpubMergedTranslationArtifact
     restored_document: EpubRestoredDocumentArtifact
+    rebuilt_package: EpubRebuiltPackageArtifact
 
     def __post_init__(self) -> None:
         if not isinstance(self.document, EpubDocumentArtifact):
@@ -71,10 +76,12 @@ class EpubTranslationWorkflowResult:
             raise TypeError("merged_translation must be an EpubMergedTranslationArtifact")
         if not isinstance(self.restored_document, EpubRestoredDocumentArtifact):
             raise TypeError("restored_document must be an EpubRestoredDocumentArtifact")
+        if not isinstance(self.rebuilt_package, EpubRebuiltPackageArtifact):
+            raise TypeError("rebuilt_package must be an EpubRebuiltPackageArtifact")
 
 
 class EpubTranslationWorkflow:
-    """Compose the concrete EPUB translation stages in their required order.
+    """Compose the concrete EPUB translation and package-build stages.
 
     The caller supplies a configured ``TranslationService``. This makes model
     selection explicit at the composition boundary while keeping model IDs,
@@ -92,6 +99,7 @@ class EpubTranslationWorkflow:
         package_inspector: EpubPackageInspector | None = None,
         text_projector: EpubStructuredTextProjector | None = None,
         document_restorer: EpubDocumentRestorer | None = None,
+        package_builder: EpubPackageBuilder | None = None,
     ) -> None:
         if not isinstance(translation_service, TranslationService):
             raise TypeError("translation_service must be a TranslationService")
@@ -113,6 +121,8 @@ class EpubTranslationWorkflow:
             document_restorer, EpubDocumentRestorer
         ):
             raise TypeError("document_restorer must be an EpubDocumentRestorer")
+        if package_builder is not None and not isinstance(package_builder, EpubPackageBuilder):
+            raise TypeError("package_builder must be an EpubPackageBuilder")
 
         self._translation_service = translation_service
         self._checkpoint_store = checkpoint_store
@@ -120,6 +130,7 @@ class EpubTranslationWorkflow:
         self._package_inspector = package_inspector or EpubPackageInspector()
         self._text_projector = text_projector or EpubStructuredTextProjector()
         self._document_restorer = document_restorer or EpubDocumentRestorer()
+        self._package_builder = package_builder or EpubPackageBuilder()
 
     def translate(
         self,
@@ -129,7 +140,7 @@ class EpubTranslationWorkflow:
         target_language: str,
         cancellation: CancellationToken | None = None,
     ) -> EpubTranslationWorkflowResult | EpubPackageValidationError:
-        """Run EPUB acquisition, inspection, translation, merge, and restoration.
+        """Run EPUB acquisition, translation, restoration, and package rebuilding.
 
         Package validation failures return the existing EPUB-owned error. A
         provider result that fails shared validation is handled by the supplied
@@ -187,15 +198,17 @@ class EpubTranslationWorkflow:
             raise AssertionError("TranslationService returned an invalid translation")
 
         merged_translation = merge_translation_artifact(projection, validation)
+        restored_document = self._document_restorer.restore(
+            inspected,
+            merged_translation,
+        )
         return EpubTranslationWorkflowResult(
             document=inspected,
             projection=projection,
             translation=validation,
             merged_translation=merged_translation,
-            restored_document=self._document_restorer.restore(
-                inspected,
-                merged_translation,
-            ),
+            restored_document=restored_document,
+            rebuilt_package=self._package_builder.build(restored_document),
         )
 
     def _checkpoint_and_observe_cancellation(
