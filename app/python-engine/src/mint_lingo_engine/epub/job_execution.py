@@ -13,6 +13,7 @@ from mint_lingo_engine.epub.export import (
     EpubPackageExportValidationError,
 )
 from mint_lingo_engine.epub.translation_checkpoint import EpubTranslationCheckpointStore
+from mint_lingo_engine.epub.translation_batching import EpubTranslationBatchingPolicy
 from mint_lingo_engine.epub.translation_workflow import EpubTranslationWorkflow
 from mint_lingo_engine.processing.job import Job, JobId
 from mint_lingo_engine.processing.progress import (
@@ -130,10 +131,13 @@ class EpubJobExecutor:
         report_progress: Callable[[JobProgressNotification], None],
     ) -> None:
         report_progress(JobProgressNotification(context.job_id, "translating_epub", IndeterminateProgress()))
+        provider = self._provider_factory(invocation)
+        batching = EpubTranslationBatchingPolicy.from_capabilities(provider.capabilities)
         workflow = EpubTranslationWorkflow(
             TranslationService(
-                self._provider_factory(invocation),
-                max_units_per_window=1,
+                provider,
+                max_units_per_window=batching.max_units_per_window,
+                overlap_units=batching.overlap_units,
             ),
             EpubTranslationCheckpointStore(invocation.artifact_root, checkpoint_namespace=invocation.checkpoint_namespace),
         )

@@ -44,7 +44,7 @@ class EpubVerticalSliceTest(unittest.TestCase):
         self.assertEqual(original.navigation.href, "OEBPS/nav.xhtml")
 
         terminal = Event()
-        provider = _FakeLlmProvider()
+        provider = _FakeLlmProvider(context_window_tokens=8_192)
         progress: list[JobProgressNotification] = []
         dispatcher = EpubJobDispatcher(
             JobRunner(self.root / "temporary"),
@@ -129,7 +129,7 @@ class EpubVerticalSliceTest(unittest.TestCase):
                 (notification.completed_units, notification.total_units)
                 for notification in determinate_translation
             ],
-            [(0, 2), (1, 2), (2, 2)],
+            [(0, 2), (2, 2)],
         )
         self.assertEqual(progress[-1].stage_id, "exporting_epub")
         self.assertIsInstance(progress[-1].progress, IndeterminateProgress)
@@ -152,23 +152,31 @@ class EpubVerticalSliceTest(unittest.TestCase):
             self.assertEqual(archive.read("OEBPS/images/cover.jpg"), b"image-bytes")
             self.assertEqual(archive.read("OEBPS/fonts/book.otf"), b"font-bytes")
 
-        self.assertEqual(provider.translated_unit_ids, ["chapter.text.1", "chapter.text.2"])
+        self.assertEqual(
+            provider.request_unit_ids,
+            [("chapter.text.1", "chapter.text.2")],
+        )
+        checkpoint_directory = (
+            self.root / "artifacts" / "epub-translation" / "fixture-translation"
+        )
+        self.assertEqual(len(list(checkpoint_directory.glob("*.json"))), 2)
         self.assertTrue(all("Vietnamese" in instruction for instruction in provider.instructions))
 
 
 class _FakeLlmProvider(LlmProvider):
-    @property
-    def capabilities(self) -> LlmProviderCapabilities:
-        return LlmProviderCapabilities(
+    def __init__(self, *, context_window_tokens: int | None = None) -> None:
+        self._capabilities = LlmProviderCapabilities(
             model_ids=("offline-test-model",),
-            context_window_tokens=None,
+            context_window_tokens=context_window_tokens,
             supports_structured_output=True,
             supports_streaming=False,
         )
-
-    def __init__(self) -> None:
-        self.translated_unit_ids: list[str] = []
+        self.request_unit_ids: list[tuple[str, ...]] = []
         self.instructions: list[str] = []
+
+    @property
+    def capabilities(self) -> LlmProviderCapabilities:
+        return self._capabilities
 
     def translate(
         self,
@@ -180,7 +188,9 @@ class _FakeLlmProvider(LlmProvider):
             "chapter.text.2": "Đoạn hai",
         }
         self.instructions.append(instructions)
-        self.translated_unit_ids.extend(unit.unit_id for unit in request.artifact.units)
+        self.request_unit_ids.append(
+            tuple(unit.unit_id for unit in request.artifact.units)
+        )
         return TranslationArtifact(
             target_language=request.target_language,
             units=tuple(
