@@ -164,6 +164,7 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
         resumed_provider = _FakeLlmProvider(
             responses=(_translation("vi", ("chapter.text.2", "Hai")),)
         )
+        progress: list[tuple[int, int]] = []
         result = EpubTranslationWorkflow(
             TranslationService(resumed_provider, max_units_per_window=1),
             checkpoint_store,
@@ -171,6 +172,9 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
             {"sourcePath": str(book_path)},
             source_language="en",
             target_language="vi",
+            on_translation_progress=lambda completed, total: progress.append(
+                (completed, total)
+            ),
         )
 
         self.assertNotIsInstance(result, EpubPackageValidationError)
@@ -183,6 +187,7 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
             [[unit.unit_id for unit in request.artifact.units] for request in resumed_provider.calls],
             [["chapter.text.2"]],
         )
+        self.assertEqual(progress, [(1, 2), (2, 2)])
 
     def test_checkpoints_a_completed_unit_before_observed_cancellation(self) -> None:
         book_path = self.root / "book.epub"

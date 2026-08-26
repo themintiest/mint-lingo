@@ -15,7 +15,11 @@ from mint_lingo_engine.epub.export import (
 from mint_lingo_engine.epub.translation_checkpoint import EpubTranslationCheckpointStore
 from mint_lingo_engine.epub.translation_workflow import EpubTranslationWorkflow
 from mint_lingo_engine.processing.job import Job, JobId
-from mint_lingo_engine.processing.progress import IndeterminateProgress, JobProgressNotification
+from mint_lingo_engine.processing.progress import (
+    DeterminateProgress,
+    IndeterminateProgress,
+    JobProgressNotification,
+)
 from mint_lingo_engine.processing.runner import (
     JobCancellationAccepted,
     JobCancellationNotFound,
@@ -136,6 +140,13 @@ class EpubJobExecutor:
         result = workflow.translate(
             {"sourcePath": str(invocation.source_path)}, source_language=invocation.source_language,
             target_language=invocation.target_language, cancellation=context.cancellation,
+            on_translation_progress=lambda completed, total: report_progress(
+                JobProgressNotification(
+                    context.job_id,
+                    "translating_epub",
+                    DeterminateProgress(completed, total),
+                )
+            ),
         )
         if isinstance(result, EpubPackageValidationError):
             raise _EpubJobDiagnosticError(

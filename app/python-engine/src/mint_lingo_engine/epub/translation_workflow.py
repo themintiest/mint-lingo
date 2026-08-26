@@ -139,6 +139,7 @@ class EpubTranslationWorkflow:
         source_language: str,
         target_language: str,
         cancellation: CancellationToken | None = None,
+        on_translation_progress: Callable[[int, int], None] | None = None,
     ) -> EpubTranslationWorkflowResult | EpubPackageValidationError:
         """Run EPUB acquisition, translation, restoration, and package rebuilding.
 
@@ -149,6 +150,8 @@ class EpubTranslationWorkflow:
 
         if cancellation is not None and not isinstance(cancellation, CancellationToken):
             raise TypeError("cancellation must be a CancellationToken or None")
+        if on_translation_progress is not None and not callable(on_translation_progress):
+            raise TypeError("on_translation_progress must be callable or None")
         if cancellation is not None:
             cancellation.raise_if_cancelled()
 
@@ -163,6 +166,9 @@ class EpubTranslationWorkflow:
             target_language,
         )
         translated_by_id = {unit.unit_id: unit for unit in completed.units}
+        total_units = len(projection.structured_text.units)
+        if on_translation_progress is not None and total_units:
+            on_translation_progress(len(translated_by_id), total_units)
         pending_units = tuple(
             unit
             for unit in projection.structured_text.units
@@ -177,7 +183,10 @@ class EpubTranslationWorkflow:
                 pending_artifact,
                 target_language,
                 on_request_translated=self._checkpoint_and_observe_cancellation(
-                    cancellation
+                    cancellation,
+                    completed_unit_ids=set(translated_by_id),
+                    total_units=total_units,
+                    on_translation_progress=on_translation_progress,
                 ),
             )
             translated_by_id.update(
@@ -214,6 +223,10 @@ class EpubTranslationWorkflow:
     def _checkpoint_and_observe_cancellation(
         self,
         cancellation: CancellationToken | None,
+        *,
+        completed_unit_ids: set[str],
+        total_units: int,
+        on_translation_progress: Callable[[int, int], None] | None,
     ) -> Callable[[TranslationRequest, TranslationArtifact], None]:
         def on_request_translated(
             request: TranslationRequest,
@@ -222,5 +235,8 @@ class EpubTranslationWorkflow:
             self._checkpoint_store.record(request, translation)
             if cancellation is not None:
                 cancellation.raise_if_cancelled()
+            completed_unit_ids.update(unit.unit_id for unit in translation.units)
+            if on_translation_progress is not None:
+                on_translation_progress(len(completed_unit_ids), total_units)
 
         return on_request_translated

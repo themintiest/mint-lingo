@@ -10,6 +10,11 @@ from mint_lingo_engine.epub.document import EpubDocumentArtifact
 from mint_lingo_engine.epub.inspection import EpubPackageInspector
 from mint_lingo_engine.epub.job_execution import EpubJobDispatcher, EpubJobExecutor
 from mint_lingo_engine.epub.source import EpubSourceReference
+from mint_lingo_engine.processing.progress import (
+    DeterminateProgress,
+    IndeterminateProgress,
+    JobProgressNotification,
+)
 from mint_lingo_engine.processing.runner import JobRunner
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
@@ -40,9 +45,11 @@ class EpubVerticalSliceTest(unittest.TestCase):
 
         terminal = Event()
         provider = _FakeLlmProvider()
+        progress: list[JobProgressNotification] = []
         dispatcher = EpubJobDispatcher(
             JobRunner(self.root / "temporary"),
             executor=EpubJobExecutor(provider_factory=lambda _: provider),
+            on_progress=progress.append,
             on_terminal=lambda _: terminal.set(),
         )
         self.addCleanup(dispatcher.close)
@@ -109,6 +116,23 @@ class EpubVerticalSliceTest(unittest.TestCase):
             "result": {"exportedArtifactReference": str(destination)},
         })
         self.assertEqual(source.read_bytes(), source_bytes)
+        self.assertEqual(progress[0].stage_id, "translating_epub")
+        self.assertIsInstance(progress[0].progress, IndeterminateProgress)
+        determinate_translation = [
+            notification.progress
+            for notification in progress
+            if notification.stage_id == "translating_epub"
+            and isinstance(notification.progress, DeterminateProgress)
+        ]
+        self.assertEqual(
+            [
+                (notification.completed_units, notification.total_units)
+                for notification in determinate_translation
+            ],
+            [(0, 2), (1, 2), (2, 2)],
+        )
+        self.assertEqual(progress[-1].stage_id, "exporting_epub")
+        self.assertIsInstance(progress[-1].progress, IndeterminateProgress)
 
         translated = EpubPackageInspector().inspect(EpubSourceReference(destination))
         self.assertIsInstance(translated, EpubDocumentArtifact)
