@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
+from threading import Lock
 from typing import Any, BinaryIO
 
 from mint_lingo_engine import __version__
@@ -23,6 +25,22 @@ from mint_lingo_engine.media.probe import (
 from mint_lingo_engine.media.validation import (
     MediaValidationFailure,
     SourceMediaValidator,
+)
+from mint_lingo_engine.epub.job_execution import (
+    EPUB_TRANSLATION_WORKFLOW_ID,
+    EpubJobDispatcher,
+)
+from mint_lingo_engine.processing.job import Job, JobLifecycle
+from mint_lingo_engine.processing.progress import (
+    DeterminateProgress,
+    IndeterminateProgress,
+    JobProgressNotification,
+)
+from mint_lingo_engine.processing.runner import (
+    JobCancellationAccepted,
+    JobCancellationNotFound,
+    JobRunner,
+    JobStartConflict,
 )
 
 
@@ -178,6 +196,7 @@ def handle_message(
     message: object,
     *,
     media_validator: SourceMediaValidator | None = None,
+    epub_dispatcher: EpubJobDispatcher | None = None,
 ) -> tuple[dict[str, Any] | None, bool]:
     """Handle one decoded JSON value and return an optional response and shutdown flag."""
 
@@ -233,6 +252,15 @@ def handle_message(
             False,
         )
 
+    if method in {"job.start", "job.cancel", "job.get", "epub.getExport"}:
+        if is_notification or epub_dispatcher is None:
+            return _invalid_request(message, reason="unsupported_method")
+        try:
+            response = _handle_epub_job_method(message, epub_dispatcher)
+        except ValueError:
+            response = _error_response(message["id"], code=-32602, message="Invalid params", engine_code="engine.invalid_params", reason="invalid_parameters")
+        return response, False
+
     if "params" in message:
         response = _error_response(
             _recover_request_id(message),
@@ -269,6 +297,43 @@ def handle_message(
         reason="unsupported_method",
     )
     return (None if is_notification else response, False)
+
+
+def _handle_epub_job_method(message: dict[str, Any], dispatcher: EpubJobDispatcher) -> dict[str, Any]:
+    method = message["method"]
+    params = message.get("params")
+    request_id = message["id"]
+    if method == "job.start":
+        if not isinstance(params, dict) or set(params) != {"workflowId", "workflowPayload"} or params["workflowId"] != EPUB_TRANSLATION_WORKFLOW_ID:
+            raise ValueError("invalid EPUB job start")
+        started = dispatcher.start(params["workflowPayload"])
+        if isinstance(started, JobStartConflict):
+            return {"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "id": request_id, "error": {"code": -32020, "message": started.message, "data": {"jobCode": started.code, "retryable": False, "activeJobId": started.active_job_id.value}}}
+        return _success_response(request_id, {"job": _job_to_json(started)})
+    if not isinstance(params, dict) or set(params) != {"jobId"} or not isinstance(params["jobId"], str):
+        raise ValueError("invalid job parameters")
+    if method == "job.cancel":
+        result = dispatcher.cancel(params["jobId"])
+        if isinstance(result, JobCancellationNotFound):
+            return _job_not_found_response(request_id)
+        return _success_response(request_id, {"jobId": result.job_id.value, "cancellationRequested": True})
+    job = dispatcher.get(params["jobId"])
+    if job is None:
+        return _job_not_found_response(request_id)
+    if method == "job.get":
+        return _success_response(request_id, {"job": _job_to_json(job)})
+    reference = dispatcher.exported_artifact_reference(params["jobId"])
+    if reference is None:
+        return _job_not_found_response(request_id)
+    return _success_response(request_id, {"exportedArtifactReference": reference})
+
+
+def _job_to_json(job: Job) -> dict[str, str]:
+    return {"jobId": job.id.value, "lifecycle": job.lifecycle.value}
+
+
+def _job_not_found_response(request_id: str | int) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "id": request_id, "error": {"code": -32021, "message": "Job not found.", "data": {"jobCode": "job.not_found", "retryable": False}}}
 
 
 def _is_media_inspect_params(value: object) -> bool:
@@ -330,11 +395,29 @@ def main() -> int:
     """Run the worker without loading AI providers or models."""
 
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
+    output_lock = Lock()
 
+    def emit(message: dict[str, Any]) -> None:
+        with output_lock:
+            write_message(sys.stdout, message)
+
+    def emit_progress(notification: JobProgressNotification) -> None:
+        progress: dict[str, Any] = {"kind": "indeterminate"}
+        if isinstance(notification.progress, DeterminateProgress):
+            progress = {"kind": "determinate", "completedUnits": notification.progress.completed_units, "totalUnits": notification.progress.total_units}
+        emit({"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "method": "job.progress", "params": {"jobId": notification.job_id.value, "stageId": notification.stage_id, "progress": progress}})
+
+    def emit_terminal(job: Job) -> None:
+        emit({"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "method": "job.stateChanged", "params": _job_to_json(job)})
+
+    dispatcher = EpubJobDispatcher(
+        JobRunner(Path(tempfile.gettempdir()) / "mint-lingo-engine" / "temporary"),
+        on_progress=emit_progress,
+        on_terminal=emit_terminal,
+    )
     for frame in iter_frames(sys.stdin.buffer):
         if isinstance(frame, MalformedFrame):
-            write_message(
-                sys.stdout,
+            emit(
                 _error_response(
                     None,
                     code=-32700,
@@ -348,8 +431,7 @@ def main() -> int:
         try:
             decoded = json.loads(frame)
         except json.JSONDecodeError:
-            write_message(
-                sys.stdout,
+            emit(
                 _error_response(
                     None,
                     code=-32700,
@@ -361,7 +443,7 @@ def main() -> int:
             continue
 
         try:
-            response, should_shutdown = handle_message(decoded)
+            response, should_shutdown = handle_message(decoded, epub_dispatcher=dispatcher)
         except Exception:
             logging.exception("Unexpected inert worker failure")
             response = _error_response(
@@ -374,10 +456,12 @@ def main() -> int:
             should_shutdown = False
 
         if response is not None:
-            write_message(sys.stdout, response)
+            emit(response)
         if should_shutdown:
+            dispatcher.close()
             return 0
 
+    dispatcher.close()
     return 0
 
 
