@@ -1,4 +1,5 @@
 import json
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Event
@@ -13,7 +14,10 @@ from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
     LlmProviderCapabilities,
 )
-from mint_lingo_engine.providers.translation.ollama import OllamaProviderError
+from mint_lingo_engine.providers.translation.ollama import (
+    OllamaProviderError,
+    OllamaProviderFailureCode,
+)
 from mint_lingo_engine.processing.progress import (
     IndeterminateProgress,
     JobProgressNotification,
@@ -25,7 +29,8 @@ from mint_lingo_engine.translation.validation import (
     TranslationValidationError,
     TranslationValidationErrorCode,
 )
-from mint_lingo_engine.worker import handle_message
+from mint_lingo_engine.api.ipc.worker import _job_state_changed_notification
+from mint_lingo_engine.worker import handle_message, write_message
 
 
 class EpubJobExecutionTest(unittest.TestCase):
@@ -93,7 +98,10 @@ class EpubJobExecutionTest(unittest.TestCase):
         )
         dispatcher = EpubJobDispatcher(
             JobRunner(self.root / "temporary"),
-            executor=_FailingExecutor(raw_detail),  # type: ignore[arg-type]
+            executor=_FailingExecutor(  # type: ignore[arg-type]
+                OllamaProviderError(OllamaProviderFailureCode.SERVICE_UNAVAILABLE),
+                raw_detail,
+            ),
             on_terminal=lambda _: terminal.set(),
         )
         self.addCleanup(dispatcher.close)
@@ -123,8 +131,8 @@ class EpubJobExecutionTest(unittest.TestCase):
                     "failure": {
                         "code": "epub.provider_unavailable",
                         "message": (
-                            "Ollama could not translate this EPUB. Confirm it is running and "
-                            "the selected model is installed, then try again."
+                            "Ollama is unavailable. Start Ollama, confirm the selected model "
+                            "is installed, then try again."
                         ),
                         "retryable": True,
                     }
@@ -169,8 +177,104 @@ class EpubJobExecutionTest(unittest.TestCase):
             "raw provider response",
             "api_key=private",
             "Traceback",
+            "headers",
         ):
             self.assertNotIn(sensitive_detail, serialized)
+
+    def test_exposes_each_fixed_provider_failure_category_through_epub_get_failure(self) -> None:
+        cases = (
+            (
+                OllamaProviderFailureCode.SERVICE_UNAVAILABLE,
+                "epub.provider_unavailable",
+                "Ollama is unavailable. Start Ollama, confirm the selected model "
+                "is installed, then try again.",
+            ),
+            (
+                OllamaProviderFailureCode.TIMEOUT,
+                "epub.provider_timeout",
+                "Ollama took too long to respond. Try again, or choose a smaller model.",
+            ),
+            (
+                OllamaProviderFailureCode.REQUEST_REJECTED,
+                "epub.provider_request_rejected",
+                "Ollama rejected the translation request. Confirm the selected model "
+                "is available, then try again.",
+            ),
+            (
+                OllamaProviderFailureCode.MALFORMED_RESPONSE,
+                "epub.provider_response_malformed",
+                "Ollama returned an unreadable response. Try again, or choose a "
+                "different model.",
+            ),
+        )
+        for failure_code, expected_code, expected_message in cases:
+            with self.subTest(failure_code=failure_code):
+                terminal = Event()
+                dispatcher = EpubJobDispatcher(
+                    JobRunner(self.root / f"temporary-{failure_code.value}"),
+                    executor=_FailingExecutor(OllamaProviderError(failure_code)),  # type: ignore[arg-type]
+                    on_terminal=lambda _: terminal.set(),
+                )
+                self.addCleanup(dispatcher.close)
+
+                started = dispatcher.start(_payload(self.root))
+
+                self.assertTrue(terminal.wait(timeout=2))
+                response, _ = handle_message(
+                    {
+                        "jsonrpc": "2.0",
+                        "protocolVersion": "1.0",
+                        "id": "failure-category",
+                        "method": "epub.getFailure",
+                        "params": {"jobId": started.id.value},
+                    },
+                    epub_dispatcher=dispatcher,
+                )
+                self.assertEqual(
+                    response,
+                    {
+                        "jsonrpc": "2.0",
+                        "protocolVersion": "1.0",
+                        "id": "failure-category",
+                        "result": {
+                            "failure": {
+                                "code": expected_code,
+                                "message": expected_message,
+                                "retryable": True,
+                            }
+                        },
+                    },
+                )
+
+    def test_generic_terminal_notification_is_byte_stable_and_has_no_failure_details(self) -> None:
+        terminal = Event()
+        raw_detail = "C:\\private\\book.epub prompt secret response Authorization: token"
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-terminal-notification"),
+            executor=_FailingExecutor(  # type: ignore[arg-type]
+                OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE),
+                raw_detail,
+            ),
+            on_terminal=lambda _: terminal.set(),
+        )
+        self.addCleanup(dispatcher.close)
+
+        started = dispatcher.start(_payload(self.root))
+        self.assertTrue(terminal.wait(timeout=2))
+        job = dispatcher.get(started.id.value)
+        assert job is not None
+
+        output = StringIO()
+        write_message(output, _job_state_changed_notification(job))
+        self.assertEqual(
+            output.getvalue(),
+            (
+                '{"jsonrpc":"2.0","protocolVersion":"1.0",'
+                '"method":"job.stateChanged","params":{"jobId":"'
+                f'{started.id.value}","lifecycle":"failed"}}}}\n'
+            ),
+        )
+        self.assertNotIn(raw_detail, output.getvalue())
 
     def test_retains_a_safe_validation_category_without_unit_details(self) -> None:
         raw_unit_id = "chapter.secret.unit"
@@ -190,13 +294,41 @@ class EpubJobExecutionTest(unittest.TestCase):
         self.assertEqual(job.lifecycle.value, "failed")
         diagnostic = dispatcher.failure_diagnostic(started.id.value)
         assert diagnostic is not None
-        self.assertEqual(diagnostic.code, "epub.translation_empty_entries")
+        self.assertEqual(diagnostic.code, "epub.translation_response_invalid")
         self.assertEqual(
             diagnostic.message,
-            "The selected model returned empty translation entries. Try again or "
-            "choose a different model.",
+            "Ollama returned a translation that could not be used. Try again, "
+            "or choose a different model.",
         )
         self.assertNotIn(raw_unit_id, diagnostic.message)
+        response, _ = handle_message(
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "invalid-translation",
+                "method": "epub.getFailure",
+                "params": {"jobId": started.id.value},
+            },
+            epub_dispatcher=dispatcher,
+        )
+        self.assertEqual(
+            response,
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "invalid-translation",
+                "result": {
+                    "failure": {
+                        "code": "epub.translation_response_invalid",
+                        "message": (
+                            "Ollama returned a translation that could not be used. Try again, "
+                            "or choose a different model."
+                        ),
+                        "retryable": True,
+                    }
+                },
+            },
+        )
 
 
 class _FakeExecutor:
@@ -220,11 +352,14 @@ class _FakeExecutor:
 
 
 class _FailingExecutor:
-    def __init__(self, raw_detail: str) -> None:
+    def __init__(self, error: Exception, raw_detail: str | None = None) -> None:
+        self._error = error
         self._raw_detail = raw_detail
 
     def invoke(self, _invocation, _context, _report_progress) -> None:
-        raise OllamaProviderError(self._raw_detail)
+        if self._raw_detail is not None:
+            raise self._error from RuntimeError(self._raw_detail)
+        raise self._error
 
     def exported_artifact_reference(self, _job_id: str) -> str | None:
         return None

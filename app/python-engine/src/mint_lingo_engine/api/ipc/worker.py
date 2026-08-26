@@ -346,6 +346,17 @@ def _job_to_json(job: Job) -> dict[str, str]:
     return {"jobId": job.id.value, "lifecycle": job.lifecycle.value}
 
 
+def _job_state_changed_notification(job: Job) -> dict[str, Any]:
+    """Return the stable generic terminal notification without failure details."""
+
+    return {
+        "jsonrpc": "2.0",
+        "protocolVersion": PROTOCOL_VERSION,
+        "method": "job.stateChanged",
+        "params": _job_to_json(job),
+    }
+
+
 def _job_not_found_response(request_id: str | int) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "id": request_id, "error": {"code": -32021, "message": "Job not found.", "data": {"jobCode": "job.not_found", "retryable": False}}}
 
@@ -422,7 +433,7 @@ def main() -> int:
         emit({"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "method": "job.progress", "params": {"jobId": notification.job_id.value, "stageId": notification.stage_id, "progress": progress}})
 
     def emit_terminal(job: Job) -> None:
-        emit({"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "method": "job.stateChanged", "params": _job_to_json(job)})
+        emit(_job_state_changed_notification(job))
 
     dispatcher = EpubJobDispatcher(
         JobRunner(Path(tempfile.gettempdir()) / "mint-lingo-engine" / "temporary"),

@@ -25,8 +25,11 @@ from mint_lingo_engine.processing.runner import (
     JobStartConflict,
 )
 from mint_lingo_engine.providers.translation.base import LlmProvider
-from mint_lingo_engine.providers.translation.ollama import OllamaProvider
-from mint_lingo_engine.providers.translation.ollama import OllamaProviderError
+from mint_lingo_engine.providers.translation.ollama import (
+    OllamaProvider,
+    OllamaProviderError,
+    OllamaProviderFailureCode,
+)
 from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaDiscoveryError,
     OllamaModelDiscovery,
@@ -35,7 +38,6 @@ from mint_lingo_engine.translation.service import (
     TranslationService,
     TranslationServiceValidationError,
 )
-from mint_lingo_engine.translation.validation import TranslationValidationErrorCode
 
 EPUB_TRANSLATION_WORKFLOW_ID = "document.epub.translate"
 
@@ -226,17 +228,26 @@ def _sanitize_failure(error: Exception) -> EpubJobFailureDiagnostic:
 
     if isinstance(error, _EpubJobDiagnosticError):
         return error.diagnostic
-    if isinstance(error, (OllamaDiscoveryError, OllamaProviderError)):
+    if isinstance(error, OllamaDiscoveryError):
         return EpubJobFailureDiagnostic(
             code="epub.provider_unavailable",
             message=(
-                "Ollama could not translate this EPUB. Confirm it is running and "
-                "the selected model is installed, then try again."
+                "Ollama is unavailable. Start Ollama, confirm the selected model "
+                "is installed, then try again."
             ),
             retryable=True,
         )
+    if isinstance(error, OllamaProviderError):
+        return _ollama_provider_diagnostic(error.code)
     if isinstance(error, TranslationServiceValidationError):
-        return _translation_validation_diagnostic(error.failure.code)
+        return EpubJobFailureDiagnostic(
+            code="epub.translation_response_invalid",
+            message=(
+                "Ollama returned a translation that could not be used. Try again, "
+                "or choose a different model."
+            ),
+            retryable=True,
+        )
     if isinstance(error, (EpubPackageExportValidationError, OSError)):
         return EpubJobFailureDiagnostic(
             code="epub.export_failed",
@@ -256,41 +267,30 @@ def _sanitize_failure(error: Exception) -> EpubJobFailureDiagnostic:
     )
 
 
-def _translation_validation_diagnostic(
-    code: TranslationValidationErrorCode,
+def _ollama_provider_diagnostic(
+    code: OllamaProviderFailureCode,
 ) -> EpubJobFailureDiagnostic:
-    """Return a safe validation category without retaining model result details."""
+    """Map fixed provider failures into the EPUB-owned diagnostic boundary."""
 
     diagnostics = {
-        TranslationValidationErrorCode.MISSING_UNIT_ID: (
-            "epub.translation_missing_entries",
-            "The selected model omitted required translation entries. Try again "
-            "or choose a different model.",
+        OllamaProviderFailureCode.SERVICE_UNAVAILABLE: (
+            "epub.provider_unavailable",
+            "Ollama is unavailable. Start Ollama, confirm the selected model "
+            "is installed, then try again.",
         ),
-        TranslationValidationErrorCode.UNEXPECTED_UNIT_ID: (
-            "epub.translation_changed_entry_ids",
-            "The selected model changed required translation entry IDs. Try again "
-            "or choose a different model.",
+        OllamaProviderFailureCode.TIMEOUT: (
+            "epub.provider_timeout",
+            "Ollama took too long to respond. Try again, or choose a smaller model.",
         ),
-        TranslationValidationErrorCode.DUPLICATE_UNIT_ID: (
-            "epub.translation_duplicate_entries",
-            "The selected model returned duplicate translation entries. Try again "
-            "or choose a different model.",
+        OllamaProviderFailureCode.REQUEST_REJECTED: (
+            "epub.provider_request_rejected",
+            "Ollama rejected the translation request. Confirm the selected model "
+            "is available, then try again.",
         ),
-        TranslationValidationErrorCode.MALFORMED_UNIT_ID: (
-            "epub.translation_invalid_entry_ids",
-            "The selected model returned invalid translation entry IDs. Try again "
-            "or choose a different model.",
-        ),
-        TranslationValidationErrorCode.EMPTY_TRANSLATED_TEXT: (
-            "epub.translation_empty_entries",
-            "The selected model returned empty translation entries. Try again or "
-            "choose a different model.",
-        ),
-        TranslationValidationErrorCode.TARGET_LANGUAGE_MISMATCH: (
-            "epub.translation_target_language_mismatch",
-            "The selected model returned the wrong target language. Choose a "
-            "different model and try again.",
+        OllamaProviderFailureCode.MALFORMED_RESPONSE: (
+            "epub.provider_response_malformed",
+            "Ollama returned an unreadable response. Try again, or choose a "
+            "different model.",
         ),
     }
     diagnostic_code, message = diagnostics[code]

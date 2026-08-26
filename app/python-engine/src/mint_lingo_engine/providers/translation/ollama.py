@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import errno
 from collections.abc import Callable, Mapping
+from enum import Enum
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -20,7 +22,7 @@ from mint_lingo_engine.translation.models import (
 )
 
 
-_CHAT_TIMEOUT_SECONDS = 60.0
+_CHAT_TIMEOUT_SECONDS = 300.0
 _TRANSLATION_RESPONSE_SCHEMA: dict[str, object] = {
     "type": "object",
     "properties": {
@@ -42,8 +44,23 @@ _TRANSLATION_RESPONSE_SCHEMA: dict[str, object] = {
 }
 
 
+class OllamaProviderFailureCode(str, Enum):
+    """Fixed internal categories for an Ollama translation attempt."""
+
+    SERVICE_UNAVAILABLE = "service_unavailable"
+    TIMEOUT = "timeout"
+    REQUEST_REJECTED = "request_rejected"
+    MALFORMED_RESPONSE = "malformed_response"
+
+
 class OllamaProviderError(RuntimeError):
-    """Raised when Ollama cannot supply a normalized provider response."""
+    """Raised with a fixed category when Ollama cannot translate a request."""
+
+    def __init__(self, code: OllamaProviderFailureCode) -> None:
+        if not isinstance(code, OllamaProviderFailureCode):
+            raise TypeError("code must be an OllamaProviderFailureCode")
+        self.code = code
+        super().__init__(code.value)
 
 
 class OllamaProvider(LlmProvider):
@@ -146,10 +163,37 @@ def _post_ollama_chat(payload: Mapping[str, object]) -> object:
     try:
         with urlopen(request, timeout=_CHAT_TIMEOUT_SECONDS) as response:
             if response.status != 200:
-                raise OllamaProviderError("Ollama translation request failed")
+                raise OllamaProviderError(OllamaProviderFailureCode.REQUEST_REJECTED)
             return json.load(response)
     except (HTTPError, URLError, OSError, TimeoutError, json.JSONDecodeError) as error:
-        raise OllamaProviderError("Ollama translation request failed") from error
+        if isinstance(error, OllamaProviderError):
+            raise
+        if isinstance(error, json.JSONDecodeError):
+            raise OllamaProviderError(
+                OllamaProviderFailureCode.MALFORMED_RESPONSE
+            ) from error
+        raise OllamaProviderError(_transport_failure_code(error)) from error
+
+
+def _transport_failure_code(
+    error: HTTPError | URLError | OSError | TimeoutError,
+) -> OllamaProviderFailureCode:
+    if isinstance(error, HTTPError):
+        return OllamaProviderFailureCode.REQUEST_REJECTED
+    if isinstance(error, TimeoutError):
+        return OllamaProviderFailureCode.TIMEOUT
+    if isinstance(error, URLError):
+        if isinstance(error.reason, TimeoutError):
+            return OllamaProviderFailureCode.TIMEOUT
+        return OllamaProviderFailureCode.SERVICE_UNAVAILABLE
+    if error.errno in {
+        errno.ECONNREFUSED,
+        errno.ENETUNREACH,
+        errno.EHOSTUNREACH,
+        errno.ENOTCONN,
+    }:
+        return OllamaProviderFailureCode.SERVICE_UNAVAILABLE
+    return OllamaProviderFailureCode.REQUEST_REJECTED
 
 
 def _parse_translation_response(
@@ -157,19 +201,21 @@ def _parse_translation_response(
     response: object,
 ) -> TranslationArtifact:
     if not isinstance(response, dict):
-        raise OllamaProviderError("Ollama translation response has an invalid shape")
+        raise OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE)
     message = response.get("message")
     content = message.get("content") if isinstance(message, dict) else None
     if not isinstance(content, str):
-        raise OllamaProviderError("Ollama translation response has no message content")
+        raise OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE)
     try:
         document = json.loads(content)
     except json.JSONDecodeError as error:
-        raise OllamaProviderError("Ollama translation response is not valid JSON") from error
+        raise OllamaProviderError(
+            OllamaProviderFailureCode.MALFORMED_RESPONSE
+        ) from error
     if not isinstance(document, dict) or not isinstance(
         document.get("translations"), list
     ):
-        raise OllamaProviderError("Ollama translation response has an invalid payload")
+        raise OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE)
     try:
         units = tuple(
             TranslatedTextUnit(
@@ -180,9 +226,11 @@ def _parse_translation_response(
             if isinstance(unit, dict)
         )
     except (KeyError, TypeError) as error:
-        raise OllamaProviderError("Ollama translation response has invalid units") from error
+        raise OllamaProviderError(
+            OllamaProviderFailureCode.MALFORMED_RESPONSE
+        ) from error
     if len(units) != len(document["translations"]):
-        raise OllamaProviderError("Ollama translation response has invalid units")
+        raise OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE)
     return TranslationArtifact(target_language=request.target_language, units=units)
 
 
