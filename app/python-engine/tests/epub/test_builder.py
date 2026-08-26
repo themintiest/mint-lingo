@@ -7,11 +7,16 @@ import zipfile
 
 from mint_lingo_engine.epub.builder import EpubPackageBuilder, EpubRebuiltPackageArtifact
 from mint_lingo_engine.epub.document import EpubDocumentArtifact
+from mint_lingo_engine.epub.export import (
+    EpubPackageExporter,
+    EpubPackageExportValidationError,
+)
 from mint_lingo_engine.epub.inspection import EpubPackageInspector
 from mint_lingo_engine.epub.projection import EpubStructuredTextProjector
 from mint_lingo_engine.epub.restoration import EpubDocumentRestorer, EpubRestoredDocumentArtifact
 from mint_lingo_engine.epub.source import EpubSourceReference
 from mint_lingo_engine.epub.translation_merge import merge_translation_artifact
+from mint_lingo_engine.processing.runner import CancellationToken, JobCancelled
 from mint_lingo_engine.translation.models import TranslatedTextUnit, TranslationArtifact
 
 
@@ -92,6 +97,92 @@ class EpubPackageBuilderTest(unittest.TestCase):
             TranslationArtifact("vi", (TranslatedTextUnit("chapter.text.1", "Mot"),)),
         )
         return EpubDocumentRestorer().restore(inspected, merged)
+
+
+class EpubPackageExporterTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = Path(self.enterContext(TemporaryDirectory()))
+
+    def test_validates_and_atomically_exports_a_rebuilt_package_without_changing_source(self) -> None:
+        rebuilt = self._rebuilt_package()
+        source = rebuilt.restored_document.document.source.path
+        source_bytes = source.read_bytes()
+        destination = self.root / "translated.epub"
+
+        exported = EpubPackageExporter().export(rebuilt, destination)
+
+        self.assertEqual(exported, destination)
+        self.assertEqual(destination.read_bytes(), rebuilt.package_bytes)
+        self.assertEqual(source.read_bytes(), source_bytes)
+        inspected = EpubPackageInspector().inspect(EpubSourceReference(destination))
+        self.assertIsInstance(inspected, EpubDocumentArtifact)
+        self.assertEqual(list(self.root.glob(".translated.epub.*.tmp")), [])
+
+    def test_rejects_invalid_output_without_creating_a_destination(self) -> None:
+        rebuilt = self._rebuilt_package()
+        invalid = EpubRebuiltPackageArtifact(rebuilt.restored_document, b"not an EPUB")
+        destination = self.root / "translated.epub"
+
+        with self.assertRaises(EpubPackageExportValidationError):
+            EpubPackageExporter().export(invalid, destination)
+
+        self.assertFalse(destination.exists())
+        self.assertEqual(list(self.root.glob(".translated.epub.*.tmp")), [])
+
+    def test_refuses_to_overwrite_the_source_epub(self) -> None:
+        rebuilt = self._rebuilt_package()
+        source = rebuilt.restored_document.document.source.path
+        source_bytes = source.read_bytes()
+
+        with self.assertRaisesRegex(ValueError, "must not overwrite the source"):
+            EpubPackageExporter().export(rebuilt, source)
+
+        self.assertEqual(source.read_bytes(), source_bytes)
+
+    def test_failure_or_cancellation_keeps_an_existing_destination_and_cleans_temporary_file(self) -> None:
+        rebuilt = self._rebuilt_package()
+        destination = self.root / "translated.epub"
+        destination.write_bytes(b"previous complete EPUB")
+
+        cancellation = CancellationToken()
+
+        def cancel_after_write(path: Path, contents: bytes) -> None:
+            path.write_bytes(contents)
+            cancellation._cancel()
+
+        with self.assertRaises(JobCancelled):
+            EpubPackageExporter(write_temporary_file=cancel_after_write).export(
+                rebuilt,
+                destination,
+                cancellation=cancellation,
+            )
+
+        self.assertEqual(destination.read_bytes(), b"previous complete EPUB")
+        self.assertEqual(list(self.root.glob(".translated.epub.*.tmp")), [])
+
+        def interrupted_promotion(_temporary: Path, _destination: Path) -> None:
+            raise OSError("simulated promotion failure")
+
+        with self.assertRaisesRegex(OSError, "simulated promotion failure"):
+            EpubPackageExporter(
+                promote_temporary_file=interrupted_promotion
+            ).export(rebuilt, destination)
+
+        self.assertEqual(destination.read_bytes(), b"previous complete EPUB")
+        self.assertEqual(list(self.root.glob(".translated.epub.*.tmp")), [])
+
+    def _rebuilt_package(self) -> EpubRebuiltPackageArtifact:
+        source_path = self.root / "source.epub"
+        _write_source_epub(source_path)
+        inspected = EpubPackageInspector().inspect(EpubSourceReference(source_path))
+        self.assertIsInstance(inspected, EpubDocumentArtifact)
+        assert isinstance(inspected, EpubDocumentArtifact)
+        projection = EpubStructuredTextProjector().project(inspected, "en")
+        merged = merge_translation_artifact(
+            projection,
+            TranslationArtifact("vi", (TranslatedTextUnit("chapter.text.1", "Mot"),)),
+        )
+        return EpubPackageBuilder().build(EpubDocumentRestorer().restore(inspected, merged))
 
 
 def _write_source_epub(path: Path) -> None:
