@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/theme/app_spacing.dart';
 import 'package:video_translator/common/models/application_language_catalog.dart';
 import 'package:video_translator/common/models/language.dart';
+import 'package:video_translator/common/widgets/model_picker.dart';
 import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/epub_translation_cubit.dart';
@@ -35,20 +37,10 @@ class EpubTranslationWorkspace extends StatefulWidget {
 }
 
 class _EpubTranslationWorkspaceState extends State<EpubTranslationWorkspace> {
-  late final TextEditingController _modelController;
-
   @override
   void initState() {
     super.initState();
-    _modelController = TextEditingController(
-      text: context.read<EpubTranslationCubit>().state.modelId,
-    );
-  }
-
-  @override
-  void dispose() {
-    _modelController.dispose();
-    super.dispose();
+    unawaited(context.read<EpubTranslationCubit>().refreshModelInventory());
   }
 
   Future<void> _startTranslation(EpubTranslationState state) async {
@@ -139,21 +131,32 @@ class _EpubTranslationWorkspaceState extends State<EpubTranslationWorkspace> {
                                             .selectTargetLanguage,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
-                                TextField(
-                                  key: const Key('epub-ollama-model'),
-                                  controller: _modelController,
+                                ModelPicker(
+                                  status: state.modelInventoryStatus,
+                                  modelIds: state.modelIds,
+                                  selectedModelId: state.modelId,
                                   enabled: !active,
-                                  textInputAction: TextInputAction.done,
-                                  decoration: InputDecoration(
-                                    labelText: AppLocalizations.of(context)
-                                        .epubModelLabel,
-                                    hintText: AppLocalizations.of(context)
-                                        .epubModelHint,
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                  onChanged: context
+                                  onSelected: context
                                       .read<EpubTranslationCubit>()
-                                      .setModelId,
+                                      .selectModelId,
+                                  onRefresh: context
+                                      .read<EpubTranslationCubit>()
+                                      .refreshModelInventory,
+                                  text: ModelPickerText(
+                                    label: AppLocalizations.of(context)
+                                        .epubModelLabel,
+                                    hint: AppLocalizations.of(context)
+                                        .epubModelHint,
+                                    loading: AppLocalizations.of(context)
+                                        .epubModelLoading,
+                                    empty: AppLocalizations.of(context)
+                                        .epubModelEmpty,
+                                    unavailable: AppLocalizations.of(context)
+                                        .epubModelUnavailable,
+                                    refresh: AppLocalizations.of(context)
+                                        .epubModelRefresh,
+                                  ),
+                                  keyPrefix: 'epub-model',
                                 ),
                                 const SizedBox(height: AppSpacing.md),
                                 Align(

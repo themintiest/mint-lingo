@@ -209,6 +209,7 @@ class EngineClient {
   Future<Map<String, Object?>> request(
     String method, {
     Map<String, Object?>? params,
+    Duration? timeout,
   }) {
     final process = _process;
     if (process == null) {
@@ -236,7 +237,7 @@ class EngineClient {
       return completer.future;
     }
 
-    Timer(requestTimeout, () {
+    Timer(timeout ?? requestTimeout, () {
       if (_pending.remove(id) != null && !completer.isCompleted) {
         completer.completeError(
           EngineProtocolException('Timed out waiting for $method.'),

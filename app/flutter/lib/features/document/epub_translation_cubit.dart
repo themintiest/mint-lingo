@@ -5,11 +5,13 @@ import 'dart:math';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_translator/app/engine/engine_client.dart';
 import 'package:video_translator/common/models/language.dart';
+import 'package:video_translator/common/models/model_inventory.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
 import 'package:video_translator/features/document/epub_presentation_loader.dart';
 import 'package:video_translator/features/processing/processing_bloc.dart';
 
 const epubTranslationWorkflowId = 'document.epub.translate';
+const _modelInventoryRequestTimeout = Duration(seconds: 15);
 
 /// EPUB-owned configuration, job lifecycle, and rebuilt-reader state.
 ///
@@ -50,13 +52,66 @@ final class EpubTranslationCubit extends Cubit<EpubTranslationState> {
     ),
   );
 
-  void setModelId(String value) => emit(
-    state.copyWith(
-      modelId: value.trim(),
-      clearMessage: true,
-      clearFailureDiagnostic: true,
-    ),
-  );
+  void selectModelId(String? value) {
+    if (value == null ||
+        state.modelInventoryStatus != ModelInventoryStatus.ready ||
+        !state.modelIds.contains(value)) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        modelId: value,
+        clearMessage: true,
+        clearFailureDiagnostic: true,
+      ),
+    );
+  }
+
+  Future<void> refreshModelInventory() async {
+    if (state.processing is ProcessingActive) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        modelInventoryStatus: ModelInventoryStatus.loading,
+        clearMessage: true,
+        clearFailureDiagnostic: true,
+      ),
+    );
+    try {
+      final response = await engine.request(
+        'epub.getModels',
+        timeout: _modelInventoryRequestTimeout,
+      );
+      final modelIds = _modelIdsFromWire(response);
+      final selectedModelId = modelIds.contains(state.modelId)
+          ? state.modelId
+          : '';
+      emit(
+        state.copyWith(
+          modelIds: modelIds,
+          modelId: selectedModelId,
+          modelInventoryStatus: modelIds.isEmpty
+              ? ModelInventoryStatus.empty
+              : ModelInventoryStatus.ready,
+          clearMessage: true,
+          clearFailureDiagnostic: true,
+        ),
+      );
+    } on Object catch (_) {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            modelIds: const [],
+            modelInventoryStatus: ModelInventoryStatus.unavailable,
+            clearModelId: true,
+            clearMessage: true,
+            clearFailureDiagnostic: true,
+          ),
+        );
+      }
+    }
+  }
 
   void selectReader(EpubReaderVersion value) {
     if (value == EpubReaderVersion.translated &&
@@ -312,6 +367,8 @@ final class EpubTranslationState {
     this.sourceLanguage,
     this.targetLanguage,
     this.modelId = '',
+    this.modelIds = const [],
+    this.modelInventoryStatus = ModelInventoryStatus.initial,
     this.jobId,
     this.sourcePath,
     this.destinationPath,
@@ -325,6 +382,8 @@ final class EpubTranslationState {
   final Language? sourceLanguage;
   final Language? targetLanguage;
   final String modelId;
+  final List<String> modelIds;
+  final ModelInventoryStatus modelInventoryStatus;
   final String? jobId;
   final String? sourcePath;
   final String? destinationPath;
@@ -335,12 +394,17 @@ final class EpubTranslationState {
   final EpubFailureDiagnostic? failureDiagnostic;
 
   bool get isConfigured =>
-      sourceLanguage != null && targetLanguage != null && modelId.isNotEmpty;
+      sourceLanguage != null &&
+      targetLanguage != null &&
+      modelInventoryStatus == ModelInventoryStatus.ready &&
+      modelIds.contains(modelId);
 
   EpubTranslationState copyWith({
     Language? sourceLanguage,
     Language? targetLanguage,
     String? modelId,
+    List<String>? modelIds,
+    ModelInventoryStatus? modelInventoryStatus,
     String? jobId,
     String? sourcePath,
     String? destinationPath,
@@ -352,10 +416,13 @@ final class EpubTranslationState {
     bool clearMessage = false,
     bool clearFailureDiagnostic = false,
     bool clearTranslatedContent = false,
+    bool clearModelId = false,
   }) => EpubTranslationState(
     sourceLanguage: sourceLanguage ?? this.sourceLanguage,
     targetLanguage: targetLanguage ?? this.targetLanguage,
-    modelId: modelId ?? this.modelId,
+    modelId: clearModelId ? '' : modelId ?? this.modelId,
+    modelIds: List.unmodifiable(modelIds ?? this.modelIds),
+    modelInventoryStatus: modelInventoryStatus ?? this.modelInventoryStatus,
     jobId: jobId ?? this.jobId,
     sourcePath: sourcePath ?? this.sourcePath,
     destinationPath: destinationPath ?? this.destinationPath,
@@ -438,6 +505,24 @@ ProcessingProgress? _progressFromWire(Object? value) {
     }
   }
   return null;
+}
+
+List<String> _modelIdsFromWire(Map<String, Object?> response) {
+  final values = response['modelIds'];
+  if (response.length != 1 || values is! List) {
+    throw const EngineProtocolException('Invalid EPUB model inventory.');
+  }
+  final modelIds = <String>[];
+  for (final value in values) {
+    if (value is! String || value.isEmpty || value.trim() != value) {
+      throw const EngineProtocolException('Invalid EPUB model inventory.');
+    }
+    modelIds.add(value);
+  }
+  if (modelIds.toSet().length != modelIds.length) {
+    throw const EngineProtocolException('Invalid EPUB model inventory.');
+  }
+  return List.unmodifiable(modelIds);
 }
 
 String _newUuidV4() {

@@ -389,10 +389,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get epubTranslationTitle => 'Translate EPUB';
 
   @override
-  String get epubModelLabel => 'Local Ollama model';
+  String get epubModelLabel => 'Installed Ollama model';
 
   @override
-  String get epubModelHint => 'Enter the installed model ID';
+  String get epubModelHint => 'Choose an installed model';
+
+  @override
+  String get epubModelLoading => 'Loading installed Ollama models…';
+
+  @override
+  String get epubModelEmpty =>
+      'No installed Ollama translation models are available. Install a completion-capable model, then refresh.';
+
+  @override
+  String get epubModelUnavailable =>
+      'Ollama models could not be loaded. Start Ollama, then refresh.';
+
+  @override
+  String get epubModelRefresh => 'Refresh models';
 
   @override
   String get translateEpub => 'Translate EPUB';

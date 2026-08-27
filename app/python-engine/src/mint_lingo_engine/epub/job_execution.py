@@ -42,6 +42,7 @@ from mint_lingo_engine.providers.translation.ollama import (
 )
 from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaDiscoveryError,
+    OllamaModelInventory,
     OllamaModelDiscovery,
 )
 from mint_lingo_engine.translation.service import (
@@ -186,6 +187,7 @@ class EpubJobDispatcher:
         runner: JobRunner,
         *,
         executor: EpubJobExecutor | None = None,
+        model_inventory_loader: Callable[[], OllamaModelInventory] | None = None,
         on_progress: Callable[[JobProgressNotification], None] | None = None,
         on_terminal: Callable[[Job], None] | None = None,
     ) -> None:
@@ -193,6 +195,9 @@ class EpubJobDispatcher:
             raise TypeError("runner must be a JobRunner")
         self._runner = runner
         self._executor = executor or EpubJobExecutor()
+        self._model_inventory_loader = (
+            model_inventory_loader or _discover_ollama_model_inventory
+        )
         self._on_progress = on_progress or (lambda _: None)
         self._on_terminal = on_terminal or (lambda _: None)
         self._failure_diagnostics: dict[str, EpubJobFailureDiagnostic] = {}
@@ -215,6 +220,15 @@ class EpubJobDispatcher:
 
     def exported_artifact_reference(self, job_id: str) -> str | None:
         return self._executor.exported_artifact_reference(job_id)
+
+    def translation_model_ids(self) -> tuple[str, ...]:
+        """Return installed completion-capable Ollama model IDs for EPUB selection."""
+
+        return tuple(
+            model.model_id
+            for model in self._model_inventory_loader().models
+            if "completion" in model.capabilities
+        )
 
     def failure_diagnostic(self, job_id: str) -> EpubJobFailureDiagnostic | None:
         """Return the retained safe failure result without exposing cause details."""
@@ -241,6 +255,10 @@ class EpubJobDispatcher:
             with self._failure_lock:
                 self._failure_diagnostics[context.job_id.value] = _sanitize_failure(error)
             raise
+
+
+def _discover_ollama_model_inventory() -> OllamaModelInventory:
+    return OllamaModelDiscovery().discover()
 
 
 def _sanitize_failure(error: Exception) -> EpubJobFailureDiagnostic:

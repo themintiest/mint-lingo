@@ -387,10 +387,24 @@ class AppLocalizationsVi extends AppLocalizations {
   String get epubTranslationTitle => 'Dich EPUB';
 
   @override
-  String get epubModelLabel => 'Mo hinh Ollama cuc bo';
+  String get epubModelLabel => 'Mo hinh Ollama da cai dat';
 
   @override
-  String get epubModelHint => 'Nhap ID mo hinh da cai dat';
+  String get epubModelHint => 'Chon mo hinh da cai dat';
+
+  @override
+  String get epubModelLoading => 'Dang tai cac mo hinh Ollama da cai dat…';
+
+  @override
+  String get epubModelEmpty =>
+      'Khong co mo hinh dich Ollama da cai dat. Cai dat mo hinh ho tro completion, sau do lam moi.';
+
+  @override
+  String get epubModelUnavailable =>
+      'Khong the tai mo hinh Ollama. Khoi dong Ollama, sau do lam moi.';
+
+  @override
+  String get epubModelRefresh => 'Lam moi mo hinh';
 
   @override
   String get translateEpub => 'Dich EPUB';

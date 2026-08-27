@@ -797,14 +797,38 @@ abstract class AppLocalizations {
   /// No description provided for @epubModelLabel.
   ///
   /// In en, this message translates to:
-  /// **'Local Ollama model'**
+  /// **'Installed Ollama model'**
   String get epubModelLabel;
 
   /// No description provided for @epubModelHint.
   ///
   /// In en, this message translates to:
-  /// **'Enter the installed model ID'**
+  /// **'Choose an installed model'**
   String get epubModelHint;
+
+  /// No description provided for @epubModelLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading installed Ollama models…'**
+  String get epubModelLoading;
+
+  /// No description provided for @epubModelEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No installed Ollama translation models are available. Install a completion-capable model, then refresh.'**
+  String get epubModelEmpty;
+
+  /// No description provided for @epubModelUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Ollama models could not be loaded. Start Ollama, then refresh.'**
+  String get epubModelUnavailable;
+
+  /// No description provided for @epubModelRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh models'**
+  String get epubModelRefresh;
 
   /// No description provided for @translateEpub.
   ///

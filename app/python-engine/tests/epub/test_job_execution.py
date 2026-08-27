@@ -10,6 +10,7 @@ from mint_lingo_engine.epub.job_execution import (
     EpubJobExecutor,
     EpubJobInvocation,
 )
+from mint_lingo_engine.epub.translation_batching import EpubTranslationBatchingPolicy
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
     LlmProviderCapabilities,
@@ -17,8 +18,14 @@ from mint_lingo_engine.providers.translation.base import (
     LlmProviderResponseFailureCode,
 )
 from mint_lingo_engine.providers.translation.ollama import (
+    OllamaProvider,
     OllamaProviderError,
     OllamaProviderFailureCode,
+)
+from mint_lingo_engine.providers.translation.ollama_discovery import (
+    OllamaDiscoveryError,
+    OllamaModelCapabilities,
+    OllamaModelInventory,
 )
 from mint_lingo_engine.processing.progress import (
     IndeterminateProgress,
@@ -91,6 +98,115 @@ class EpubJobExecutionTest(unittest.TestCase):
         diagnostic = dispatcher.failure_diagnostic(started.id.value)
         assert diagnostic is not None
         self.assertEqual(diagnostic.code, "epub.source_not_found")
+
+    def test_exposes_only_installed_completion_models_for_epub_selection(self) -> None:
+        inventory = OllamaModelInventory(
+            models=(
+                OllamaModelCapabilities(
+                    model_id="embed-only",
+                    capabilities=("embedding",),
+                    context_window_tokens=8_192,
+                ),
+                OllamaModelCapabilities(
+                    model_id="translate-small",
+                    capabilities=("completion",),
+                    context_window_tokens=8_192,
+                ),
+                OllamaModelCapabilities(
+                    model_id="translate-large",
+                    capabilities=("completion",),
+                    context_window_tokens=32_768,
+                ),
+            )
+        )
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-model-inventory"),
+            model_inventory_loader=lambda: inventory,
+        )
+        self.addCleanup(dispatcher.close)
+
+        response, should_shutdown = handle_message(
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "epub-model-inventory",
+                "method": "epub.getModels",
+            },
+            epub_dispatcher=dispatcher,
+        )
+
+        self.assertFalse(should_shutdown)
+        self.assertEqual(
+            response,
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "epub-model-inventory",
+                "result": {"modelIds": ["translate-small", "translate-large"]},
+            },
+        )
+
+    def test_selected_inventory_model_keeps_capability_based_batching_in_python(self) -> None:
+        inventory = OllamaModelInventory(
+            models=(
+                OllamaModelCapabilities(
+                    model_id="translate-small",
+                    capabilities=("completion",),
+                    context_window_tokens=8_192,
+                ),
+                OllamaModelCapabilities(
+                    model_id="translate-large",
+                    capabilities=("completion",),
+                    context_window_tokens=32_768,
+                ),
+            )
+        )
+
+        small_policy = EpubTranslationBatchingPolicy.from_capabilities(
+            OllamaProvider(inventory, "translate-small").capabilities
+        )
+        large_policy = EpubTranslationBatchingPolicy.from_capabilities(
+            OllamaProvider(inventory, "translate-large").capabilities
+        )
+
+        self.assertEqual(small_policy.max_units_per_window, 2)
+        self.assertEqual(small_policy.overlap_units, 1)
+        self.assertEqual(large_policy.max_units_per_window, 4)
+        self.assertEqual(large_policy.overlap_units, 1)
+
+    def test_reports_an_actionable_safe_error_when_model_inventory_is_unavailable(self) -> None:
+        raw_detail = "Authorization: secret C:\\private\\models response"
+
+        def unavailable_inventory() -> OllamaModelInventory:
+            raise OllamaDiscoveryError(raw_detail)
+
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-model-inventory-failure"),
+            model_inventory_loader=unavailable_inventory,
+        )
+        self.addCleanup(dispatcher.close)
+
+        response, should_shutdown = handle_message(
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "epub-model-inventory-failure",
+                "method": "epub.getModels",
+            },
+            epub_dispatcher=dispatcher,
+        )
+
+        self.assertFalse(should_shutdown)
+        assert response is not None
+        self.assertEqual(response["error"]["code"], -32022)
+        self.assertEqual(
+            response["error"]["data"],
+            {
+                "providerCode": "ollama.inventory_unavailable",
+                "retryable": True,
+            },
+        )
+        self.assertNotIn(raw_detail, json.dumps(response))
 
     def test_retains_only_sanitized_failure_through_the_epub_boundary(self) -> None:
         terminal = Event()

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_translator/app/engine/engine_client.dart';
+import 'package:video_translator/common/models/model_inventory.dart';
 import 'package:video_translator/common/models/language.dart';
 import 'package:video_translator/features/document/document_presentation.dart';
 import 'package:video_translator/features/document/document_reader_state.dart';
@@ -31,7 +32,8 @@ void main() {
 
       cubit.selectSourceLanguage(Language(tag: 'en'));
       cubit.selectTargetLanguage(Language(tag: 'vi'));
-      cubit.setModelId('qwen2.5:7b');
+      await cubit.refreshModelInventory();
+      cubit.selectModelId('qwen2.5:7b');
       await cubit.start(
         source: const DocumentSourceReference(
           path: r'C:\books\source.epub',
@@ -41,8 +43,14 @@ void main() {
         destinationPath: r'C:\books\translated.epub',
       );
 
-      final start = engine.requests.single;
+      final start = engine.requests.last;
       expect(start.method, 'job.start');
+      expect(
+        engine.requests
+            .firstWhere((request) => request.method == 'epub.getModels')
+            .timeout,
+        const Duration(seconds: 15),
+      );
       final payload = start.params['workflowPayload'] as Map<String, Object?>;
       expect(start.params['workflowId'], epubTranslationWorkflowId);
       expect(payload['sourcePath'], r'C:\books\source.epub');
@@ -116,6 +124,47 @@ void main() {
     },
   );
 
+  test(
+    'selects only refreshed installed models and clears unavailable inventory',
+    () async {
+      final engine = _FakeEngineClient()..modelIds = ['translate-small'];
+      final cubit = EpubTranslationCubit(engine: engine);
+      addTearDown(() async {
+        await cubit.close();
+        await engine.close();
+      });
+
+      await cubit.refreshModelInventory();
+      cubit.selectModelId('translate-small');
+      cubit.selectModelId('invented-model');
+
+      expect(cubit.state.modelIds, ['translate-small']);
+      expect(cubit.state.modelId, 'translate-small');
+      expect(cubit.state.modelInventoryStatus, ModelInventoryStatus.ready);
+
+      engine.modelIds = [];
+      await cubit.refreshModelInventory();
+
+      expect(cubit.state.modelIds, isEmpty);
+      expect(cubit.state.modelId, isEmpty);
+      expect(cubit.state.modelInventoryStatus, ModelInventoryStatus.empty);
+
+      engine.modelInventoryFailure = StateError('private inventory response');
+      await cubit.refreshModelInventory();
+
+      expect(cubit.state.modelIds, isEmpty);
+      expect(cubit.state.modelId, isEmpty);
+      expect(
+        cubit.state.modelInventoryStatus,
+        ModelInventoryStatus.unavailable,
+      );
+      expect(
+        engine.requests.where((request) => request.method == 'epub.getModels'),
+        hasLength(3),
+      );
+    },
+  );
+
   testWidgets('displays the safe EPUB failure diagnostic after a failed job', (
     tester,
   ) async {
@@ -134,7 +183,8 @@ void main() {
     });
     cubit.selectSourceLanguage(Language(tag: 'en'));
     cubit.selectTargetLanguage(Language(tag: 'vi'));
-    cubit.setModelId('qwen2.5:14b');
+    await cubit.refreshModelInventory();
+    cubit.selectModelId('qwen2.5:14b');
 
     await cubit.start(
       source: const DocumentSourceReference(
@@ -250,10 +300,71 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
+    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+    expect(
+      tester.widget<DropdownButtonFormField<String>>(
+        find.byType(DropdownButtonFormField<String>),
+      ),
+      isA<DropdownButtonFormField<String>>(),
+    );
     expect(
       find.byKey(const Key('document-reader-region-epub')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('renders actionable unavailable model inventory with refresh', (
+    tester,
+  ) async {
+    final engine = _FakeEngineClient()
+      ..modelInventoryFailure = StateError('private inventory response');
+    final cubit = EpubTranslationCubit(engine: engine);
+    addTearDown(() async {
+      await cubit.close();
+      await engine.close();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 736,
+            height: 800,
+            child: BlocProvider.value(
+              value: cubit,
+              child: EpubTranslationWorkspace(
+                source: const DocumentSourceReference(
+                  path: r'C:\books\source.epub',
+                  fileName: 'source.epub',
+                  format: DocumentReaderFormat.epub,
+                ),
+                presentation: const EpubDocumentPresentation(
+                  content: EpubPresentationContent(
+                    chapters: [
+                      EpubPresentationChapter(
+                        title: 'Original',
+                        packagePath: 'text/chapter.xhtml',
+                        blocks: [],
+                      ),
+                    ],
+                    images: {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Translate EPUB').first);
+    await tester.pump();
+
+    expect(find.byKey(const Key('epub-model-unavailable')), findsOneWidget);
+    expect(find.byKey(const Key('epub-model-refresh')), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
   });
 }
 
@@ -266,6 +377,8 @@ final class _FakeEngineClient extends EngineClient {
       StreamController<EngineNotification>.broadcast();
   final List<_Request> requests = [];
   Map<String, Object?>? failureResponse;
+  List<String> modelIds = ['qwen2.5:7b', 'qwen2.5:14b'];
+  Object? modelInventoryFailure;
 
   @override
   Stream<EngineNotification> get notifications => _controller.stream;
@@ -274,8 +387,9 @@ final class _FakeEngineClient extends EngineClient {
   Future<Map<String, Object?>> request(
     String method, {
     Map<String, Object?>? params,
+    Duration? timeout,
   }) async {
-    requests.add(_Request(method, params ?? const {}));
+    requests.add(_Request(method, params ?? const {}, timeout));
     return switch (method) {
       'job.start' => {
         'job': {'jobId': jobId, 'lifecycle': 'created'},
@@ -286,6 +400,10 @@ final class _FakeEngineClient extends EngineClient {
       'epub.getFailure' =>
         failureResponse ??
             (throw StateError('Unexpected EPUB failure diagnostic request.')),
+      'epub.getModels' =>
+        modelInventoryFailure == null
+            ? {'modelIds': modelIds}
+            : throw modelInventoryFailure!,
       'job.cancel' => {'jobId': jobId, 'cancellationRequested': true},
       _ => throw StateError('Unexpected method: $method'),
     };
@@ -297,10 +415,11 @@ final class _FakeEngineClient extends EngineClient {
 }
 
 final class _Request {
-  const _Request(this.method, this.params);
+  const _Request(this.method, this.params, this.timeout);
 
   final String method;
   final Map<String, Object?> params;
+  final Duration? timeout;
 }
 
 final class _FakeEpubPresentationLoader implements EpubPresentationLoader {

@@ -30,6 +30,7 @@ from mint_lingo_engine.epub.job_execution import (
     EPUB_TRANSLATION_WORKFLOW_ID,
     EpubJobDispatcher,
 )
+from mint_lingo_engine.providers.translation.ollama_discovery import OllamaDiscoveryError
 from mint_lingo_engine.processing.job import Job, JobLifecycle
 from mint_lingo_engine.processing.progress import (
     DeterminateProgress,
@@ -252,6 +253,24 @@ def handle_message(
             False,
         )
 
+    if method == "epub.getModels":
+        if is_notification or epub_dispatcher is None:
+            return _invalid_request(message, reason="unsupported_method")
+        if "params" in message:
+            response = _error_response(
+                message["id"],
+                code=-32602,
+                message="Invalid params",
+                engine_code="engine.invalid_params",
+                reason="invalid_parameters",
+            )
+            return response, False
+        try:
+            model_ids = epub_dispatcher.translation_model_ids()
+        except OllamaDiscoveryError:
+            return _ollama_model_inventory_error(message["id"]), False
+        return _success_response(message["id"], {"modelIds": list(model_ids)}), False
+
     if method in {"job.start", "job.cancel", "job.get", "epub.getExport", "epub.getFailure"}:
         if is_notification or epub_dispatcher is None:
             return _invalid_request(message, reason="unsupported_method")
@@ -359,6 +378,24 @@ def _job_state_changed_notification(job: Job) -> dict[str, Any]:
 
 def _job_not_found_response(request_id: str | int) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "id": request_id, "error": {"code": -32021, "message": "Job not found.", "data": {"jobCode": "job.not_found", "retryable": False}}}
+
+
+def _ollama_model_inventory_error(request_id: str | int) -> dict[str, Any]:
+    """Return an actionable fixed error without exposing discovery details."""
+
+    return {
+        "jsonrpc": "2.0",
+        "protocolVersion": PROTOCOL_VERSION,
+        "id": request_id,
+        "error": {
+            "code": -32022,
+            "message": "Ollama model inventory is unavailable.",
+            "data": {
+                "providerCode": "ollama.inventory_unavailable",
+                "retryable": True,
+            },
+        },
+    }
 
 
 def _is_media_inspect_params(value: object) -> bool:
