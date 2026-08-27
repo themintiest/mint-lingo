@@ -13,7 +13,11 @@ from mint_lingo_engine.epub.document import (
     EpubTextMergeTarget,
     EpubXhtmlDocument,
 )
-from mint_lingo_engine.epub.translation_merge import EpubMergedTranslationArtifact
+from mint_lingo_engine.epub.sentence_boundaries import fragment_epub_prose_text
+from mint_lingo_engine.epub.translation_merge import (
+    EpubMergedTranslationArtifact,
+    EpubMergedTranslationUnit,
+)
 
 _XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 
@@ -94,23 +98,43 @@ class EpubDocumentRestorer:
         document: EpubDocumentArtifact,
         merged_translation: EpubMergedTranslationArtifact,
     ) -> dict[str, str]:
-        expected_targets = tuple(_iter_text_targets(document))
-        expected_by_id = {target.target_id: target for target in expected_targets}
+        expected_fragments_by_node = _expected_fragment_targets(document)
+        expected_by_id = {
+            node_target_id: fragments[0]
+            for node_target_id, fragments in expected_fragments_by_node.items()
+        }
         actual_by_id = {
             unit.target.target_id: unit for unit in merged_translation.units
         }
-        if len(actual_by_id) != len(merged_translation.units) or set(actual_by_id) != set(
-            expected_by_id
-        ):
-            raise ValueError("merged translations must match every EPUB text target exactly")
-        for target_id, expected in expected_by_id.items():
-            actual = actual_by_id[target_id].target
-            if actual != expected:
+        if len(actual_by_id) != len(merged_translation.units):
+            raise ValueError("merged translations must have unique EPUB target IDs")
+        fragments_by_node: dict[str, list[EpubMergedTranslationUnit]] = {}
+        for unit in merged_translation.units:
+            target = unit.target
+            node_target_id = _node_target_id(target.target_id)
+            expected = expected_by_id.get(node_target_id)
+            if expected is None or (
+                target.manifest_item_id != expected.manifest_item_id
+                or target.node_path != expected.node_path
+            ):
                 raise ValueError("merged translation target does not match the EPUB document")
-        return {
-            target_id: unit.translated_text
-            for target_id, unit in actual_by_id.items()
-        }
+            fragments_by_node.setdefault(node_target_id, []).append(unit)
+        if set(fragments_by_node) != set(expected_by_id):
+            raise ValueError("merged translations must match every EPUB text target exactly")
+        translations: dict[str, str] = {}
+        for node_target_id, fragments in fragments_by_node.items():
+            ordered_fragments = sorted(
+                fragments,
+                key=lambda unit: unit.target.fragment_index,
+            )
+            expected_fragments = expected_fragments_by_node[node_target_id]
+            if tuple(unit.target for unit in ordered_fragments) != expected_fragments:
+                raise ValueError("merged translation fragments do not match the EPUB node")
+            translations[node_target_id] = "".join(
+                unit.translated_text + unit.target.separator_after
+                for unit in ordered_fragments
+            )
+        return translations
 
     def _restore_xhtml(
         self,
@@ -168,18 +192,45 @@ class EpubDocumentRestorer:
         )
 
 
-def _iter_text_targets(document: EpubDocumentArtifact):
+def _expected_fragment_targets(
+    document: EpubDocumentArtifact,
+) -> dict[str, tuple[EpubTextMergeTarget, ...]]:
+    targets: dict[str, tuple[EpubTextMergeTarget, ...]] = {}
     for document_index, xhtml in enumerate(document.xhtml_documents):
         root = _parse_xhtml(xhtml.serialized_xhtml, xhtml.archive_path)
         text_index = 0
         for node in root.iter():
             if node.text and node.text.strip():
                 text_index += 1
-                yield EpubTextMergeTarget(
-                    target_id=f"{xhtml.manifest_item_id}.text.{text_index}",
-                    manifest_item_id=xhtml.manifest_item_id,
-                    node_path=f"/document[{document_index + 1}]/{node.tag}[{text_index}]",
+                node_target_id = f"{xhtml.manifest_item_id}.text.{text_index}"
+                node_path = f"/document[{document_index + 1}]/{node.tag}[{text_index}]"
+                fragments = fragment_epub_prose_text(node.tag, node.text)
+                targets[node_target_id] = tuple(
+                    EpubTextMergeTarget(
+                        target_id=(
+                            node_target_id
+                            if len(fragments) == 1
+                            else f"{node_target_id}.fragment.{fragment_index}"
+                        ),
+                        manifest_item_id=xhtml.manifest_item_id,
+                        node_path=node_path,
+                        fragment_index=fragment_index,
+                        fragment_count=len(fragments),
+                        separator_after=fragment.separator_after,
+                    )
+                    for fragment_index, fragment in enumerate(fragments, start=1)
                 )
+    return targets
+
+
+def _node_target_id(target_id: str) -> str:
+    fragment_marker = ".fragment."
+    if fragment_marker not in target_id:
+        return target_id
+    node_target_id, _, fragment_index = target_id.rpartition(fragment_marker)
+    if not node_target_id or not fragment_index.isdecimal():
+        return ""
+    return node_target_id
 
 
 def _parse_xhtml(serialized_xhtml: str, archive_path: str) -> ElementTree.Element:

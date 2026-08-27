@@ -234,6 +234,99 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
         )
         self.assertEqual(progress, [(1, 2), (2, 2)])
 
+    def test_resumes_only_unfinished_sentence_fragments_after_a_provider_failure(self) -> None:
+        book_path = self.root / "book.epub"
+        _write_epub(
+            book_path,
+            chapter_xhtml=f"<html><body><p>{_fragment_source()}</p></body></html>",
+        )
+        checkpoint_store = self._checkpoint_store()
+        first_provider = _FakeLlmProvider(
+            responses=(
+                _translation("vi", ("chapter.text.1.fragment.1", "Mot.")),
+                RuntimeError("simulated provider failure"),
+            )
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "simulated provider failure"):
+            EpubTranslationWorkflow(
+                TranslationService(first_provider, max_units_per_window=1),
+                checkpoint_store,
+            ).translate(
+                {"sourcePath": str(book_path)},
+                source_language="en",
+                target_language="vi",
+            )
+
+        resumed_provider = _FakeLlmProvider(
+            responses=(
+                _translation("vi", ("chapter.text.1.fragment.2", "Hai.")),
+                _translation("vi", ("chapter.text.1.fragment.3", "Ba.")),
+            )
+        )
+        result = EpubTranslationWorkflow(
+            TranslationService(resumed_provider, max_units_per_window=1),
+            checkpoint_store,
+        ).translate(
+            {"sourcePath": str(book_path)},
+            source_language="en",
+            target_language="vi",
+        )
+
+        self.assertNotIsInstance(result, EpubPackageValidationError)
+        assert not isinstance(result, EpubPackageValidationError)
+        self.assertEqual(
+            [[unit.unit_id for unit in request.artifact.units] for request in resumed_provider.calls],
+            [["chapter.text.1.fragment.2"], ["chapter.text.1.fragment.3"]],
+        )
+        self.assertIn(
+            "<p>Mot. Hai. Ba.</p>",
+            result.restored_document.xhtml_documents[0].serialized_xhtml,
+        )
+
+    def test_ignores_an_incompatible_whole_node_checkpoint_for_sentence_fragments(self) -> None:
+        book_path = self.root / "book.epub"
+        source = _fragment_source()
+        _write_epub(
+            book_path,
+            chapter_xhtml=f"<html><body><p>{source}</p></body></html>",
+        )
+        checkpoint_store = self._checkpoint_store()
+        old_artifact = StructuredTextArtifact(
+            source_language="en",
+            units=(StructuredTextUnit("chapter.text.1", source.strip()),),
+        )
+        checkpoint_store.record(
+            TranslationRequest(old_artifact, "vi"),
+            _translation("vi", ("chapter.text.1", "Old whole node")),
+        )
+        provider = _FakeLlmProvider(
+            responses=(
+                _translation("vi", ("chapter.text.1.fragment.1", "Mot.")),
+                _translation("vi", ("chapter.text.1.fragment.2", "Hai.")),
+                _translation("vi", ("chapter.text.1.fragment.3", "Ba.")),
+            )
+        )
+
+        result = EpubTranslationWorkflow(
+            TranslationService(provider, max_units_per_window=1),
+            checkpoint_store,
+        ).translate(
+            {"sourcePath": str(book_path)},
+            source_language="en",
+            target_language="vi",
+        )
+
+        self.assertNotIsInstance(result, EpubPackageValidationError)
+        self.assertEqual(
+            [[unit.unit_id for unit in request.artifact.units] for request in provider.calls],
+            [
+                ["chapter.text.1.fragment.1"],
+                ["chapter.text.1.fragment.2"],
+                ["chapter.text.1.fragment.3"],
+            ],
+        )
+
     def test_checkpoints_a_completed_unit_before_observed_cancellation(self) -> None:
         book_path = self.root / "book.epub"
         _write_epub(book_path)
@@ -429,3 +522,19 @@ def _write_epub(
             chapter_xhtml,
         )
         archive.writestr("OEBPS/nav.xhtml", "<html><body><nav/></body></html>")
+
+
+def _fragment_source() -> str:
+    first = (
+        "First sentence carries enough ordinary prose to exercise a deterministic EPUB "
+        "translation boundary without inline markup or unusual punctuation."
+    )
+    second = (
+        "Second sentence preserves original spacing after the previous sentence while "
+        "remaining ordinary prose for this offline fixture."
+    )
+    third = (
+        "Third sentence completes the long paragraph with more ordinary prose so the "
+        "conservative policy can safely create a final fragment."
+    )
+    return f"{first} {second} {third}"

@@ -85,7 +85,34 @@ class EpubDocumentRestorerTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "match every EPUB text target"):
             EpubDocumentRestorer().restore(document, incomplete)
 
-    def _document(self) -> EpubDocumentArtifact:
+    def test_reassembles_translated_sentence_fragments_in_the_original_text_node(self) -> None:
+        document = self._document(
+            chapter_xhtml=f"<html><body><p>{_fragment_source()}</p></body></html>"
+        )
+        projection = EpubStructuredTextProjector().project(document, "en")
+        merged = merge_translation_artifact(
+            projection,
+            TranslationArtifact(
+                "vi",
+                (
+                    TranslatedTextUnit("chapter.text.1.fragment.1", "Mot."),
+                    TranslatedTextUnit("chapter.text.1.fragment.2", "Hai."),
+                    TranslatedTextUnit("chapter.text.1.fragment.3", "Ba."),
+                ),
+            ),
+        )
+
+        restored = EpubDocumentRestorer().restore(document, merged)
+
+        chapter = ElementTree.fromstring(restored.xhtml_documents[0].serialized_xhtml)
+        paragraph = next(node for node in chapter.iter() if node.tag.endswith("p"))
+        self.assertEqual(paragraph.text, "  Mot.  Hai.\nBa.  ")
+
+    def _document(
+        self,
+        *,
+        chapter_xhtml: str | None = None,
+    ) -> EpubDocumentArtifact:
         source_path = self.root / "book.epub"
         with zipfile.ZipFile(source_path, "w") as archive:
             archive.writestr(
@@ -106,8 +133,25 @@ class EpubDocumentRestorerTest(unittest.TestCase):
                 EpubXhtmlDocument(
                     "chapter",
                     "OEBPS/chapter.xhtml",
-                    '<html xmlns="http://www.w3.org/1999/xhtml" lang="en"><body><p class="lead" id="start">First <em class="accent">very</em></p><p><a href="notes.xhtml#first">Second</a><img src="../images/cover.jpg" alt="Cover" /></p></body></html>',
+                    chapter_xhtml
+                    or '<html xmlns="http://www.w3.org/1999/xhtml" lang="en"><body><p class="lead" id="start">First <em class="accent">very</em></p><p><a href="notes.xhtml#first">Second</a><img src="../images/cover.jpg" alt="Cover" /></p></body></html>',
                 ),
             ),
             merge_targets=(),
         )
+
+
+def _fragment_source() -> str:
+    first = (
+        "First sentence carries enough ordinary prose to exercise a deterministic EPUB "
+        "translation boundary without inline markup or unusual punctuation."
+    )
+    second = (
+        "Second sentence preserves original spacing after the previous sentence while "
+        "remaining ordinary prose for this offline fixture."
+    )
+    third = (
+        "Third sentence completes the long paragraph with more ordinary prose so the "
+        "conservative policy can safely create a final fragment."
+    )
+    return f"  {first}  {second}\n{third}  "

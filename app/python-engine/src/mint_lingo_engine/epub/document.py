@@ -132,11 +132,28 @@ class EpubTextMergeTarget:
     target_id: str
     manifest_item_id: str
     node_path: str
+    fragment_index: int = 1
+    fragment_count: int = 1
+    separator_after: str = ""
 
     def __post_init__(self) -> None:
         _require_value(self.target_id, "target_id")
         _require_value(self.manifest_item_id, "manifest_item_id")
         _require_value(self.node_path, "node_path")
+        if (
+            isinstance(self.fragment_index, bool)
+            or not isinstance(self.fragment_index, int)
+            or self.fragment_index < 1
+        ):
+            raise ValueError("fragment_index must be a positive integer")
+        if (
+            isinstance(self.fragment_count, bool)
+            or not isinstance(self.fragment_count, int)
+            or self.fragment_count < self.fragment_index
+        ):
+            raise ValueError("fragment_count must include fragment_index")
+        if not isinstance(self.separator_after, str) or self.separator_after.strip():
+            raise ValueError("separator_after must contain only whitespace")
 
 
 @dataclass(frozen=True)
