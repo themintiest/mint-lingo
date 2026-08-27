@@ -271,6 +271,42 @@ def handle_message(
             return _ollama_model_inventory_error(message["id"]), False
         return _success_response(message["id"], {"modelIds": list(model_ids)}), False
 
+    if method in {"epub.listRecoveries", "epub.findRecoveries"}:
+        if is_notification or epub_dispatcher is None:
+            return _invalid_request(message, reason="unsupported_method")
+        if method == "epub.listRecoveries":
+            if "params" in message:
+                response = _error_response(
+                    message["id"],
+                    code=-32602,
+                    message="Invalid params",
+                    engine_code="engine.invalid_params",
+                    reason="invalid_parameters",
+                )
+                return response, False
+            recoveries = epub_dispatcher.recovery_candidates()
+        else:
+            params = message.get("params")
+            if not _is_epub_recovery_find_params(params):
+                response = _error_response(
+                    message["id"],
+                    code=-32602,
+                    message="Invalid params",
+                    engine_code="engine.invalid_params",
+                    reason="invalid_parameters",
+                )
+                return response, False
+            recoveries = epub_dispatcher.recovery_candidates_for_source(
+                Path(params["sourcePath"])
+            )
+        return (
+            _success_response(
+                message["id"],
+                {"recoveries": [recovery.to_json() for recovery in recoveries]},
+            ),
+            False,
+        )
+
     if method in {"job.start", "job.cancel", "job.get", "epub.getExport", "epub.getFailure"}:
         if is_notification or epub_dispatcher is None:
             return _invalid_request(message, reason="unsupported_method")
@@ -399,6 +435,17 @@ def _ollama_model_inventory_error(request_id: str | int) -> dict[str, Any]:
 
 
 def _is_media_inspect_params(value: object) -> bool:
+    if not isinstance(value, dict) or set(value) != {"sourcePath"}:
+        return False
+    source_path = value["sourcePath"]
+    return (
+        isinstance(source_path, str)
+        and bool(source_path)
+        and source_path.strip() == source_path
+    )
+
+
+def _is_epub_recovery_find_params(value: object) -> bool:
     if not isinstance(value, dict) or set(value) != {"sourcePath"}:
         return False
     source_path = value["sourcePath"]

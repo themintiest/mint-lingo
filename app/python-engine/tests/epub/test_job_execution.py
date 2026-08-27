@@ -11,6 +11,10 @@ from mint_lingo_engine.epub.job_execution import (
     EpubJobInvocation,
 )
 from mint_lingo_engine.epub.translation_batching import EpubTranslationBatchingPolicy
+from mint_lingo_engine.epub.translation_recovery import (
+    EpubRecoveryIndex,
+    EpubRecoveryRecordStore,
+)
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
     LlmProviderCapabilities,
@@ -357,6 +361,87 @@ class EpubJobExecutionTest(unittest.TestCase):
                         },
                     },
                 )
+
+    def test_exposes_only_safe_epub_recovery_discovery_metadata(self) -> None:
+        source = self.root / "book.epub"
+        source.write_bytes(b"private source EPUB text")
+        store = EpubRecoveryRecordStore(
+            self.root / "artifacts",
+            "f777042d-b756-4c9d-a47d-b6a6ea484288",
+        )
+        store.create(
+            source_path=source,
+            source_language="en",
+            target_language="vi",
+            provider_id="ollama",
+            model_id="offline-model",
+            checkpoint_namespace="book-translation",
+        )
+        recovery_index = EpubRecoveryIndex(self.root / "application-data")
+        recovery_index.sync(
+            store.path,
+            store.mark_failed(
+                _user_directed_provider_failure(
+                    LlmProviderFailureCategory.TIMEOUT
+                ).failure
+            ),
+        )
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-recovery-discovery"),
+            recovery_index=recovery_index,
+        )
+        self.addCleanup(dispatcher.close)
+
+        listed, _ = handle_message(
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "recovery-list",
+                "method": "epub.listRecoveries",
+            },
+            epub_dispatcher=dispatcher,
+        )
+        matched, _ = handle_message(
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "recovery-match",
+                "method": "epub.findRecoveries",
+                "params": {"sourcePath": str(source)},
+            },
+            epub_dispatcher=dispatcher,
+        )
+
+        expected_recovery = {
+            "recoveryId": "f777042d-b756-4c9d-a47d-b6a6ea484288",
+            "sourceLanguage": "en",
+            "targetLanguage": "vi",
+            "providerId": "ollama",
+            "modelId": "offline-model",
+            "failureCategory": "timeout",
+        }
+        self.assertEqual(
+            listed,
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "recovery-list",
+                "result": {"recoveries": [expected_recovery]},
+            },
+        )
+        self.assertEqual(
+            matched,
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "recovery-match",
+                "result": {"recoveries": [expected_recovery]},
+            },
+        )
+        serialized = json.dumps((listed, matched))
+        self.assertNotIn(str(source), serialized)
+        self.assertNotIn(str(store.path), serialized)
+        self.assertNotIn("private source EPUB text", serialized)
 
     def test_generic_terminal_notification_is_byte_stable_and_has_no_failure_details(self) -> None:
         terminal = Event()

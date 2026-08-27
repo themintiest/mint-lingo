@@ -10,7 +10,10 @@ from mint_lingo_engine.api.ipc.worker import handle_message
 from mint_lingo_engine.epub.document import EpubDocumentArtifact
 from mint_lingo_engine.epub.inspection import EpubPackageInspector
 from mint_lingo_engine.epub.job_execution import EpubJobDispatcher, EpubJobExecutor
-from mint_lingo_engine.epub.translation_recovery import EpubRecoveryLifecycle
+from mint_lingo_engine.epub.translation_recovery import (
+    EpubRecoveryIndex,
+    EpubRecoveryLifecycle,
+)
 from mint_lingo_engine.epub.source import EpubSourceReference
 from mint_lingo_engine.processing.progress import (
     DeterminateProgress,
@@ -220,9 +223,14 @@ class EpubVerticalSliceTest(unittest.TestCase):
             context_window_tokens=8_192,
             malformed_response_count=1,
         )
+        recovery_index = EpubRecoveryIndex(self.root / "application-data")
         dispatcher = EpubJobDispatcher(
             JobRunner(self.root / "temporary-retry"),
-            executor=EpubJobExecutor(provider_factory=lambda _: provider),
+            executor=EpubJobExecutor(
+                provider_factory=lambda _: provider,
+                recovery_index=recovery_index,
+            ),
+            recovery_index=recovery_index,
             on_terminal=lambda _: terminal.set(),
         )
         self.addCleanup(dispatcher.close)
@@ -261,6 +269,7 @@ class EpubVerticalSliceTest(unittest.TestCase):
         recovery_payload = json.loads(recovery_records[0].read_text(encoding="utf-8"))
         self.assertEqual(recovery_payload["lifecycle"], EpubRecoveryLifecycle.COMPLETED.value)
         self.assertIsNone(recovery_payload["failureCategory"])
+        self.assertEqual(recovery_index.list_resumable(), ())
 
     def test_fails_safely_after_two_retryable_malformed_responses(self) -> None:
         source = self.root / "source.epub"
@@ -272,9 +281,14 @@ class EpubVerticalSliceTest(unittest.TestCase):
             context_window_tokens=8_192,
             malformed_response_count=2,
         )
+        recovery_index = EpubRecoveryIndex(self.root / "application-data")
         dispatcher = EpubJobDispatcher(
             JobRunner(self.root / "temporary-retry-failure"),
-            executor=EpubJobExecutor(provider_factory=lambda _: provider),
+            executor=EpubJobExecutor(
+                provider_factory=lambda _: provider,
+                recovery_index=recovery_index,
+            ),
+            recovery_index=recovery_index,
             on_terminal=lambda _: terminal.set(),
         )
         self.addCleanup(dispatcher.close)
@@ -317,6 +331,10 @@ class EpubVerticalSliceTest(unittest.TestCase):
         self.assertEqual(recovery_payload["lifecycle"], EpubRecoveryLifecycle.RESUMABLE.value)
         self.assertEqual(recovery_payload["failureCategory"], "malformed_response")
         self.assertNotIn(secret_source_text, serialized_recovery)
+        self.assertEqual(
+            [candidate.failure_category for candidate in recovery_index.list_resumable()],
+            ["malformed_response"],
+        )
 
 
 class _FakeLlmProvider(LlmProvider):

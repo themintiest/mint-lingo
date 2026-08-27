@@ -15,7 +15,12 @@ from mint_lingo_engine.epub.export import (
 from mint_lingo_engine.epub.translation_checkpoint import EpubTranslationCheckpointStore
 from mint_lingo_engine.epub.translation_batching import EpubTranslationBatchingPolicy
 from mint_lingo_engine.epub.translation_guard import EpubTranslationUnitTooLargeError
-from mint_lingo_engine.epub.translation_recovery import EpubRecoveryRecordStore
+from mint_lingo_engine.epub.translation_recovery import (
+    EpubRecoveryCandidate,
+    EpubRecoveryIndex,
+    EpubRecoveryRecord,
+    EpubRecoveryRecordStore,
+)
 from mint_lingo_engine.epub.translation_workflow import EpubTranslationWorkflow
 from mint_lingo_engine.processing.job import Job, JobId
 from mint_lingo_engine.processing.progress import (
@@ -127,8 +132,14 @@ class EpubJobInvocation:
 class EpubJobExecutor:
     """Run one parsed EPUB invocation and retain only its exported reference."""
 
-    def __init__(self, *, provider_factory: Callable[[EpubJobInvocation], LlmProvider] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        provider_factory: Callable[[EpubJobInvocation], LlmProvider] | None = None,
+        recovery_index: EpubRecoveryIndex | None = None,
+    ) -> None:
         self._provider_factory = provider_factory or _ollama_provider_for
+        self._recovery_index = recovery_index
         self._exports: dict[str, Path] = {}
 
     def invoke(
@@ -173,19 +184,36 @@ class EpubJobExecutor:
             context.cancellation.raise_if_cancelled()
         except JobCancelled:
             if recovery_store is not None:
-                recovery_store.mark_cancelled()
+                self._sync_recovery_record(
+                    recovery_store,
+                    recovery_store.mark_cancelled(),
+                )
             raise
         except Exception as error:
             if recovery_store is not None:
-                recovery_store.mark_failed(_provider_failure(error))
+                self._sync_recovery_record(
+                    recovery_store,
+                    recovery_store.mark_failed(_provider_failure(error)),
+                )
             raise
         else:
             if recovery_store is not None:
-                recovery_store.mark_completed()
+                self._sync_recovery_record(
+                    recovery_store,
+                    recovery_store.mark_completed(),
+                )
 
     def exported_artifact_reference(self, job_id: str) -> str | None:
         path = self._exports.get(job_id)
         return None if path is None else str(path)
+
+    def _sync_recovery_record(
+        self,
+        store: EpubRecoveryRecordStore,
+        record: EpubRecoveryRecord,
+    ) -> None:
+        if self._recovery_index is not None:
+            self._recovery_index.sync(store.path, record)
 
 
 def _ollama_provider_for(invocation: EpubJobInvocation) -> LlmProvider:
@@ -210,6 +238,7 @@ class EpubJobDispatcher:
         runner: JobRunner,
         *,
         executor: EpubJobExecutor | None = None,
+        recovery_index: EpubRecoveryIndex | None = None,
         model_inventory_loader: Callable[[], OllamaModelInventory] | None = None,
         on_progress: Callable[[JobProgressNotification], None] | None = None,
         on_terminal: Callable[[Job], None] | None = None,
@@ -217,7 +246,8 @@ class EpubJobDispatcher:
         if not isinstance(runner, JobRunner):
             raise TypeError("runner must be a JobRunner")
         self._runner = runner
-        self._executor = executor or EpubJobExecutor()
+        self._recovery_index = recovery_index or EpubRecoveryIndex.for_local_application_data()
+        self._executor = executor or EpubJobExecutor(recovery_index=self._recovery_index)
         self._model_inventory_loader = (
             model_inventory_loader or _discover_ollama_model_inventory
         )
@@ -258,6 +288,19 @@ class EpubJobDispatcher:
 
         with self._failure_lock:
             return self._failure_diagnostics.get(job_id)
+
+    def recovery_candidates(self) -> tuple[EpubRecoveryCandidate, ...]:
+        """List only valid resumable EPUB recovery metadata."""
+
+        return self._recovery_index.list_resumable()
+
+    def recovery_candidates_for_source(
+        self,
+        source_path: Path,
+    ) -> tuple[EpubRecoveryCandidate, ...]:
+        """Find only candidates whose retained fingerprint matches a selected EPUB."""
+
+        return self._recovery_index.find_for_source(source_path)
 
     def close(self) -> None:
         self._runner.close()
