@@ -336,6 +336,78 @@ class EpubVerticalSliceTest(unittest.TestCase):
             ["malformed_response"],
         )
 
+    def test_user_directed_resume_translates_only_uncheckpointed_windows(self) -> None:
+        source = self.root / "source.epub"
+        failed_destination = self.root / "failed.epub"
+        resumed_destination = self.root / "continued.epub"
+        _write_epub_fixture(source)
+        terminal = Event()
+        provider = _FakeLlmProvider(
+            context_window_tokens=None,
+            malformed_response_call_numbers={2, 3},
+        )
+        recovery_index = EpubRecoveryIndex(self.root / "application-data")
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-resume"),
+            executor=EpubJobExecutor(
+                provider_factory=lambda _: provider,
+                recovery_index=recovery_index,
+            ),
+            recovery_index=recovery_index,
+            on_terminal=lambda _: terminal.set(),
+        )
+        self.addCleanup(dispatcher.close)
+
+        failed = dispatcher.start(
+            _workflow_payload(
+                source=source,
+                destination=failed_destination,
+                artifact_root=self.root / "artifacts",
+                checkpoint_namespace="resume-fixture",
+            )
+        )
+        self.assertTrue(terminal.wait(timeout=2))
+        failed_job = dispatcher.get(failed.id.value)
+        assert failed_job is not None
+        self.assertEqual(failed_job.lifecycle.value, "failed")
+        candidates = recovery_index.find_for_source(source)
+        self.assertEqual(len(candidates), 1)
+        recovery_id = candidates[0].recovery_id
+        self.assertFalse(failed_destination.exists())
+
+        terminal.clear()
+        resumed, _ = handle_message(
+            {
+                "jsonrpc": "2.0",
+                "protocolVersion": "1.0",
+                "id": "resume-epub-translation",
+                "method": "epub.resumeRecovery",
+                "params": {
+                    "recoveryId": recovery_id,
+                    "sourcePath": str(source),
+                    "destinationPath": str(resumed_destination),
+                },
+            },
+            epub_dispatcher=dispatcher,
+        )
+        assert resumed is not None
+        resumed_job_id = resumed["result"]["job"]["jobId"]
+        self.assertTrue(terminal.wait(timeout=2))
+        resumed_job = dispatcher.get(resumed_job_id)
+        assert resumed_job is not None
+        self.assertEqual(resumed_job.lifecycle.value, "completed")
+        self.assertTrue(resumed_destination.exists())
+        self.assertEqual(
+            provider.request_unit_ids,
+            [
+                ("chapter.text.1",),
+                ("chapter.text.2",),
+                ("chapter.text.2",),
+                ("chapter.text.2",),
+            ],
+        )
+        self.assertEqual(recovery_index.list_resumable(), ())
+
 
 class _FakeLlmProvider(LlmProvider):
     def __init__(
@@ -343,6 +415,7 @@ class _FakeLlmProvider(LlmProvider):
         *,
         context_window_tokens: int | None = None,
         malformed_response_count: int = 0,
+        malformed_response_call_numbers: set[int] | None = None,
     ) -> None:
         self._capabilities = LlmProviderCapabilities(
             model_ids=("offline-test-model",),
@@ -353,6 +426,7 @@ class _FakeLlmProvider(LlmProvider):
         self.request_unit_ids: list[tuple[str, ...]] = []
         self.instructions: list[str] = []
         self._malformed_response_count = malformed_response_count
+        self._malformed_response_call_numbers = malformed_response_call_numbers or set()
 
     @property
     def capabilities(self) -> LlmProviderCapabilities:
@@ -373,6 +447,11 @@ class _FakeLlmProvider(LlmProvider):
         )
         if self._malformed_response_count:
             self._malformed_response_count -= 1
+            raise LlmProviderResponseError(
+                LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+                retryable=True,
+            )
+        if len(self.request_unit_ids) in self._malformed_response_call_numbers:
             raise LlmProviderResponseError(
                 LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
                 retryable=True,

@@ -172,6 +172,28 @@ class EpubRecoveryIndex:
             if entry.source_sha256 == source_sha256
         )
 
+    def resumable_record_for_source(
+        self,
+        recovery_id: str,
+        source_path: Path,
+    ) -> "EpubRecoveryRecord | None":
+        """Return one verified record only when the selected EPUB matches it."""
+
+        _require_uuid4(recovery_id, "recovery_id")
+        if not isinstance(source_path, Path):
+            raise TypeError("source_path must be a Path")
+        try:
+            source_sha256 = _source_sha256(source_path)
+        except OSError:
+            return None
+        entry = self._validated_entries().get(recovery_id)
+        if entry is None or entry.source_sha256 != source_sha256:
+            return None
+        try:
+            return EpubRecoveryRecordStore(entry.artifact_root, recovery_id).load()
+        except EpubRecoveryRecordError:
+            return None
+
     def _validated_entries(self) -> dict[str, _IndexedRecovery]:
         entries = self._read_entries()
         valid_entries: dict[str, _IndexedRecovery] = {}
@@ -330,6 +352,11 @@ class EpubRecoveryRecordStore:
         """Invalidate the record after a successful export."""
 
         return self._transition(EpubRecoveryLifecycle.COMPLETED)
+
+    def mark_running(self) -> EpubRecoveryRecord:
+        """Temporarily remove a verified record from resume eligibility."""
+
+        return self._transition(EpubRecoveryLifecycle.RUNNING)
 
     def mark_cancelled(self) -> EpubRecoveryRecord:
         """Invalidate the record when the invocation was cancelled."""

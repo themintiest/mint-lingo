@@ -94,6 +94,7 @@ class EpubJobInvocation:
     checkpoint_namespace: str
     provider_id: str
     model_id: str
+    recovery_id: str | None = None
 
     @classmethod
     def from_payload(cls, payload: object) -> "EpubJobInvocation":
@@ -146,7 +147,9 @@ class EpubJobExecutor:
         self, invocation: EpubJobInvocation, context: JobExecutionContext,
         report_progress: Callable[[JobProgressNotification], None],
     ) -> None:
-        recovery_store = _start_recovery_record(invocation)
+        recovery_store, recovery_record = _start_recovery_record(invocation)
+        if recovery_store is not None and recovery_record is not None:
+            self._sync_recovery_record(recovery_store, recovery_record)
         try:
             report_progress(JobProgressNotification(context.job_id, "translating_epub", IndeterminateProgress()))
             provider = self._provider_factory(invocation)
@@ -258,6 +261,36 @@ class EpubJobDispatcher:
 
     def start(self, payload: object) -> Job | JobStartConflict:
         invocation = EpubJobInvocation.from_payload(payload)
+        return self._start_invocation(invocation)
+
+    def resume(self, payload: object) -> Job | JobStartConflict:
+        if not isinstance(payload, dict) or set(payload) != {
+            "recoveryId", "sourcePath", "destinationPath",
+        }:
+            raise ValueError("EPUB recovery payload is invalid")
+        values = tuple(payload.values())
+        if any(not isinstance(value, str) or not value or value.strip() != value for value in values):
+            raise ValueError("EPUB recovery payload is invalid")
+        recovery_id = payload["recoveryId"]
+        source_path = Path(payload["sourcePath"])
+        record = self._recovery_index.resumable_record_for_source(recovery_id, source_path)
+        if record is None:
+            raise ValueError("EPUB recovery is unavailable")
+        return self._start_invocation(
+            EpubJobInvocation(
+                source_path=source_path,
+                source_language=record.source_language,
+                target_language=record.target_language,
+                destination_path=Path(payload["destinationPath"]),
+                artifact_root=Path(record.artifact_root),
+                checkpoint_namespace=record.checkpoint_namespace,
+                provider_id=record.provider_id,
+                model_id=record.model_id,
+                recovery_id=record.recovery_id,
+            )
+        )
+
+    def _start_invocation(self, invocation: EpubJobInvocation) -> Job | JobStartConflict:
         started = self._runner.start(
             lambda context: self._invoke(invocation, context)
         )
@@ -431,13 +464,19 @@ def _provider_failure_diagnostic(
 
 def _start_recovery_record(
     invocation: EpubJobInvocation,
-) -> EpubRecoveryRecordStore | None:
+) -> tuple[EpubRecoveryRecordStore | None, EpubRecoveryRecord | None]:
     """Create one record for a readable source; invalid sources cannot resume."""
 
+    if invocation.recovery_id is not None:
+        store = EpubRecoveryRecordStore(invocation.artifact_root, invocation.recovery_id)
+        record = store.load()
+        if not record.is_resumable:
+            raise ValueError("EPUB recovery is unavailable")
+        return store, store.mark_running()
     if not invocation.source_path.is_file():
-        return None
+        return None, None
     store = EpubRecoveryRecordStore(invocation.artifact_root)
-    store.create(
+    record = store.create(
         source_path=invocation.source_path,
         source_language=invocation.source_language,
         target_language=invocation.target_language,
@@ -445,4 +484,4 @@ def _start_recovery_record(
         model_id=invocation.model_id,
         checkpoint_namespace=invocation.checkpoint_namespace,
     )
-    return store
+    return store, record

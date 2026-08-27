@@ -443,6 +443,69 @@ class EpubJobExecutionTest(unittest.TestCase):
         self.assertNotIn(str(store.path), serialized)
         self.assertNotIn("private source EPUB text", serialized)
 
+    def test_resume_reconstructs_a_verified_invocation_without_client_artifact_paths(self) -> None:
+        source = self.root / "book.epub"
+        source.write_bytes(b"same selected EPUB")
+        artifact_root = self.root / "private-artifacts"
+        store = EpubRecoveryRecordStore(
+            artifact_root,
+            "f777042d-b756-4c9d-a47d-b6a6ea484288",
+        )
+        record = store.create(
+            source_path=source,
+            source_language="en",
+            target_language="vi",
+            provider_id="ollama",
+            model_id="offline-model",
+            checkpoint_namespace="existing-checkpoints",
+        )
+        record = store.mark_failed(
+            _user_directed_provider_failure(
+                LlmProviderFailureCategory.SERVICE_UNAVAILABLE
+            ).failure
+        )
+        index = EpubRecoveryIndex(self.root / "application-data")
+        index.sync(store.path, record)
+        terminal = Event()
+        executor = _CapturingExecutor()
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-resume"),
+            executor=executor,  # type: ignore[arg-type]
+            recovery_index=index,
+            on_terminal=lambda _: terminal.set(),
+        )
+        self.addCleanup(dispatcher.close)
+
+        started = dispatcher.resume(
+            {
+                "recoveryId": record.recovery_id,
+                "sourcePath": str(source),
+                "destinationPath": str(self.root / "continued.epub"),
+            }
+        )
+
+        self.assertTrue(terminal.wait(timeout=2))
+        invocation = executor.invocations[0]
+        self.assertEqual(invocation.source_path, source)
+        self.assertEqual(invocation.destination_path, self.root / "continued.epub")
+        self.assertEqual(invocation.artifact_root, artifact_root)
+        self.assertEqual(invocation.checkpoint_namespace, "existing-checkpoints")
+        self.assertEqual(invocation.source_language, "en")
+        self.assertEqual(invocation.target_language, "vi")
+        self.assertEqual(invocation.provider_id, "ollama")
+        self.assertEqual(invocation.model_id, "offline-model")
+        self.assertEqual(invocation.recovery_id, record.recovery_id)
+        self.assertIsNotNone(dispatcher.get(started.id.value))
+
+        with self.assertRaises(ValueError):
+            dispatcher.resume(
+                {
+                    "recoveryId": record.recovery_id,
+                    "sourcePath": str(self.root / "other.epub"),
+                    "destinationPath": str(self.root / "continued.epub"),
+                }
+            )
+
     def test_generic_terminal_notification_is_byte_stable_and_has_no_failure_details(self) -> None:
         terminal = Event()
         raw_detail = "C:\\private\\book.epub prompt secret response Authorization: token"
@@ -576,6 +639,17 @@ class _FakeExecutor:
     def exported_artifact_reference(self, job_id: str) -> str | None:
         path = self._exports.get(job_id)
         return None if path is None else str(path)
+
+
+class _CapturingExecutor:
+    def __init__(self) -> None:
+        self.invocations: list[EpubJobInvocation] = []
+
+    def invoke(self, invocation, _context, _report_progress) -> None:
+        self.invocations.append(invocation)
+
+    def exported_artifact_reference(self, _job_id: str) -> str | None:
+        return None
 
 
 class _FailingExecutor:

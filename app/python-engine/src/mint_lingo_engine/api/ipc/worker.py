@@ -307,7 +307,7 @@ def handle_message(
             False,
         )
 
-    if method in {"job.start", "job.cancel", "job.get", "epub.getExport", "epub.getFailure"}:
+    if method in {"job.start", "job.cancel", "job.get", "epub.getExport", "epub.getFailure", "epub.resumeRecovery"}:
         if is_notification or epub_dispatcher is None:
             return _invalid_request(message, reason="unsupported_method")
         try:
@@ -362,6 +362,11 @@ def _handle_epub_job_method(message: dict[str, Any], dispatcher: EpubJobDispatch
         if not isinstance(params, dict) or set(params) != {"workflowId", "workflowPayload"} or params["workflowId"] != EPUB_TRANSLATION_WORKFLOW_ID:
             raise ValueError("invalid EPUB job start")
         started = dispatcher.start(params["workflowPayload"])
+        if isinstance(started, JobStartConflict):
+            return {"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "id": request_id, "error": {"code": -32020, "message": started.message, "data": {"jobCode": started.code, "retryable": False, "activeJobId": started.active_job_id.value}}}
+        return _success_response(request_id, {"job": _job_to_json(started)})
+    if method == "epub.resumeRecovery":
+        started = dispatcher.resume(params)
         if isinstance(started, JobStartConflict):
             return {"jsonrpc": "2.0", "protocolVersion": PROTOCOL_VERSION, "id": request_id, "error": {"code": -32020, "message": started.message, "data": {"jobCode": started.code, "retryable": False, "activeJobId": started.active_job_id.value}}}
         return _success_response(request_id, {"job": _job_to_json(started)})

@@ -113,6 +113,89 @@ final class EpubTranslationCubit extends Cubit<EpubTranslationState> {
     }
   }
 
+  /// Looks up only safe, validated recovery metadata for the open EPUB.
+  ///
+  /// The engine retains the artifact location and checkpoint details; Flutter
+  /// receives just enough metadata to offer a user-directed continuation.
+  Future<void> refreshRecovery(DocumentSourceReference source) async {
+    if (source.format != DocumentReaderFormat.epub ||
+        state.processing is ProcessingActive) {
+      return;
+    }
+    await _refreshRecoveryPath(source.path);
+  }
+
+  Future<void> _refreshRecoveryPath(String sourcePath) async {
+    try {
+      final response = await engine.request(
+        'epub.findRecoveries',
+        params: {'sourcePath': sourcePath},
+      );
+      final candidates = _recoveryCandidatesFromWire(response);
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            recoveryCandidate: candidates.isEmpty ? null : candidates.first,
+            clearRecoveryCandidate: candidates.isEmpty,
+          ),
+        );
+      }
+    } on Object catch (_) {
+      // Recovery discovery is optional presentation state. A failed lookup
+      // must not replace the concrete EPUB failure diagnostic.
+    }
+  }
+
+  Future<void> retryRemainingTranslation({
+    required DocumentSourceReference source,
+    required String destinationPath,
+  }) async {
+    final candidate = state.recoveryCandidate;
+    if (!state.canRetry ||
+        candidate == null ||
+        source.format != DocumentReaderFormat.epub ||
+        destinationPath.trim().isEmpty) {
+      return;
+    }
+    emit(state.copyWith(retryStarting: true, clearMessage: true));
+    try {
+      final response = await engine.request(
+        'epub.resumeRecovery',
+        params: {
+          'recoveryId': candidate.recoveryId,
+          'sourcePath': source.path,
+          'destinationPath': destinationPath,
+        },
+      );
+      final started = _startedJobFromWire(response);
+      emit(
+        state.copyWith(
+          jobId: started.jobId,
+          sourcePath: source.path,
+          destinationPath: destinationPath,
+          processing: ProcessingActive.created(started.jobId),
+          retryStarting: false,
+          clearRecoveryCandidate: true,
+          clearTranslatedContent: true,
+          readerVersion: EpubReaderVersion.original,
+          clearMessage: true,
+          clearFailureDiagnostic: true,
+        ),
+      );
+      _applyLifecycle(started.jobId, started.lifecycle);
+    } on Object catch (_) {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            retryStarting: false,
+            message: EpubTranslationMessage.startFailed,
+          ),
+        );
+        unawaited(refreshRecovery(source));
+      }
+    }
+  }
+
   void selectReader(EpubReaderVersion value) {
     if (value == EpubReaderVersion.translated &&
         state.translatedContent == null) {
@@ -152,28 +235,20 @@ final class EpubTranslationCubit extends Cubit<EpubTranslationState> {
           },
         },
       );
-      final job = response['job'];
-      if (response.length != 1 || job is! Map<String, dynamic>) {
-        throw const EngineProtocolException('Invalid EPUB job start result.');
-      }
-      final jobId = job['jobId'];
-      final lifecycle = _lifecycleFromWire(job['lifecycle']);
-      if (job.length != 2 || jobId is! String || lifecycle == null) {
-        throw const EngineProtocolException('Invalid EPUB job start result.');
-      }
+      final started = _startedJobFromWire(response);
       emit(
         state.copyWith(
-          jobId: jobId,
+          jobId: started.jobId,
           sourcePath: source.path,
           destinationPath: destinationPath,
-          processing: ProcessingActive.created(jobId),
+          processing: ProcessingActive.created(started.jobId),
           clearTranslatedContent: true,
           readerVersion: EpubReaderVersion.original,
           clearMessage: true,
           clearFailureDiagnostic: true,
         ),
       );
-      _applyLifecycle(jobId, lifecycle);
+      _applyLifecycle(started.jobId, started.lifecycle);
     } on Object catch (_) {
       if (!isClosed) {
         emit(
@@ -307,6 +382,10 @@ final class EpubTranslationCubit extends Cubit<EpubTranslationState> {
             clearMessage: true,
           ),
         );
+        final sourcePath = state.sourcePath;
+        if (sourcePath != null) {
+          unawaited(_refreshRecoveryPath(sourcePath));
+        }
       }
     } on Object catch (_) {
       if (!isClosed && state.jobId == jobId) {
@@ -377,6 +456,8 @@ final class EpubTranslationState {
     this.readerVersion = EpubReaderVersion.original,
     this.message,
     this.failureDiagnostic,
+    this.recoveryCandidate,
+    this.retryStarting = false,
   });
 
   final Language? sourceLanguage;
@@ -392,12 +473,20 @@ final class EpubTranslationState {
   final EpubReaderVersion readerVersion;
   final EpubTranslationMessage? message;
   final EpubFailureDiagnostic? failureDiagnostic;
+  final EpubRecoveryCandidate? recoveryCandidate;
+  final bool retryStarting;
 
   bool get isConfigured =>
       sourceLanguage != null &&
       targetLanguage != null &&
       modelInventoryStatus == ModelInventoryStatus.ready &&
       modelIds.contains(modelId);
+
+  bool get canRetry =>
+      failureDiagnostic?.retryable == true &&
+      recoveryCandidate != null &&
+      processing is! ProcessingActive &&
+      !retryStarting;
 
   EpubTranslationState copyWith({
     Language? sourceLanguage,
@@ -413,10 +502,13 @@ final class EpubTranslationState {
     EpubReaderVersion? readerVersion,
     EpubTranslationMessage? message,
     EpubFailureDiagnostic? failureDiagnostic,
+    EpubRecoveryCandidate? recoveryCandidate,
+    bool? retryStarting,
     bool clearMessage = false,
     bool clearFailureDiagnostic = false,
     bool clearTranslatedContent = false,
     bool clearModelId = false,
+    bool clearRecoveryCandidate = false,
   }) => EpubTranslationState(
     sourceLanguage: sourceLanguage ?? this.sourceLanguage,
     targetLanguage: targetLanguage ?? this.targetLanguage,
@@ -435,6 +527,10 @@ final class EpubTranslationState {
     failureDiagnostic: clearFailureDiagnostic
         ? null
         : failureDiagnostic ?? this.failureDiagnostic,
+    recoveryCandidate: clearRecoveryCandidate
+        ? null
+        : recoveryCandidate ?? this.recoveryCandidate,
+    retryStarting: retryStarting ?? this.retryStarting,
   );
 }
 
@@ -448,6 +544,28 @@ final class EpubFailureDiagnostic {
   final String code;
   final String message;
   final bool retryable;
+}
+
+/// Safe metadata from a locally verified engine recovery record.
+///
+/// It deliberately omits artifact paths, checkpoint contents, provider output,
+/// prompts, and source EPUB text.
+final class EpubRecoveryCandidate {
+  const EpubRecoveryCandidate({
+    required this.recoveryId,
+    required this.sourceLanguage,
+    required this.targetLanguage,
+    required this.providerId,
+    required this.modelId,
+    required this.failureCategory,
+  });
+
+  final String recoveryId;
+  final String sourceLanguage;
+  final String targetLanguage;
+  final String providerId;
+  final String modelId;
+  final String failureCategory;
 }
 
 enum EpubReaderVersion { original, translated }
@@ -523,6 +641,79 @@ List<String> _modelIdsFromWire(Map<String, Object?> response) {
     throw const EngineProtocolException('Invalid EPUB model inventory.');
   }
   return List.unmodifiable(modelIds);
+}
+
+_StartedEpubJob _startedJobFromWire(Map<String, Object?> response) {
+  final job = response['job'];
+  if (response.length != 1 || job is! Map) {
+    throw const EngineProtocolException('Invalid EPUB job start result.');
+  }
+  final jobId = job['jobId'];
+  final lifecycle = _lifecycleFromWire(job['lifecycle']);
+  if (job.length != 2 ||
+      jobId is! String ||
+      jobId.isEmpty ||
+      lifecycle == null) {
+    throw const EngineProtocolException('Invalid EPUB job start result.');
+  }
+  return _StartedEpubJob(jobId, lifecycle);
+}
+
+List<EpubRecoveryCandidate> _recoveryCandidatesFromWire(
+  Map<String, Object?> response,
+) {
+  final values = response['recoveries'];
+  if (response.length != 1 || values is! List) {
+    throw const EngineProtocolException('Invalid EPUB recovery query result.');
+  }
+  final candidates = <EpubRecoveryCandidate>[];
+  for (final value in values) {
+    if (value is! Map || value.length != 6) {
+      throw const EngineProtocolException(
+        'Invalid EPUB recovery query result.',
+      );
+    }
+    final recoveryId = value['recoveryId'];
+    final sourceLanguage = value['sourceLanguage'];
+    final targetLanguage = value['targetLanguage'];
+    final providerId = value['providerId'];
+    final modelId = value['modelId'];
+    final failureCategory = value['failureCategory'];
+    if (recoveryId is! String ||
+        sourceLanguage is! String ||
+        targetLanguage is! String ||
+        providerId is! String ||
+        modelId is! String ||
+        failureCategory is! String ||
+        recoveryId.isEmpty ||
+        sourceLanguage.isEmpty ||
+        targetLanguage.isEmpty ||
+        providerId.isEmpty ||
+        modelId.isEmpty ||
+        failureCategory.isEmpty) {
+      throw const EngineProtocolException(
+        'Invalid EPUB recovery query result.',
+      );
+    }
+    candidates.add(
+      EpubRecoveryCandidate(
+        recoveryId: recoveryId,
+        sourceLanguage: sourceLanguage,
+        targetLanguage: targetLanguage,
+        providerId: providerId,
+        modelId: modelId,
+        failureCategory: failureCategory,
+      ),
+    );
+  }
+  return List.unmodifiable(candidates);
+}
+
+final class _StartedEpubJob {
+  const _StartedEpubJob(this.jobId, this.lifecycle);
+
+  final String jobId;
+  final ProcessingJobLifecycle lifecycle;
 }
 
 String _newUuidV4() {

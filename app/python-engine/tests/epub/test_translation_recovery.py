@@ -144,6 +144,17 @@ class EpubRecoveryRecordStoreTest(unittest.TestCase):
             [expected],
         )
         self.assertEqual(index.find_for_source(unrelated_source), ())
+        self.assertEqual(
+            index.resumable_record_for_source(record.recovery_id, moved_source),
+            resumable,
+        )
+        self.assertIsNone(
+            index.resumable_record_for_source(record.recovery_id, unrelated_source)
+        )
+        self.assertEqual(store.mark_running().lifecycle, EpubRecoveryLifecycle.RUNNING)
+        self.assertIsNone(
+            index.resumable_record_for_source(record.recovery_id, moved_source)
+        )
         serialized = json.dumps(expected)
         for private_value in (str(self.source), str(store.path), "private source EPUB text"):
             self.assertNotIn(private_value, serialized)

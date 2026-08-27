@@ -41,6 +41,9 @@ class _EpubTranslationWorkspaceState extends State<EpubTranslationWorkspace> {
   void initState() {
     super.initState();
     unawaited(context.read<EpubTranslationCubit>().refreshModelInventory());
+    unawaited(
+      context.read<EpubTranslationCubit>().refreshRecovery(widget.source),
+    );
   }
 
   Future<void> _startTranslation(EpubTranslationState state) async {
@@ -59,6 +62,27 @@ class _EpubTranslationWorkspaceState extends State<EpubTranslationWorkspace> {
       return;
     }
     await context.read<EpubTranslationCubit>().start(
+      source: widget.source,
+      destinationPath: location.path,
+    );
+  }
+
+  Future<void> _retryRemainingTranslation() async {
+    final sourceName = widget.source.fileName;
+    final baseName = sourceName.toLowerCase().endsWith('.epub')
+        ? sourceName.substring(0, sourceName.length - 5)
+        : sourceName;
+    final location = await getSaveLocation(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'EPUB', extensions: ['epub']),
+      ],
+      initialDirectory: File(widget.source.path).parent.path,
+      suggestedName: '$baseName-translated.epub',
+    );
+    if (!mounted || location == null) {
+      return;
+    }
+    await context.read<EpubTranslationCubit>().retryRemainingTranslation(
       source: widget.source,
       destinationPath: location.path,
     );
@@ -189,6 +213,12 @@ class _EpubTranslationWorkspaceState extends State<EpubTranslationWorkspace> {
                         const SizedBox(height: AppSpacing.sm),
                         _FailureDiagnosticCard(
                           diagnostic: state.failureDiagnostic!,
+                          retryEnabled: state.canRetry,
+                          retryStarting: state.retryStarting,
+                          showRetry:
+                              state.failureDiagnostic!.retryable &&
+                              state.recoveryCandidate != null,
+                          onRetry: _retryRemainingTranslation,
                         ),
                       ] else if (state.message != null) ...[
                         const SizedBox(height: AppSpacing.sm),
@@ -307,9 +337,19 @@ class _MessageCard extends StatelessWidget {
 }
 
 class _FailureDiagnosticCard extends StatelessWidget {
-  const _FailureDiagnosticCard({required this.diagnostic});
+  const _FailureDiagnosticCard({
+    required this.diagnostic,
+    required this.showRetry,
+    required this.retryEnabled,
+    required this.retryStarting,
+    required this.onRetry,
+  });
 
   final EpubFailureDiagnostic diagnostic;
+  final bool showRetry;
+  final bool retryEnabled;
+  final bool retryStarting;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -325,9 +365,30 @@ class _FailureDiagnosticCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             diagnostic.retryable
-                ? 'You can try again.'
+                ? showRetry
+                      ? 'Choose where to export the completed EPUB, then continue the remaining translation.'
+                      : 'A validated recovery checkpoint is not available for this EPUB.'
                 : 'Update the EPUB or configuration before trying again.',
           ),
+          if (showRetry) ...[
+            const SizedBox(height: AppSpacing.sm),
+            FilledButton.icon(
+              key: const Key('epub-retry-remaining-translation'),
+              onPressed: retryEnabled ? onRetry : null,
+              icon: retryStarting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_outlined),
+              label: Text(
+                retryStarting
+                    ? 'Starting continuation…'
+                    : 'Retry remaining translation',
+              ),
+            ),
+          ],
         ],
       ),
     ),

@@ -165,6 +165,74 @@ void main() {
     },
   );
 
+  test(
+    'resumes only a verified recovery record with a new export destination',
+    () async {
+      final engine = _FakeEngineClient()
+        ..failureResponse = const {
+          'failure': {
+            'code': 'epub.provider_timeout',
+            'message': 'The translation provider timed out. Continue when it is available.',
+            'retryable': true,
+          },
+        }
+        ..recoveryResponse = const {
+          'recoveries': [
+            {
+              'recoveryId': 'b7f79320-f56d-4fb3-bf36-b0ffdb2551ac',
+              'sourceLanguage': 'en',
+              'targetLanguage': 'vi',
+              'providerId': 'ollama',
+              'modelId': 'qwen2.5:7b',
+              'failureCategory': 'timeout',
+            },
+          ],
+        };
+      final cubit = EpubTranslationCubit(engine: engine);
+      addTearDown(() async {
+        await cubit.close();
+        await engine.close();
+      });
+      const source = DocumentSourceReference(
+        path: r'C:\books\source.epub',
+        fileName: 'source.epub',
+        format: DocumentReaderFormat.epub,
+      );
+      cubit.selectSourceLanguage(Language(tag: 'en'));
+      cubit.selectTargetLanguage(Language(tag: 'vi'));
+      await cubit.refreshModelInventory();
+      cubit.selectModelId('qwen2.5:7b');
+      await cubit.start(
+        source: source,
+        destinationPath: r'C:\books\first.epub',
+      );
+      engine.notify(
+        const EngineNotification(
+          method: 'job.stateChanged',
+          params: {'jobId': _FakeEngineClient.jobId, 'lifecycle': 'failed'},
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.canRetry, isTrue);
+      await cubit.retryRemainingTranslation(
+        source: source,
+        destinationPath: r'C:\books\continued.epub',
+      );
+
+      final retry = engine.requests.last;
+      expect(retry.method, 'epub.resumeRecovery');
+      expect(retry.params, {
+        'recoveryId': 'b7f79320-f56d-4fb3-bf36-b0ffdb2551ac',
+        'sourcePath': r'C:\books\source.epub',
+        'destinationPath': r'C:\books\continued.epub',
+      });
+      expect(cubit.state.jobId, _FakeEngineClient.resumedJobId);
+      expect(cubit.state.recoveryCandidate, isNull);
+    },
+  );
+
   testWidgets('displays the safe EPUB failure diagnostic after a failed job', (
     tester,
   ) async {
@@ -175,6 +243,18 @@ void main() {
           'message': 'Ollama could not translate this EPUB. Confirm it is running and the selected model is installed, then try again.',
           'retryable': true,
         },
+      }
+      ..recoveryResponse = const {
+        'recoveries': [
+          {
+            'recoveryId': 'b7f79320-f56d-4fb3-bf36-b0ffdb2551ac',
+            'sourceLanguage': 'en',
+            'targetLanguage': 'vi',
+            'providerId': 'ollama',
+            'modelId': 'qwen2.5:14b',
+            'failureCategory': 'service_unavailable',
+          },
+        ],
       };
     final cubit = EpubTranslationCubit(engine: engine);
     addTearDown(() async {
@@ -238,7 +318,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(engine.requests.last.method, 'epub.getFailure');
+    expect(
+      engine.requests.map((request) => request.method),
+      contains('epub.getFailure'),
+    );
     expect(
       find.text(
         'Ollama could not translate this EPUB. Confirm it is running and the selected model is installed, then try again.',
@@ -246,7 +329,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('epub.provider_unavailable'), findsOneWidget);
-    expect(find.text('You can try again.'), findsOneWidget);
+    expect(
+      find.byKey(const Key('epub-retry-remaining-translation')),
+      findsOneWidget,
+    );
+    expect(find.text('Retry remaining translation'), findsOneWidget);
   });
 
   testWidgets('keeps the reader bounded when EPUB configuration is expanded', (
@@ -373,10 +460,12 @@ final class _FakeEngineClient extends EngineClient {
     : super(startWorker: () => Future<Process>.error(StateError('unused')));
 
   static const jobId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  static const resumedJobId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
   final StreamController<EngineNotification> _controller =
       StreamController<EngineNotification>.broadcast();
   final List<_Request> requests = [];
   Map<String, Object?>? failureResponse;
+  Map<String, Object?> recoveryResponse = const {'recoveries': []};
   List<String> modelIds = ['qwen2.5:7b', 'qwen2.5:14b'];
   Object? modelInventoryFailure;
 
@@ -400,6 +489,10 @@ final class _FakeEngineClient extends EngineClient {
       'epub.getFailure' =>
         failureResponse ??
             (throw StateError('Unexpected EPUB failure diagnostic request.')),
+      'epub.findRecoveries' => recoveryResponse,
+      'epub.resumeRecovery' => {
+        'job': {'jobId': resumedJobId, 'lifecycle': 'created'},
+      },
       'epub.getModels' =>
         modelInventoryFailure == null
             ? {'modelIds': modelIds}
