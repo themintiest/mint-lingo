@@ -69,6 +69,7 @@ class OllamaProviderTest(unittest.TestCase):
         self.assertTrue(provider.capabilities.supports_streaming)
         self.assertEqual(payloads[0]["model"], "qwen3:8b")
         self.assertFalse(payloads[0]["stream"])
+        self.assertEqual(payloads[0]["options"], {"temperature": 0.1})
         messages = payloads[0]["messages"]
         self.assertEqual(messages[0]["content"], "Translate the requested source units.")
         self.assertEqual(
@@ -84,6 +85,31 @@ class OllamaProviderTest(unittest.TestCase):
             },
         )
         self.assertEqual(payloads[0]["format"]["required"], ["translations"])
+
+    def test_translation_profile_is_private_to_chat_payload(self) -> None:
+        payloads: list[dict[str, object]] = []
+        provider = OllamaProvider(
+            _inventory(),
+            "qwen3:8b",
+            post_chat=lambda payload: payloads.append(dict(payload))
+            or {"message": {"content": _translation_content()}},
+        )
+
+        provider.translate(_request(), "Instructions")
+
+        self.assertEqual(payloads[0]["options"], {"temperature": 0.1})
+        self.assertEqual(
+            set(payloads[0]),
+            {"model", "messages", "format", "stream", "options"},
+        )
+
+    def test_selected_model_capability_composition_is_unchanged(self) -> None:
+        provider = OllamaProvider(_inventory(), "qwen3:8b")
+
+        self.assertEqual(provider.capabilities.model_ids, ("qwen3:8b", "embed"))
+        self.assertEqual(provider.capabilities.context_window_tokens, 40_960)
+        self.assertTrue(provider.capabilities.supports_structured_output)
+        self.assertTrue(provider.capabilities.supports_streaming)
 
     def test_rejects_unknown_or_non_completion_models(self) -> None:
         with self.assertRaisesRegex(ValueError, "in the inventory"):
@@ -216,6 +242,13 @@ class OllamaProviderTest(unittest.TestCase):
         payload = json.loads(request.data)
         self.assertEqual(payload["model"], "qwen3:8b")
         self.assertFalse(payload["stream"])
+        self.assertEqual(payload["options"], {"temperature": 0.1})
+
+
+def _translation_content() -> str:
+    return json.dumps(
+        {"translations": [{"unitId": "unit.1", "translatedText": "Mot"}]}
+    )
 
 
 def _inventory() -> OllamaModelInventory:

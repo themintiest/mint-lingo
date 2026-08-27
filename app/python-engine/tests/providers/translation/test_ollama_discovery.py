@@ -76,6 +76,30 @@ class OllamaModelDiscoveryTest(unittest.TestCase):
         self.assertEqual(inventory, OllamaModelInventory(models=()))
         self.assertEqual(requests, [("GET", "/api/tags", None)])
 
+    def test_translation_profile_is_absent_from_inventory_requests(self) -> None:
+        requests: list[tuple[str, str, dict[str, object] | None]] = []
+
+        def request_json(
+            method: str,
+            path: str,
+            payload: dict[str, object] | None,
+        ) -> object:
+            requests.append((method, path, payload))
+            if path == "/api/tags":
+                return {"models": [{"name": "qwen3:8b"}]}
+            return {"capabilities": ["completion"], "model_info": {}}
+
+        OllamaModelDiscovery(request_json=request_json).discover()
+
+        self.assertEqual(
+            requests,
+            [
+                ("GET", "/api/tags", None),
+                ("POST", "/api/show", {"model": "qwen3:8b"}),
+            ],
+        )
+        self.assertNotIn("options", requests[1][2] or {})
+
     def test_allows_missing_or_ambiguous_context_length(self) -> None:
         responses = iter(
             (

@@ -29,6 +29,10 @@ from mint_lingo_engine.translation.models import (
 
 
 _CHAT_TIMEOUT_SECONDS = 300.0
+# Translation needs repeatable, schema-conforming output more than creative
+# variation. Keep this adapter-local so provider-neutral callers never own
+# Ollama generation options.
+_TRANSLATION_GENERATION_PROFILE: dict[str, float] = {"temperature": 0.1}
 _TRANSLATION_RESPONSE_SCHEMA: dict[str, object] = {
     "type": "object",
     "properties": {
@@ -145,6 +149,7 @@ def _chat_payload(
         ],
         "format": _TRANSLATION_RESPONSE_SCHEMA,
         "stream": False,
+        "options": dict(_TRANSLATION_GENERATION_PROFILE),
     }
 
 
