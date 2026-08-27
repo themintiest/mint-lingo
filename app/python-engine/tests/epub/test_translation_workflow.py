@@ -24,7 +24,10 @@ from mint_lingo_engine.translation.models import (
     TranslationArtifact,
     TranslationRequest,
 )
-from mint_lingo_engine.translation.service import TranslationService
+from mint_lingo_engine.translation.service import (
+    TranslationService,
+    TranslationServiceValidationError,
+)
 
 
 class EpubTranslationWorkflowTest(unittest.TestCase):
@@ -143,6 +146,43 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
             [[unit.unit_id for unit in request.artifact.units] for request in provider.calls],
             [["chapter.text.1", "chapter.text.2"], ["chapter.text.2"]],
         )
+
+    def test_repeated_copied_source_prose_never_creates_a_checkpoint_or_rebuilt_package(self) -> None:
+        source_text = (
+            "the evening train crossed the silent valley while rain covered the "
+            "empty fields and the distant houses disappeared behind the fog"
+        )
+        copied_result = (
+            "Chuyen tau buoi toi da di qua thung lung. "
+            "the evening train crossed the silent valley while rain covered the "
+            "empty fields and the distant houses disappeared behind the fog"
+        )
+        book_path = self.root / "book.epub"
+        _write_epub(book_path, chapter_xhtml=f"<html><body><p>{source_text}</p></body></html>")
+        checkpoint_store = self._checkpoint_store()
+        provider = _FakeLlmProvider(
+            responses=(
+                _translation("vi", ("chapter.text.1", copied_result)),
+                _translation("vi", ("chapter.text.1", copied_result)),
+            )
+        )
+        workflow = EpubTranslationWorkflow(
+            TranslationService(provider, max_units_per_window=1),
+            checkpoint_store,
+        )
+
+        with self.assertRaises(TranslationServiceValidationError) as raised:
+            workflow.translate(
+                {"sourcePath": str(book_path)},
+                source_language="en",
+                target_language="vi",
+            )
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(raised.exception.failure.code.value, "translation.material_source_copy")
+        self.assertFalse((self.root / "project" / "artifacts" / "epub-translation").exists())
+        self.assertNotIn(source_text, str(raised.exception))
+        self.assertNotIn(copied_result, str(raised.exception))
 
     def test_resumes_from_completed_unit_checkpoints_after_a_provider_failure(self) -> None:
         book_path = self.root / "book.epub"
@@ -365,7 +405,11 @@ def _retryable_malformed_response() -> LlmProviderResponseError:
     )
 
 
-def _write_epub(path: Path) -> None:
+def _write_epub(
+    path: Path,
+    *,
+    chapter_xhtml: str = "<html><body><p>First</p><p>Second</p></body></html>",
+) -> None:
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(
             "mimetype",
@@ -382,6 +426,6 @@ def _write_epub(path: Path) -> None:
         )
         archive.writestr(
             "OEBPS/chapter.xhtml",
-            "<html><body><p>First</p><p>Second</p></body></html>",
+            chapter_xhtml,
         )
         archive.writestr("OEBPS/nav.xhtml", "<html><body><nav/></body></html>")

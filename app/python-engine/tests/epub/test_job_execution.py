@@ -566,12 +566,24 @@ class EpubJobExecutionTest(unittest.TestCase):
         self.assertTrue(diagnostic.retryable)
         self.assertNotIn(raw_detail, diagnostic.message)
 
-    def test_retains_a_safe_validation_category_without_unit_details(self) -> None:
+    def test_retains_a_safe_copied_source_validation_category_without_raw_data(self) -> None:
         raw_unit_id = "chapter.secret.unit"
+        source_text = (
+            "the evening train crossed the silent valley while rain covered the "
+            "empty fields and the distant houses disappeared behind the fog"
+        )
+        copied_result = (
+            "Chuyen tau buoi toi da di qua thung lung. "
+            "the evening train crossed the silent valley while rain covered the "
+            "empty fields and the distant houses disappeared behind the fog"
+        )
         terminal = Event()
         dispatcher = EpubJobDispatcher(
             JobRunner(self.root / "temporary"),
-            executor=_ValidationFailingExecutor(raw_unit_id),  # type: ignore[arg-type]
+            executor=_ValidationFailingExecutor(  # type: ignore[arg-type]
+                raw_unit_id,
+                TranslationValidationErrorCode.MATERIAL_SOURCE_COPY,
+            ),
             on_terminal=lambda _: terminal.set(),
         )
         self.addCleanup(dispatcher.close)
@@ -591,6 +603,7 @@ class EpubJobExecutionTest(unittest.TestCase):
             "or choose a different model.",
         )
         self.assertNotIn(raw_unit_id, diagnostic.message)
+        self.assertIsNone(dispatcher.exported_artifact_reference(started.id.value))
         response, _ = handle_message(
             {
                 "jsonrpc": "2.0",
@@ -619,6 +632,9 @@ class EpubJobExecutionTest(unittest.TestCase):
                 },
             },
         )
+        serialized = json.dumps(response)
+        self.assertNotIn(source_text, serialized)
+        self.assertNotIn(copied_result, serialized)
 
 
 class _FakeExecutor:
@@ -685,14 +701,19 @@ class _UnusedProvider(LlmProvider):
 
 
 class _ValidationFailingExecutor:
-    def __init__(self, raw_unit_id: str) -> None:
+    def __init__(
+        self,
+        raw_unit_id: str,
+        code: TranslationValidationErrorCode = TranslationValidationErrorCode.EMPTY_TRANSLATED_TEXT,
+    ) -> None:
         self._raw_unit_id = raw_unit_id
+        self._code = code
 
     def invoke(self, _invocation, _context, _report_progress) -> None:
         raise TranslationServiceValidationError(
             TranslationValidationError(
-                code=TranslationValidationErrorCode.EMPTY_TRANSLATED_TEXT,
-                message=f"Translated result for unit ID {self._raw_unit_id!r} is empty.",
+                code=self._code,
+                message="Translated result contains materially copied source prose.",
                 unit_ids=(self._raw_unit_id,),
             )
         )

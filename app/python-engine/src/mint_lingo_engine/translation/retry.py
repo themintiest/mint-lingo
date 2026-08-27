@@ -68,6 +68,7 @@ def classify_translation_retry(
         TranslationValidationErrorCode.MISSING_UNIT_ID,
         TranslationValidationErrorCode.DUPLICATE_UNIT_ID,
         TranslationValidationErrorCode.EMPTY_TRANSLATED_TEXT,
+        TranslationValidationErrorCode.MATERIAL_SOURCE_COPY,
     }:
         failed_unit_ids = _requested_failure_unit_ids(requested_unit_ids, failure.unit_ids)
         if failed_unit_ids:

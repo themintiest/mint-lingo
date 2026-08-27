@@ -135,6 +135,74 @@ class TranslationArtifactValidationTest(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "TranslationArtifact"):
             validate_translation_artifact(self.request, "artifact")  # type: ignore[arg-type]
 
+    def test_rejects_target_prefix_followed_by_material_copied_source_prose(self) -> None:
+        source_text = (
+            "the evening train crossed the silent valley while rain covered the "
+            "empty fields and the distant houses disappeared behind the fog"
+        )
+        copied_result = (
+            "Chuyen tau buoi toi da di qua thung lung. "
+            "the evening train crossed the silent valley while rain covered the "
+            "empty fields and the distant houses disappeared behind the fog"
+        )
+        request = TranslationRequest(
+            artifact=StructuredTextArtifact(
+                source_language="en",
+                units=(StructuredTextUnit(unit_id="unit.private", text=source_text),),
+            ),
+            target_language="vi",
+        )
+
+        result = validate_translation_artifact(
+            request,
+            TranslationArtifact(
+                target_language="vi",
+                units=(
+                    TranslatedTextUnit(
+                        unit_id="unit.private",
+                        translated_text=copied_result,
+                    ),
+                ),
+            ),
+        )
+
+        self.assert_validation_error(
+            result,
+            TranslationValidationErrorCode.MATERIAL_SOURCE_COPY,
+        )
+        assert isinstance(result, TranslationValidationError)
+        self.assertEqual(result.unit_ids, ("unit.private",))
+        self.assertNotIn(source_text, str(result))
+        self.assertNotIn(copied_result, str(result))
+
+    def test_allows_small_legitimate_preserved_overlaps(self) -> None:
+        source_text = (
+            'Alice met Bob in Paris on 12 March 2025. Read "May the force be '
+            'with you" at https://example.test/docs and run release_build_42.'
+        )
+        request = TranslationRequest(
+            artifact=StructuredTextArtifact(
+                source_language="en",
+                units=(StructuredTextUnit(unit_id="unit.1", text=source_text),),
+            ),
+            target_language="vi",
+        )
+        artifact = TranslationArtifact(
+            target_language="vi",
+            units=(
+                TranslatedTextUnit(
+                    unit_id="unit.1",
+                    translated_text=(
+                        'Alice gap Bob tai Paris vao 12 March 2025. Doc "May the '
+                        'force be with you" tai https://example.test/docs va chay '
+                        "release_build_42."
+                    ),
+                ),
+            ),
+        )
+
+        self.assertIs(validate_translation_artifact(request, artifact), artifact)
+
     def assert_validation_error(
         self,
         result: TranslationArtifact | TranslationValidationError,

@@ -216,6 +216,55 @@ class TranslationServiceTest(unittest.TestCase):
         )
         self.assertEqual(len(provider.calls), 1)
 
+    def test_retries_a_material_source_copy_once_and_checkpoints_only_the_valid_retry(self) -> None:
+        source = _copied_source_artifact()
+        copied_result = _copying_result()
+        valid_result = _artifact("vi", ("unit.copy", "Ban dich hoan chinh da duoc tao."))
+        provider = _FakeLlmProvider(responses=(copied_result, valid_result))
+        service = TranslationService(provider, max_units_per_window=1)
+        completed: list[TranslationArtifact] = []
+
+        result = service.translate(
+            source,
+            "vi",
+            on_request_translated=lambda _request, translation: completed.append(translation),
+        )
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(
+            [
+                [unit.unit_id for unit in request.artifact.units]
+                for request, _instructions in provider.calls
+            ],
+            [["unit.copy"], ["unit.copy"]],
+        )
+        self.assertEqual(result, valid_result)
+        self.assertEqual(completed, [valid_result])
+        self.assertNotIn(copied_result.units[0].translated_text, str(completed))
+
+    def test_repeated_material_source_copy_fails_safely_after_one_retry(self) -> None:
+        source = _copied_source_artifact()
+        copied_result = _copying_result()
+        provider = _FakeLlmProvider(responses=(copied_result, copied_result))
+        service = TranslationService(provider, max_units_per_window=1)
+        completed: list[TranslationArtifact] = []
+
+        with self.assertRaises(TranslationServiceValidationError) as raised:
+            service.translate(
+                source,
+                "vi",
+                on_request_translated=lambda _request, translation: completed.append(translation),
+            )
+
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(
+            raised.exception.failure.code,
+            TranslationValidationErrorCode.MATERIAL_SOURCE_COPY,
+        )
+        self.assertEqual(completed, [])
+        self.assertNotIn(source.units[0].text, str(raised.exception))
+        self.assertNotIn(copied_result.units[0].translated_text, str(raised.exception))
+
     def test_rejects_invalid_service_configuration(self) -> None:
         provider = _FakeLlmProvider(responses=())
 
@@ -270,6 +319,33 @@ def _source_artifact() -> StructuredTextArtifact:
             StructuredTextUnit(unit_id="unit.1", text="First"),
             StructuredTextUnit(unit_id="unit.2", text="Second"),
             StructuredTextUnit(unit_id="unit.3", text="Third"),
+        ),
+    )
+
+
+def _copied_source_artifact() -> StructuredTextArtifact:
+    return StructuredTextArtifact(
+        source_language="en",
+        units=(
+            StructuredTextUnit(
+                unit_id="unit.copy",
+                text=(
+                    "the evening train crossed the silent valley while rain covered the "
+                    "empty fields and the distant houses disappeared behind the fog"
+                ),
+            ),
+        ),
+    )
+
+
+def _copying_result() -> TranslationArtifact:
+    return _artifact(
+        "vi",
+        (
+            "unit.copy",
+            "Chuyen tau buoi toi da di qua thung lung. "
+            "the evening train crossed the silent valley while rain covered the "
+            "empty fields and the distant houses disappeared behind the fog",
         ),
     )
 

@@ -38,6 +38,7 @@ class TranslationRetryClassificationTest(unittest.TestCase):
             TranslationValidationErrorCode.MISSING_UNIT_ID,
             TranslationValidationErrorCode.DUPLICATE_UNIT_ID,
             TranslationValidationErrorCode.EMPTY_TRANSLATED_TEXT,
+            TranslationValidationErrorCode.MATERIAL_SOURCE_COPY,
         ):
             with self.subTest(code=code):
                 plan = classify_translation_retry(
