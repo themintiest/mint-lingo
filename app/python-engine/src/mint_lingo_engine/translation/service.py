@@ -12,8 +12,9 @@ from collections.abc import Callable, Iterable
 
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
-    LlmProviderResponseError,
-    LlmProviderResponseFailureCode,
+    LlmProviderFailureError,
+    LlmProviderFailureCategory,
+    LlmProviderFailureRetryScope,
 )
 from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
@@ -131,10 +132,11 @@ class TranslationService:
             instructions = build_structured_translation_instructions(pending_request)
             try:
                 result = self._provider.translate(pending_request, instructions)
-            except LlmProviderResponseError as error:
+            except LlmProviderFailureError as error:
                 if (
-                    error.code is LlmProviderResponseFailureCode.MALFORMED_RESPONSE
-                    and error.retryable
+                    error.failure.category is LlmProviderFailureCategory.MALFORMED_RESPONSE
+                    and error.failure.retry_scope
+                    is LlmProviderFailureRetryScope.IMMEDIATE_REQUEST
                     and attempt == 0
                 ):
                     continue

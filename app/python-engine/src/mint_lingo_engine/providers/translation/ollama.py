@@ -5,15 +5,16 @@ from __future__ import annotations
 import json
 import errno
 from collections.abc import Callable, Mapping
-from enum import Enum
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
     LlmProviderCapabilities,
-    LlmProviderResponseError,
-    LlmProviderResponseFailureCode,
+    LlmProviderFailure,
+    LlmProviderFailureCategory,
+    LlmProviderFailureError,
+    LlmProviderFailureRetryScope,
 )
 from mint_lingo_engine.providers.translation.ollama_availability import DEFAULT_OLLAMA_SERVICE_URL
 from mint_lingo_engine.providers.translation.ollama_discovery import (
@@ -47,24 +48,6 @@ _TRANSLATION_RESPONSE_SCHEMA: dict[str, object] = {
     "required": ["translations"],
     "additionalProperties": False,
 }
-
-
-class OllamaProviderFailureCode(str, Enum):
-    """Fixed internal categories for an Ollama translation attempt."""
-
-    SERVICE_UNAVAILABLE = "service_unavailable"
-    TIMEOUT = "timeout"
-    REQUEST_REJECTED = "request_rejected"
-
-
-class OllamaProviderError(RuntimeError):
-    """Raised with a fixed category when Ollama cannot translate a request."""
-
-    def __init__(self, code: OllamaProviderFailureCode) -> None:
-        if not isinstance(code, OllamaProviderFailureCode):
-            raise TypeError("code must be an OllamaProviderFailureCode")
-        self.code = code
-        super().__init__(code.value)
 
 
 class OllamaProvider(LlmProvider):
@@ -107,7 +90,15 @@ class OllamaProvider(LlmProvider):
         if not isinstance(request, TranslationRequest):
             raise TypeError("request must be a TranslationRequest")
         _require_instructions(instructions)
-        response = self._post_chat(_chat_payload(self._model_id, request, instructions))
+        normalized_failure: LlmProviderFailureError | None = None
+        try:
+            response = self._post_chat(_chat_payload(self._model_id, request, instructions))
+        except LlmProviderFailureError:
+            raise
+        except (HTTPError, URLError, OSError, TimeoutError, json.JSONDecodeError) as error:
+            normalized_failure = _failure_for_transport_error(error)
+        if normalized_failure is not None:
+            raise normalized_failure
         return _parse_translation_response(request, response)
 
 
@@ -164,41 +155,51 @@ def _post_ollama_chat(payload: Mapping[str, object]) -> object:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
+    normalized_failure: LlmProviderFailureError | None = None
+    response_payload: object | None = None
     try:
         with urlopen(request, timeout=_CHAT_TIMEOUT_SECONDS) as response:
             if response.status != 200:
-                raise OllamaProviderError(OllamaProviderFailureCode.REQUEST_REJECTED)
-            return json.load(response)
+                raise _user_directed_failure(
+                    LlmProviderFailureCategory.REQUEST_REJECTED
+                )
+            response_payload = json.load(response)
+    except LlmProviderFailureError:
+        raise
     except (HTTPError, URLError, OSError, TimeoutError, json.JSONDecodeError) as error:
-        if isinstance(error, OllamaProviderError):
-            raise
-        if isinstance(error, json.JSONDecodeError):
-            raise LlmProviderResponseError(
-                LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
-                retryable=True,
-            ) from None
-        raise OllamaProviderError(_transport_failure_code(error)) from error
+        normalized_failure = _failure_for_transport_error(error)
+    if normalized_failure is not None:
+        raise normalized_failure
+    return response_payload
 
 
-def _transport_failure_code(
+def _failure_for_transport_error(
+    error: HTTPError | URLError | OSError | TimeoutError | json.JSONDecodeError,
+) -> LlmProviderFailureError:
+    if isinstance(error, json.JSONDecodeError):
+        return _immediate_response_failure()
+    return _user_directed_failure(_transport_failure_category(error))
+
+
+def _transport_failure_category(
     error: HTTPError | URLError | OSError | TimeoutError,
-) -> OllamaProviderFailureCode:
+) -> LlmProviderFailureCategory:
     if isinstance(error, HTTPError):
-        return OllamaProviderFailureCode.REQUEST_REJECTED
+        return LlmProviderFailureCategory.REQUEST_REJECTED
     if isinstance(error, TimeoutError):
-        return OllamaProviderFailureCode.TIMEOUT
+        return LlmProviderFailureCategory.TIMEOUT
     if isinstance(error, URLError):
         if isinstance(error.reason, TimeoutError):
-            return OllamaProviderFailureCode.TIMEOUT
-        return OllamaProviderFailureCode.SERVICE_UNAVAILABLE
+            return LlmProviderFailureCategory.TIMEOUT
+        return LlmProviderFailureCategory.SERVICE_UNAVAILABLE
     if error.errno in {
         errno.ECONNREFUSED,
         errno.ENETUNREACH,
         errno.EHOSTUNREACH,
         errno.ENOTCONN,
     }:
-        return OllamaProviderFailureCode.SERVICE_UNAVAILABLE
-    return OllamaProviderFailureCode.REQUEST_REJECTED
+        return LlmProviderFailureCategory.SERVICE_UNAVAILABLE
+    return LlmProviderFailureCategory.TRANSPORT_FAILURE
 
 
 def _parse_translation_response(
@@ -214,7 +215,7 @@ def _parse_translation_response(
     try:
         document = json.loads(content)
     except json.JSONDecodeError:
-        raise _malformed_response_error() from None
+        document = None
     if not isinstance(document, dict) or not isinstance(
         document.get("translations"), list
     ):
@@ -229,16 +230,38 @@ def _parse_translation_response(
             if isinstance(unit, dict)
         )
     except (KeyError, TypeError):
-        raise _malformed_response_error() from None
-    if len(units) != len(document["translations"]):
+        units = ()
+        malformed_units = True
+    else:
+        malformed_units = False
+    if malformed_units or len(units) != len(document["translations"]):
         raise _malformed_response_error()
     return TranslationArtifact(target_language=request.target_language, units=units)
 
 
-def _malformed_response_error() -> LlmProviderResponseError:
-    return LlmProviderResponseError(
-        LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
-        retryable=True,
+def _malformed_response_error() -> LlmProviderFailureError:
+    return _immediate_response_failure()
+
+
+def _immediate_response_failure() -> LlmProviderFailureError:
+    return LlmProviderFailureError(
+        LlmProviderFailure(
+            category=LlmProviderFailureCategory.MALFORMED_RESPONSE,
+            retryable=True,
+            retry_scope=LlmProviderFailureRetryScope.IMMEDIATE_REQUEST,
+        )
+    )
+
+
+def _user_directed_failure(
+    category: LlmProviderFailureCategory,
+) -> LlmProviderFailureError:
+    return LlmProviderFailureError(
+        LlmProviderFailure(
+            category=category,
+            retryable=True,
+            retry_scope=LlmProviderFailureRetryScope.USER_DIRECTED_RESUME,
+        )
     )
 
 

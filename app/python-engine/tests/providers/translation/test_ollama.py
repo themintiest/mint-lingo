@@ -9,14 +9,11 @@ from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaModelCapabilities,
     OllamaModelInventory,
 )
-from mint_lingo_engine.providers.translation.ollama import (
-    OllamaProvider,
-    OllamaProviderError,
-    OllamaProviderFailureCode,
-)
+from mint_lingo_engine.providers.translation.ollama import OllamaProvider
 from mint_lingo_engine.providers.translation.base import (
-    LlmProviderResponseError,
-    LlmProviderResponseFailureCode,
+    LlmProviderFailureCategory,
+    LlmProviderFailureError,
+    LlmProviderFailureRetryScope,
 )
 from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
@@ -123,14 +120,19 @@ class OllamaProviderTest(unittest.TestCase):
             post_chat=lambda payload: {"message": {"content": "not JSON"}},
         )
 
-        with self.assertRaises(LlmProviderResponseError) as raised:
+        with self.assertRaises(LlmProviderFailureError) as raised:
             provider.translate(_request(), "Instructions")
         self.assertEqual(
-            raised.exception.code,
-            LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+            raised.exception.failure.category,
+            LlmProviderFailureCategory.MALFORMED_RESPONSE,
         )
-        self.assertTrue(raised.exception.retryable)
+        self.assertTrue(raised.exception.failure.retryable)
+        self.assertEqual(
+            raised.exception.failure.retry_scope,
+            LlmProviderFailureRetryScope.IMMEDIATE_REQUEST,
+        )
         self.assertIsNone(raised.exception.__cause__)
+        self.assertIsNone(raised.exception.__context__)
         self.assertNotIn("not JSON", str(raised.exception))
         with self.assertRaisesRegex(TypeError, "TranslationRequest"):
             provider.translate("request", "Instructions")  # type: ignore[arg-type]
@@ -138,16 +140,16 @@ class OllamaProviderTest(unittest.TestCase):
             provider.translate(_request(), " ")
 
     def test_classifies_offline_transport_and_response_failures(self) -> None:
-        cases: tuple[tuple[object, type[Exception], object], ...] = (
+        cases: tuple[tuple[object, LlmProviderFailureCategory, LlmProviderFailureRetryScope], ...] = (
             (
                 URLError(OSError(errno.ECONNREFUSED, "private connection detail")),
-                OllamaProviderError,
-                OllamaProviderFailureCode.SERVICE_UNAVAILABLE,
+                LlmProviderFailureCategory.SERVICE_UNAVAILABLE,
+                LlmProviderFailureRetryScope.USER_DIRECTED_RESUME,
             ),
             (
                 TimeoutError("private timeout detail"),
-                OllamaProviderError,
-                OllamaProviderFailureCode.TIMEOUT,
+                LlmProviderFailureCategory.TIMEOUT,
+                LlmProviderFailureRetryScope.USER_DIRECTED_RESUME,
             ),
             (
                 HTTPError(
@@ -157,17 +159,17 @@ class OllamaProviderTest(unittest.TestCase):
                     {"Authorization": "secret"},
                     None,
                 ),
-                OllamaProviderError,
-                OllamaProviderFailureCode.REQUEST_REJECTED,
+                LlmProviderFailureCategory.REQUEST_REJECTED,
+                LlmProviderFailureRetryScope.USER_DIRECTED_RESUME,
             ),
             (
                 _Response(b"not JSON"),
-                LlmProviderResponseError,
-                LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+                LlmProviderFailureCategory.MALFORMED_RESPONSE,
+                LlmProviderFailureRetryScope.IMMEDIATE_REQUEST,
             ),
         )
-        for response_or_error, error_type, expected_code in cases:
-            with self.subTest(expected_code=expected_code):
+        for response_or_error, expected_category, expected_scope in cases:
+            with self.subTest(expected_category=expected_category):
                 provider = OllamaProvider(_inventory(), "qwen3:8b")
                 with patch(
                     "mint_lingo_engine.providers.translation.ollama.urlopen",
@@ -182,9 +184,14 @@ class OllamaProviderTest(unittest.TestCase):
                         else None
                     ),
                 ):
-                    with self.assertRaises(error_type) as raised:
+                    with self.assertRaises(LlmProviderFailureError) as raised:
                         provider.translate(_request(), "Instructions")
-                self.assertEqual(raised.exception.code, expected_code)
+                self.assertEqual(raised.exception.failure.category, expected_category)
+                self.assertEqual(raised.exception.failure.retry_scope, expected_scope)
+                self.assertIsNone(raised.exception.__cause__)
+                self.assertIsNone(raised.exception.__context__)
+                self.assertNotIn("private", str(raised.exception))
+                self.assertNotIn("secret", str(raised.exception))
 
     def test_posts_a_non_streaming_structured_chat_request(self) -> None:
         response_content = json.dumps(

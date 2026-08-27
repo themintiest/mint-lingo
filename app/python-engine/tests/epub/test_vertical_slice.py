@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Event
@@ -9,6 +10,7 @@ from mint_lingo_engine.api.ipc.worker import handle_message
 from mint_lingo_engine.epub.document import EpubDocumentArtifact
 from mint_lingo_engine.epub.inspection import EpubPackageInspector
 from mint_lingo_engine.epub.job_execution import EpubJobDispatcher, EpubJobExecutor
+from mint_lingo_engine.epub.translation_recovery import EpubRecoveryLifecycle
 from mint_lingo_engine.epub.source import EpubSourceReference
 from mint_lingo_engine.processing.progress import (
     DeterminateProgress,
@@ -193,7 +195,11 @@ class EpubVerticalSliceTest(unittest.TestCase):
         self.assertEqual(job.lifecycle.value, "failed")
         self.assertEqual(provider.request_unit_ids, [])
         self.assertFalse(destination.exists())
-        self.assertFalse((self.root / "artifacts").exists())
+        recovery_records = list((self.root / "artifacts" / "epub-recovery").glob("*.json"))
+        self.assertEqual(len(recovery_records), 1)
+        recovery_payload = json.loads(recovery_records[0].read_text(encoding="utf-8"))
+        self.assertEqual(recovery_payload["lifecycle"], EpubRecoveryLifecycle.FAILED.value)
+        self.assertFalse((self.root / "artifacts" / "epub-translation").exists())
         diagnostic = dispatcher.failure_diagnostic(started.id.value)
         assert diagnostic is not None
         self.assertEqual(diagnostic.code, "epub.translation_unit_too_large")
@@ -250,6 +256,11 @@ class EpubVerticalSliceTest(unittest.TestCase):
             self.root / "artifacts" / "epub-translation" / "retry-fixture"
         )
         self.assertEqual(len(list(checkpoint_directory.glob("*.json"))), 2)
+        recovery_records = list((self.root / "artifacts" / "epub-recovery").glob("*.json"))
+        self.assertEqual(len(recovery_records), 1)
+        recovery_payload = json.loads(recovery_records[0].read_text(encoding="utf-8"))
+        self.assertEqual(recovery_payload["lifecycle"], EpubRecoveryLifecycle.COMPLETED.value)
+        self.assertIsNone(recovery_payload["failureCategory"])
 
     def test_fails_safely_after_two_retryable_malformed_responses(self) -> None:
         source = self.root / "source.epub"
@@ -299,6 +310,13 @@ class EpubVerticalSliceTest(unittest.TestCase):
         )
         self.assertTrue(diagnostic.retryable)
         self.assertNotIn(secret_source_text, diagnostic.message)
+        recovery_records = list((self.root / "artifacts" / "epub-recovery").glob("*.json"))
+        self.assertEqual(len(recovery_records), 1)
+        serialized_recovery = recovery_records[0].read_text(encoding="utf-8")
+        recovery_payload = json.loads(serialized_recovery)
+        self.assertEqual(recovery_payload["lifecycle"], EpubRecoveryLifecycle.RESUMABLE.value)
+        self.assertEqual(recovery_payload["failureCategory"], "malformed_response")
+        self.assertNotIn(secret_source_text, serialized_recovery)
 
 
 class _FakeLlmProvider(LlmProvider):

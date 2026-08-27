@@ -14,14 +14,14 @@ from mint_lingo_engine.epub.translation_batching import EpubTranslationBatchingP
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
     LlmProviderCapabilities,
+    LlmProviderFailure,
+    LlmProviderFailureCategory,
+    LlmProviderFailureError,
+    LlmProviderFailureRetryScope,
     LlmProviderResponseError,
     LlmProviderResponseFailureCode,
 )
-from mint_lingo_engine.providers.translation.ollama import (
-    OllamaProvider,
-    OllamaProviderError,
-    OllamaProviderFailureCode,
-)
+from mint_lingo_engine.providers.translation.ollama import OllamaProvider
 from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaDiscoveryError,
     OllamaModelCapabilities,
@@ -217,7 +217,7 @@ class EpubJobExecutionTest(unittest.TestCase):
         dispatcher = EpubJobDispatcher(
             JobRunner(self.root / "temporary"),
             executor=_FailingExecutor(  # type: ignore[arg-type]
-                OllamaProviderError(OllamaProviderFailureCode.SERVICE_UNAVAILABLE),
+                _user_directed_provider_failure(LlmProviderFailureCategory.SERVICE_UNAVAILABLE),
                 raw_detail,
             ),
             on_terminal=lambda _: terminal.set(),
@@ -302,18 +302,18 @@ class EpubJobExecutionTest(unittest.TestCase):
     def test_exposes_each_fixed_provider_failure_category_through_epub_get_failure(self) -> None:
         cases = (
             (
-                OllamaProviderFailureCode.SERVICE_UNAVAILABLE,
+                LlmProviderFailureCategory.SERVICE_UNAVAILABLE,
                 "epub.provider_unavailable",
                 "Ollama is unavailable. Start Ollama, confirm the selected model "
                 "is installed, then try again.",
             ),
             (
-                OllamaProviderFailureCode.TIMEOUT,
+                LlmProviderFailureCategory.TIMEOUT,
                 "epub.provider_timeout",
                 "Ollama took too long to respond. Try again, or choose a smaller model.",
             ),
             (
-                OllamaProviderFailureCode.REQUEST_REJECTED,
+                LlmProviderFailureCategory.REQUEST_REJECTED,
                 "epub.provider_request_rejected",
                 "Ollama rejected the translation request. Confirm the selected model "
                 "is available, then try again.",
@@ -324,7 +324,7 @@ class EpubJobExecutionTest(unittest.TestCase):
                 terminal = Event()
                 dispatcher = EpubJobDispatcher(
                     JobRunner(self.root / f"temporary-{failure_code.value}"),
-                    executor=_FailingExecutor(OllamaProviderError(failure_code)),  # type: ignore[arg-type]
+                    executor=_FailingExecutor(_user_directed_provider_failure(failure_code)),  # type: ignore[arg-type]
                     on_terminal=lambda _: terminal.set(),
                 )
                 self.addCleanup(dispatcher.close)
@@ -546,6 +546,18 @@ def _retryable_malformed_response() -> LlmProviderResponseError:
     return LlmProviderResponseError(
         LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
         retryable=True,
+    )
+
+
+def _user_directed_provider_failure(
+    category: LlmProviderFailureCategory,
+) -> LlmProviderFailureError:
+    return LlmProviderFailureError(
+        LlmProviderFailure(
+            category=category,
+            retryable=True,
+            retry_scope=LlmProviderFailureRetryScope.USER_DIRECTED_RESUME,
+        )
     )
 
 

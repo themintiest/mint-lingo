@@ -49,8 +49,55 @@ class LlmProviderResponseFailureCode(str, Enum):
     MALFORMED_RESPONSE = "malformed_response"
 
 
-class LlmProviderResponseError(RuntimeError):
-    """A provider-neutral response failure that deliberately retains no payload."""
+class LlmProviderFailureCategory(str, Enum):
+    """Fixed, provider-neutral categories for safe translation failures."""
+
+    MALFORMED_RESPONSE = "malformed_response"
+    SERVICE_UNAVAILABLE = "service_unavailable"
+    TIMEOUT = "timeout"
+    TRANSPORT_FAILURE = "transport_failure"
+    REQUEST_REJECTED = "request_rejected"
+
+
+class LlmProviderFailureRetryScope(str, Enum):
+    """Whether a normalized failure can retry immediately or only by user action."""
+
+    NONE = "none"
+    IMMEDIATE_REQUEST = "immediate_request"
+    USER_DIRECTED_RESUME = "user_directed_resume"
+
+
+@dataclass(frozen=True)
+class LlmProviderFailure:
+    """Safe failure metadata with no provider payload, cause, or request content."""
+
+    category: LlmProviderFailureCategory
+    retryable: bool
+    retry_scope: LlmProviderFailureRetryScope
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.category, LlmProviderFailureCategory):
+            raise TypeError("category must be an LlmProviderFailureCategory")
+        if not isinstance(self.retryable, bool):
+            raise TypeError("retryable must be a bool")
+        if not isinstance(self.retry_scope, LlmProviderFailureRetryScope):
+            raise TypeError("retry_scope must be an LlmProviderFailureRetryScope")
+        if self.retryable != (self.retry_scope is not LlmProviderFailureRetryScope.NONE):
+            raise ValueError("retryable must match retry_scope")
+
+
+class LlmProviderFailureError(RuntimeError):
+    """Raise one normalized provider failure without retaining private details."""
+
+    def __init__(self, failure: LlmProviderFailure) -> None:
+        if not isinstance(failure, LlmProviderFailure):
+            raise TypeError("failure must be an LlmProviderFailure")
+        self.failure = failure
+        super().__init__(failure.category.value)
+
+
+class LlmProviderResponseError(LlmProviderFailureError):
+    """Compatibility wrapper for the existing malformed-response boundary."""
 
     def __init__(
         self,
@@ -63,8 +110,23 @@ class LlmProviderResponseError(RuntimeError):
         if not isinstance(retryable, bool):
             raise TypeError("retryable must be a bool")
         self.code = code
-        self.retryable = retryable
-        super().__init__(code.value)
+        super().__init__(
+            LlmProviderFailure(
+                category=LlmProviderFailureCategory.MALFORMED_RESPONSE,
+                retryable=retryable,
+                retry_scope=(
+                    LlmProviderFailureRetryScope.IMMEDIATE_REQUEST
+                    if retryable
+                    else LlmProviderFailureRetryScope.NONE
+                ),
+            )
+        )
+
+    @property
+    def retryable(self) -> bool:
+        """Expose the legacy response-failure flag from normalized metadata."""
+
+        return self.failure.retryable
 
 
 class LlmProvider(ABC):

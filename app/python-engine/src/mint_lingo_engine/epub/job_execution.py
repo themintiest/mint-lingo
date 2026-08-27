@@ -15,6 +15,7 @@ from mint_lingo_engine.epub.export import (
 from mint_lingo_engine.epub.translation_checkpoint import EpubTranslationCheckpointStore
 from mint_lingo_engine.epub.translation_batching import EpubTranslationBatchingPolicy
 from mint_lingo_engine.epub.translation_guard import EpubTranslationUnitTooLargeError
+from mint_lingo_engine.epub.translation_recovery import EpubRecoveryRecordStore
 from mint_lingo_engine.epub.translation_workflow import EpubTranslationWorkflow
 from mint_lingo_engine.processing.job import Job, JobId
 from mint_lingo_engine.processing.progress import (
@@ -32,14 +33,12 @@ from mint_lingo_engine.processing.runner import (
 )
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
-    LlmProviderResponseError,
-    LlmProviderResponseFailureCode,
+    LlmProviderFailure,
+    LlmProviderFailureCategory,
+    LlmProviderFailureError,
+    LlmProviderFailureRetryScope,
 )
-from mint_lingo_engine.providers.translation.ollama import (
-    OllamaProvider,
-    OllamaProviderError,
-    OllamaProviderFailureCode,
-)
+from mint_lingo_engine.providers.translation.ollama import OllamaProvider
 from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaDiscoveryError,
     OllamaModelInventory,
@@ -136,39 +135,53 @@ class EpubJobExecutor:
         self, invocation: EpubJobInvocation, context: JobExecutionContext,
         report_progress: Callable[[JobProgressNotification], None],
     ) -> None:
-        report_progress(JobProgressNotification(context.job_id, "translating_epub", IndeterminateProgress()))
-        provider = self._provider_factory(invocation)
-        batching = EpubTranslationBatchingPolicy.from_capabilities(provider.capabilities)
-        workflow = EpubTranslationWorkflow(
-            TranslationService(
-                provider,
-                max_units_per_window=batching.max_units_per_window,
-                overlap_units=batching.overlap_units,
-            ),
-            EpubTranslationCheckpointStore(invocation.artifact_root, checkpoint_namespace=invocation.checkpoint_namespace),
-        )
-        result = workflow.translate(
-            {"sourcePath": str(invocation.source_path)}, source_language=invocation.source_language,
-            target_language=invocation.target_language, cancellation=context.cancellation,
-            on_translation_progress=lambda completed, total: report_progress(
-                JobProgressNotification(
-                    context.job_id,
-                    "translating_epub",
-                    DeterminateProgress(completed, total),
-                )
-            ),
-        )
-        if isinstance(result, EpubPackageValidationError):
-            raise _EpubJobDiagnosticError(
-                EpubJobFailureDiagnostic(
-                    code=result.code.value,
-                    message=result.message,
-                    retryable=result.retryable,
-                )
+        recovery_store = _start_recovery_record(invocation)
+        try:
+            report_progress(JobProgressNotification(context.job_id, "translating_epub", IndeterminateProgress()))
+            provider = self._provider_factory(invocation)
+            batching = EpubTranslationBatchingPolicy.from_capabilities(provider.capabilities)
+            workflow = EpubTranslationWorkflow(
+                TranslationService(
+                    provider,
+                    max_units_per_window=batching.max_units_per_window,
+                    overlap_units=batching.overlap_units,
+                ),
+                EpubTranslationCheckpointStore(invocation.artifact_root, checkpoint_namespace=invocation.checkpoint_namespace),
             )
-        report_progress(JobProgressNotification(context.job_id, "exporting_epub", IndeterminateProgress()))
-        exported = EpubPackageExporter().export(result.rebuilt_package, invocation.destination_path, cancellation=context.cancellation)
-        self._exports[context.job_id.value] = exported
+            result = workflow.translate(
+                {"sourcePath": str(invocation.source_path)}, source_language=invocation.source_language,
+                target_language=invocation.target_language, cancellation=context.cancellation,
+                on_translation_progress=lambda completed, total: report_progress(
+                    JobProgressNotification(
+                        context.job_id,
+                        "translating_epub",
+                        DeterminateProgress(completed, total),
+                    )
+                ),
+            )
+            if isinstance(result, EpubPackageValidationError):
+                raise _EpubJobDiagnosticError(
+                    EpubJobFailureDiagnostic(
+                        code=result.code.value,
+                        message=result.message,
+                        retryable=result.retryable,
+                    )
+                )
+            report_progress(JobProgressNotification(context.job_id, "exporting_epub", IndeterminateProgress()))
+            exported = EpubPackageExporter().export(result.rebuilt_package, invocation.destination_path, cancellation=context.cancellation)
+            self._exports[context.job_id.value] = exported
+            context.cancellation.raise_if_cancelled()
+        except JobCancelled:
+            if recovery_store is not None:
+                recovery_store.mark_cancelled()
+            raise
+        except Exception as error:
+            if recovery_store is not None:
+                recovery_store.mark_failed(_provider_failure(error))
+            raise
+        else:
+            if recovery_store is not None:
+                recovery_store.mark_completed()
 
     def exported_artifact_reference(self, job_id: str) -> str | None:
         path = self._exports.get(job_id)
@@ -176,7 +189,17 @@ class EpubJobExecutor:
 
 
 def _ollama_provider_for(invocation: EpubJobInvocation) -> LlmProvider:
-    return OllamaProvider(OllamaModelDiscovery().discover(), invocation.model_id)
+    try:
+        inventory = OllamaModelDiscovery().discover()
+    except OllamaDiscoveryError:
+        raise LlmProviderFailureError(
+            LlmProviderFailure(
+                category=LlmProviderFailureCategory.SERVICE_UNAVAILABLE,
+                retryable=True,
+                retry_scope=LlmProviderFailureRetryScope.USER_DIRECTED_RESUME,
+            )
+        ) from None
+    return OllamaProvider(inventory, invocation.model_id)
 
 
 class EpubJobDispatcher:
@@ -275,10 +298,8 @@ def _sanitize_failure(error: Exception) -> EpubJobFailureDiagnostic:
             ),
             retryable=True,
         )
-    if isinstance(error, LlmProviderResponseError):
-        return _provider_response_diagnostic(error)
-    if isinstance(error, OllamaProviderError):
-        return _ollama_provider_diagnostic(error.code)
+    if isinstance(error, LlmProviderFailureError):
+        return _provider_failure_diagnostic(error.failure)
     if isinstance(error, TranslationServiceValidationError):
         return EpubJobFailureDiagnostic(
             code="epub.translation_response_invalid",
@@ -316,47 +337,69 @@ def _sanitize_failure(error: Exception) -> EpubJobFailureDiagnostic:
     )
 
 
-def _provider_response_diagnostic(
-    error: LlmProviderResponseError,
-) -> EpubJobFailureDiagnostic:
-    """Map normalized response failures without retaining provider content."""
+def _provider_failure(error: Exception) -> LlmProviderFailure | None:
+    """Extract only shared safe provider metadata for artifact-local recovery."""
 
-    if error.code is LlmProviderResponseFailureCode.MALFORMED_RESPONSE:
+    return error.failure if isinstance(error, LlmProviderFailureError) else None
+
+
+def _provider_failure_diagnostic(
+    failure: LlmProviderFailure,
+) -> EpubJobFailureDiagnostic:
+    """Map safe provider metadata into the EPUB-owned presentation boundary."""
+
+    if failure.category is LlmProviderFailureCategory.MALFORMED_RESPONSE:
         return EpubJobFailureDiagnostic(
             code="epub.provider_response_malformed",
             message=(
                 "The translation provider returned an unreadable response. Try again, "
                 "or choose a different model."
             ),
-            retryable=error.retryable,
+            retryable=failure.retryable,
         )
-    raise AssertionError("unsupported LlmProvider response failure")
-
-
-def _ollama_provider_diagnostic(
-    code: OllamaProviderFailureCode,
-) -> EpubJobFailureDiagnostic:
-    """Map fixed provider failures into the EPUB-owned diagnostic boundary."""
-
     diagnostics = {
-        OllamaProviderFailureCode.SERVICE_UNAVAILABLE: (
+        LlmProviderFailureCategory.SERVICE_UNAVAILABLE: (
             "epub.provider_unavailable",
             "Ollama is unavailable. Start Ollama, confirm the selected model "
             "is installed, then try again.",
         ),
-        OllamaProviderFailureCode.TIMEOUT: (
+        LlmProviderFailureCategory.TIMEOUT: (
             "epub.provider_timeout",
             "Ollama took too long to respond. Try again, or choose a smaller model.",
         ),
-        OllamaProviderFailureCode.REQUEST_REJECTED: (
+        LlmProviderFailureCategory.TRANSPORT_FAILURE: (
+            "epub.provider_unavailable",
+            "Ollama is unavailable. Start Ollama, confirm the selected model "
+            "is installed, then try again.",
+        ),
+        LlmProviderFailureCategory.REQUEST_REJECTED: (
             "epub.provider_request_rejected",
             "Ollama rejected the translation request. Confirm the selected model "
             "is available, then try again.",
         ),
     }
-    diagnostic_code, message = diagnostics[code]
+    diagnostic_code, message = diagnostics[failure.category]
     return EpubJobFailureDiagnostic(
         code=diagnostic_code,
         message=message,
-        retryable=True,
+        retryable=failure.retryable,
     )
+
+
+def _start_recovery_record(
+    invocation: EpubJobInvocation,
+) -> EpubRecoveryRecordStore | None:
+    """Create one record for a readable source; invalid sources cannot resume."""
+
+    if not invocation.source_path.is_file():
+        return None
+    store = EpubRecoveryRecordStore(invocation.artifact_root)
+    store.create(
+        source_path=invocation.source_path,
+        source_language=invocation.source_language,
+        target_language=invocation.target_language,
+        provider_id=invocation.provider_id,
+        model_id=invocation.model_id,
+        checkpoint_namespace=invocation.checkpoint_namespace,
+    )
+    return store
