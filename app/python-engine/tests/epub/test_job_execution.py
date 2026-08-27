@@ -13,6 +13,8 @@ from mint_lingo_engine.epub.job_execution import (
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
     LlmProviderCapabilities,
+    LlmProviderResponseError,
+    LlmProviderResponseFailureCode,
 )
 from mint_lingo_engine.providers.translation.ollama import (
     OllamaProviderError,
@@ -200,12 +202,6 @@ class EpubJobExecutionTest(unittest.TestCase):
                 "Ollama rejected the translation request. Confirm the selected model "
                 "is available, then try again.",
             ),
-            (
-                OllamaProviderFailureCode.MALFORMED_RESPONSE,
-                "epub.provider_response_malformed",
-                "Ollama returned an unreadable response. Try again, or choose a "
-                "different model.",
-            ),
         )
         for failure_code, expected_code, expected_message in cases:
             with self.subTest(failure_code=failure_code):
@@ -252,7 +248,7 @@ class EpubJobExecutionTest(unittest.TestCase):
         dispatcher = EpubJobDispatcher(
             JobRunner(self.root / "temporary-terminal-notification"),
             executor=_FailingExecutor(  # type: ignore[arg-type]
-                OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE),
+                _retryable_malformed_response(),
                 raw_detail,
             ),
             on_terminal=lambda _: terminal.set(),
@@ -275,6 +271,36 @@ class EpubJobExecutionTest(unittest.TestCase):
             ),
         )
         self.assertNotIn(raw_detail, output.getvalue())
+
+    def test_retains_only_the_safe_provider_neutral_malformed_response_diagnostic(self) -> None:
+        terminal = Event()
+        raw_detail = (
+            r"C:\private\source.epub prompt secret source text; raw provider response; "
+            "Authorization: private"
+        )
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-provider-response"),
+            executor=_FailingExecutor(  # type: ignore[arg-type]
+                _retryable_malformed_response(),
+                raw_detail,
+            ),
+            on_terminal=lambda _: terminal.set(),
+        )
+        self.addCleanup(dispatcher.close)
+
+        started = dispatcher.start(_payload(self.root))
+
+        self.assertTrue(terminal.wait(timeout=2))
+        diagnostic = dispatcher.failure_diagnostic(started.id.value)
+        assert diagnostic is not None
+        self.assertEqual(diagnostic.code, "epub.provider_response_malformed")
+        self.assertEqual(
+            diagnostic.message,
+            "The translation provider returned an unreadable response. Try again, "
+            "or choose a different model.",
+        )
+        self.assertTrue(diagnostic.retryable)
+        self.assertNotIn(raw_detail, diagnostic.message)
 
     def test_retains_a_safe_validation_category_without_unit_details(self) -> None:
         raw_unit_id = "chapter.secret.unit"
@@ -398,6 +424,13 @@ class _ValidationFailingExecutor:
 
     def exported_artifact_reference(self, _job_id: str) -> str | None:
         return None
+
+
+def _retryable_malformed_response() -> LlmProviderResponseError:
+    return LlmProviderResponseError(
+        LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+        retryable=True,
+    )
 
 
 def _payload(root: Path) -> dict[str, object]:

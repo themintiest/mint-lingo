@@ -11,7 +11,12 @@ from mint_lingo_engine.epub.translation_checkpoint import (
 )
 from mint_lingo_engine.epub.translation_workflow import EpubTranslationWorkflow
 from mint_lingo_engine.processing.runner import CancellationToken, JobCancelled
-from mint_lingo_engine.providers.translation.base import LlmProvider, LlmProviderCapabilities
+from mint_lingo_engine.providers.translation.base import (
+    LlmProvider,
+    LlmProviderCapabilities,
+    LlmProviderResponseError,
+    LlmProviderResponseFailureCode,
+)
 from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
@@ -235,6 +240,52 @@ class EpubTranslationWorkflowTest(unittest.TestCase):
             [["chapter.text.2"]],
         )
 
+    def test_cancels_before_retrying_a_malformed_provider_response(self) -> None:
+        book_path = self.root / "book.epub"
+        _write_epub(book_path)
+        checkpoint_store = self._checkpoint_store()
+        cancellation = CancellationToken()
+        provider = _FakeLlmProvider(
+            responses=(
+                _translation("vi", ("chapter.text.1", "Mot")),
+                _retryable_malformed_response(),
+            ),
+            after_call=lambda call_count: cancellation._cancel()
+            if call_count == 2
+            else None,
+        )
+        workflow = EpubTranslationWorkflow(
+            TranslationService(provider, max_units_per_window=1),
+            checkpoint_store,
+        )
+
+        with self.assertRaises(JobCancelled):
+            workflow.translate(
+                {"sourcePath": str(book_path)},
+                source_language="en",
+                target_language="vi",
+                cancellation=cancellation,
+            )
+
+        self.assertEqual(len(provider.calls), 2)
+        resumed_provider = _FakeLlmProvider(
+            responses=(_translation("vi", ("chapter.text.2", "Hai")),)
+        )
+        result = EpubTranslationWorkflow(
+            TranslationService(resumed_provider, max_units_per_window=1),
+            checkpoint_store,
+        ).translate(
+            {"sourcePath": str(book_path)},
+            source_language="en",
+            target_language="vi",
+        )
+
+        self.assertNotIsInstance(result, EpubPackageValidationError)
+        self.assertEqual(
+            [[unit.unit_id for unit in request.artifact.units] for request in resumed_provider.calls],
+            [["chapter.text.2"]],
+        )
+
     def test_rejects_a_checkpoint_when_its_source_text_no_longer_matches(self) -> None:
         checkpoint_store = self._checkpoint_store()
         original = StructuredTextArtifact(
@@ -304,6 +355,13 @@ def _translation(
             TranslatedTextUnit(unit_id=unit_id, translated_text=translated_text)
             for unit_id, translated_text in units
         ),
+    )
+
+
+def _retryable_malformed_response() -> LlmProviderResponseError:
+    return LlmProviderResponseError(
+        LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+        retryable=True,
     )
 
 

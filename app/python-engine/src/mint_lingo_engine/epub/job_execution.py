@@ -30,7 +30,11 @@ from mint_lingo_engine.processing.runner import (
     JobRunner,
     JobStartConflict,
 )
-from mint_lingo_engine.providers.translation.base import LlmProvider
+from mint_lingo_engine.providers.translation.base import (
+    LlmProvider,
+    LlmProviderResponseError,
+    LlmProviderResponseFailureCode,
+)
 from mint_lingo_engine.providers.translation.ollama import (
     OllamaProvider,
     OllamaProviderError,
@@ -253,6 +257,8 @@ def _sanitize_failure(error: Exception) -> EpubJobFailureDiagnostic:
             ),
             retryable=True,
         )
+    if isinstance(error, LlmProviderResponseError):
+        return _provider_response_diagnostic(error)
     if isinstance(error, OllamaProviderError):
         return _ollama_provider_diagnostic(error.code)
     if isinstance(error, TranslationServiceValidationError):
@@ -292,6 +298,23 @@ def _sanitize_failure(error: Exception) -> EpubJobFailureDiagnostic:
     )
 
 
+def _provider_response_diagnostic(
+    error: LlmProviderResponseError,
+) -> EpubJobFailureDiagnostic:
+    """Map normalized response failures without retaining provider content."""
+
+    if error.code is LlmProviderResponseFailureCode.MALFORMED_RESPONSE:
+        return EpubJobFailureDiagnostic(
+            code="epub.provider_response_malformed",
+            message=(
+                "The translation provider returned an unreadable response. Try again, "
+                "or choose a different model."
+            ),
+            retryable=error.retryable,
+        )
+    raise AssertionError("unsupported LlmProvider response failure")
+
+
 def _ollama_provider_diagnostic(
     code: OllamaProviderFailureCode,
 ) -> EpubJobFailureDiagnostic:
@@ -311,11 +334,6 @@ def _ollama_provider_diagnostic(
             "epub.provider_request_rejected",
             "Ollama rejected the translation request. Confirm the selected model "
             "is available, then try again.",
-        ),
-        OllamaProviderFailureCode.MALFORMED_RESPONSE: (
-            "epub.provider_response_malformed",
-            "Ollama returned an unreadable response. Try again, or choose a "
-            "different model.",
         ),
     }
     diagnostic_code, message = diagnostics[code]

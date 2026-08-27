@@ -14,6 +14,10 @@ from mint_lingo_engine.providers.translation.ollama import (
     OllamaProviderError,
     OllamaProviderFailureCode,
 )
+from mint_lingo_engine.providers.translation.base import (
+    LlmProviderResponseError,
+    LlmProviderResponseFailureCode,
+)
 from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
@@ -119,24 +123,32 @@ class OllamaProviderTest(unittest.TestCase):
             post_chat=lambda payload: {"message": {"content": "not JSON"}},
         )
 
-        with self.assertRaises(OllamaProviderError) as raised:
+        with self.assertRaises(LlmProviderResponseError) as raised:
             provider.translate(_request(), "Instructions")
         self.assertEqual(
             raised.exception.code,
-            OllamaProviderFailureCode.MALFORMED_RESPONSE,
+            LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
         )
+        self.assertTrue(raised.exception.retryable)
+        self.assertIsNone(raised.exception.__cause__)
+        self.assertNotIn("not JSON", str(raised.exception))
         with self.assertRaisesRegex(TypeError, "TranslationRequest"):
             provider.translate("request", "Instructions")  # type: ignore[arg-type]
         with self.assertRaisesRegex(ValueError, "instructions"):
             provider.translate(_request(), " ")
 
     def test_classifies_offline_transport_and_response_failures(self) -> None:
-        cases: tuple[tuple[object, OllamaProviderFailureCode], ...] = (
+        cases: tuple[tuple[object, type[Exception], object], ...] = (
             (
                 URLError(OSError(errno.ECONNREFUSED, "private connection detail")),
+                OllamaProviderError,
                 OllamaProviderFailureCode.SERVICE_UNAVAILABLE,
             ),
-            (TimeoutError("private timeout detail"), OllamaProviderFailureCode.TIMEOUT),
+            (
+                TimeoutError("private timeout detail"),
+                OllamaProviderError,
+                OllamaProviderFailureCode.TIMEOUT,
+            ),
             (
                 HTTPError(
                     "http://localhost:11434/api/chat",
@@ -145,14 +157,16 @@ class OllamaProviderTest(unittest.TestCase):
                     {"Authorization": "secret"},
                     None,
                 ),
+                OllamaProviderError,
                 OllamaProviderFailureCode.REQUEST_REJECTED,
             ),
             (
                 _Response(b"not JSON"),
-                OllamaProviderFailureCode.MALFORMED_RESPONSE,
+                LlmProviderResponseError,
+                LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
             ),
         )
-        for response_or_error, expected_code in cases:
+        for response_or_error, error_type, expected_code in cases:
             with self.subTest(expected_code=expected_code):
                 provider = OllamaProvider(_inventory(), "qwen3:8b")
                 with patch(
@@ -168,7 +182,7 @@ class OllamaProviderTest(unittest.TestCase):
                         else None
                     ),
                 ):
-                    with self.assertRaises(OllamaProviderError) as raised:
+                    with self.assertRaises(error_type) as raised:
                         provider.translate(_request(), "Instructions")
                 self.assertEqual(raised.exception.code, expected_code)
 

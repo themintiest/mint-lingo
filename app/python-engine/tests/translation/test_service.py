@@ -1,6 +1,11 @@
 import unittest
 
-from mint_lingo_engine.providers.translation.base import LlmProvider, LlmProviderCapabilities
+from mint_lingo_engine.providers.translation.base import (
+    LlmProvider,
+    LlmProviderCapabilities,
+    LlmProviderResponseError,
+    LlmProviderResponseFailureCode,
+)
 from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
@@ -146,6 +151,49 @@ class TranslationServiceTest(unittest.TestCase):
             [["unit.1", "unit.2", "unit.3"], ["unit.1", "unit.2", "unit.3"]],
         )
 
+    def test_retries_a_provider_declared_malformed_response_once(self) -> None:
+        provider = _FakeLlmProvider(
+            responses=(
+                _retryable_malformed_response(),
+                _artifact(
+                    "vi",
+                    ("unit.1", "One"),
+                    ("unit.2", "Two"),
+                    ("unit.3", "Three"),
+                ),
+            )
+        )
+        service = TranslationService(provider, max_units_per_window=3)
+
+        result = service.translate(_source_artifact(), "vi")
+
+        self.assertEqual(
+            [(unit.unit_id, unit.translated_text) for unit in result.units],
+            [("unit.1", "One"), ("unit.2", "Two"), ("unit.3", "Three")],
+        )
+        self.assertEqual(len(provider.calls), 2)
+        self.assertEqual(
+            [unit.unit_id for unit in provider.calls[0][0].artifact.units],
+            ["unit.1", "unit.2", "unit.3"],
+        )
+        self.assertEqual(provider.calls[0], provider.calls[1])
+
+    def test_stops_after_two_provider_declared_malformed_responses(self) -> None:
+        provider = _FakeLlmProvider(
+            responses=(_retryable_malformed_response(), _retryable_malformed_response())
+        )
+        service = TranslationService(provider, max_units_per_window=3)
+
+        with self.assertRaises(LlmProviderResponseError) as raised:
+            service.translate(_source_artifact(), "vi")
+
+        self.assertEqual(
+            raised.exception.code,
+            LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+        )
+        self.assertTrue(raised.exception.retryable)
+        self.assertEqual(len(provider.calls), 2)
+
     def test_stops_without_retrying_a_non_retryable_validation_failure(self) -> None:
         provider = _FakeLlmProvider(
             responses=(
@@ -186,7 +234,11 @@ class TranslationServiceTest(unittest.TestCase):
 
 
 class _FakeLlmProvider(LlmProvider):
-    def __init__(self, *, responses: tuple[TranslationArtifact, ...]) -> None:
+    def __init__(
+        self,
+        *,
+        responses: tuple[TranslationArtifact | Exception, ...],
+    ) -> None:
         self._responses = iter(responses)
         self.calls: list[tuple[TranslationRequest, str]] = []
 
@@ -205,7 +257,10 @@ class _FakeLlmProvider(LlmProvider):
         instructions: str,
     ) -> TranslationArtifact:
         self.calls.append((request, instructions))
-        return next(self._responses)
+        response = next(self._responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def _source_artifact() -> StructuredTextArtifact:
@@ -229,4 +284,11 @@ def _artifact(
             TranslatedTextUnit(unit_id=unit_id, translated_text=translated_text)
             for unit_id, translated_text in units
         ),
+    )
+
+
+def _retryable_malformed_response() -> LlmProviderResponseError:
+    return LlmProviderResponseError(
+        LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+        retryable=True,
     )

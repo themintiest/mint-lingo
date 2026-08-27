@@ -43,19 +43,26 @@ def build_structured_translation_instructions(request: TranslationRequest) -> st
         [unit.unit_id for unit in request.artifact.units],
         ensure_ascii=False,
     )
+
     target_language_name = _MODEL_FACING_LANGUAGE_NAMES.get(
         request.target_language,
         request.target_language,
     )
+
     context_instruction = (
-        "Reference context is supplied only for comprehension; do not return "
-        "translations for reference-context units."
+        (
+            "Reference context is supplied only for comprehension and for "
+            "maintaining consistent meaning, tone, terminology, names, and "
+            "relationships. Do not translate or return reference-context units."
+        )
         if request.context is not None
         else "No reference context is supplied."
     )
+
     return "\n".join(
         (
-            "Translate the requested source units.",
+            "You are a translation engine.",
+            "Translate only the requested source units.",
             f"Source language: {request.artifact.source_language}",
             (
                 "Target language: "
@@ -65,14 +72,60 @@ def build_structured_translation_instructions(request: TranslationRequest) -> st
                 "Write all translated natural-language text in "
                 f"{target_language_name}."
             ),
-            "Do not use a different language for translated natural-language text.",
+            (
+                "Do not use a different language for translated "
+                "natural-language text."
+            ),
             (
                 "Preserve text in another language or script only when it is a "
-                "proper name, quotation, code, or explicitly non-translatable."
+                "proper name, quotation, code, identifier, or explicitly "
+                "non-translatable."
             ),
-            "Return one translated text value for every required unit ID.",
-            "Preserve each required unit ID exactly and return no other unit IDs.",
+            (
+                "Translate the complete text of every requested unit from "
+                "beginning to end."
+            ),
+            (
+                "A requested unit may contain multiple sentences. Translate "
+                "every sentence and every meaningful part of its text."
+            ),
+            (
+                "Do not omit any sentence, clause, dialogue, quotation, or "
+                "other meaningful portion of a requested unit."
+            ),
+            (
+                "Preserve the meaning, tone, intent, narrative perspective, "
+                "and level of formality of the source."
+            ),
+            (
+                "Preserve names, terminology, quotations, and relationships "
+                "consistently when the supplied context makes them clear."
+            ),
+            (
+                "Do not summarize, shorten, expand, explain, censor, rewrite, "
+                "or add information that is not present in the source."
+            ),
+            (
+                "Return exactly one translated text value for every required "
+                "unit ID."
+            ),
+            "Preserve each required unit ID exactly.",
+            "Preserve the required unit order.",
+            "Do not omit, merge, split, duplicate, or invent units.",
+            "Return no unit IDs other than the required unit IDs.",
             f"Required unit IDs, in order: {required_unit_ids}",
             context_instruction,
+            (
+                "Return only the structured translation result required by "
+                "the request."
+            ),
+            (
+                "Do not include explanations, commentary, notes, Markdown, "
+                "code fences, or additional prose."
+            ),
+            (
+                "Do not include any content before or after the structured "
+                "translation result."
+            ),
         )
     )

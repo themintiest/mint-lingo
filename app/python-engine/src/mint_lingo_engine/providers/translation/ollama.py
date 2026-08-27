@@ -9,7 +9,12 @@ from enum import Enum
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from mint_lingo_engine.providers.translation.base import LlmProvider, LlmProviderCapabilities
+from mint_lingo_engine.providers.translation.base import (
+    LlmProvider,
+    LlmProviderCapabilities,
+    LlmProviderResponseError,
+    LlmProviderResponseFailureCode,
+)
 from mint_lingo_engine.providers.translation.ollama_availability import DEFAULT_OLLAMA_SERVICE_URL
 from mint_lingo_engine.providers.translation.ollama_discovery import (
     OllamaModelCapabilities,
@@ -50,7 +55,6 @@ class OllamaProviderFailureCode(str, Enum):
     SERVICE_UNAVAILABLE = "service_unavailable"
     TIMEOUT = "timeout"
     REQUEST_REJECTED = "request_rejected"
-    MALFORMED_RESPONSE = "malformed_response"
 
 
 class OllamaProviderError(RuntimeError):
@@ -169,9 +173,10 @@ def _post_ollama_chat(payload: Mapping[str, object]) -> object:
         if isinstance(error, OllamaProviderError):
             raise
         if isinstance(error, json.JSONDecodeError):
-            raise OllamaProviderError(
-                OllamaProviderFailureCode.MALFORMED_RESPONSE
-            ) from error
+            raise LlmProviderResponseError(
+                LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+                retryable=True,
+            ) from None
         raise OllamaProviderError(_transport_failure_code(error)) from error
 
 
@@ -201,21 +206,19 @@ def _parse_translation_response(
     response: object,
 ) -> TranslationArtifact:
     if not isinstance(response, dict):
-        raise OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE)
+        raise _malformed_response_error()
     message = response.get("message")
     content = message.get("content") if isinstance(message, dict) else None
     if not isinstance(content, str):
-        raise OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE)
+        raise _malformed_response_error()
     try:
         document = json.loads(content)
-    except json.JSONDecodeError as error:
-        raise OllamaProviderError(
-            OllamaProviderFailureCode.MALFORMED_RESPONSE
-        ) from error
+    except json.JSONDecodeError:
+        raise _malformed_response_error() from None
     if not isinstance(document, dict) or not isinstance(
         document.get("translations"), list
     ):
-        raise OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE)
+        raise _malformed_response_error()
     try:
         units = tuple(
             TranslatedTextUnit(
@@ -225,13 +228,18 @@ def _parse_translation_response(
             for unit in document["translations"]
             if isinstance(unit, dict)
         )
-    except (KeyError, TypeError) as error:
-        raise OllamaProviderError(
-            OllamaProviderFailureCode.MALFORMED_RESPONSE
-        ) from error
+    except (KeyError, TypeError):
+        raise _malformed_response_error() from None
     if len(units) != len(document["translations"]):
-        raise OllamaProviderError(OllamaProviderFailureCode.MALFORMED_RESPONSE)
+        raise _malformed_response_error()
     return TranslationArtifact(target_language=request.target_language, units=units)
+
+
+def _malformed_response_error() -> LlmProviderResponseError:
+    return LlmProviderResponseError(
+        LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+        retryable=True,
+    )
 
 
 def _require_instructions(instructions: object) -> None:

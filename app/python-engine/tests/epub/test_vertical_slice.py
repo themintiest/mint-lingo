@@ -19,6 +19,8 @@ from mint_lingo_engine.processing.runner import JobRunner
 from mint_lingo_engine.providers.translation.base import (
     LlmProvider,
     LlmProviderCapabilities,
+    LlmProviderResponseError,
+    LlmProviderResponseFailureCode,
 )
 from mint_lingo_engine.translation.models import (
     TranslatedTextUnit,
@@ -203,9 +205,109 @@ class EpubVerticalSliceTest(unittest.TestCase):
         self.assertFalse(diagnostic.retryable)
         self.assertNotIn(secret_source_text, diagnostic.message)
 
+    def test_recovers_from_one_retryable_malformed_response_and_exports(self) -> None:
+        source = self.root / "source.epub"
+        destination = self.root / "translated.epub"
+        _write_epub_fixture(source)
+        terminal = Event()
+        provider = _FakeLlmProvider(
+            context_window_tokens=8_192,
+            malformed_response_count=1,
+        )
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-retry"),
+            executor=EpubJobExecutor(provider_factory=lambda _: provider),
+            on_terminal=lambda _: terminal.set(),
+        )
+        self.addCleanup(dispatcher.close)
+
+        started = dispatcher.start(
+            _workflow_payload(
+                source=source,
+                destination=destination,
+                artifact_root=self.root / "artifacts",
+                checkpoint_namespace="retry-fixture",
+            )
+        )
+
+        self.assertTrue(terminal.wait(timeout=2))
+        job = dispatcher.get(started.id.value)
+        assert job is not None
+        self.assertEqual(job.lifecycle.value, "completed")
+        self.assertEqual(
+            provider.request_unit_ids,
+            [
+                ("chapter.text.1", "chapter.text.2"),
+                ("chapter.text.1", "chapter.text.2"),
+            ],
+        )
+        self.assertTrue(destination.exists())
+        translated = EpubPackageInspector().inspect(EpubSourceReference(destination))
+        self.assertIsInstance(translated, EpubDocumentArtifact)
+        assert isinstance(translated, EpubDocumentArtifact)
+        self.assertEqual(translated.package_metadata.language, "vi")
+        checkpoint_directory = (
+            self.root / "artifacts" / "epub-translation" / "retry-fixture"
+        )
+        self.assertEqual(len(list(checkpoint_directory.glob("*.json"))), 2)
+
+    def test_fails_safely_after_two_retryable_malformed_responses(self) -> None:
+        source = self.root / "source.epub"
+        destination = self.root / "translated.epub"
+        secret_source_text = "private EPUB source text"
+        _write_epub_fixture(source, chapter_texts=(secret_source_text, "Second"))
+        terminal = Event()
+        provider = _FakeLlmProvider(
+            context_window_tokens=8_192,
+            malformed_response_count=2,
+        )
+        dispatcher = EpubJobDispatcher(
+            JobRunner(self.root / "temporary-retry-failure"),
+            executor=EpubJobExecutor(provider_factory=lambda _: provider),
+            on_terminal=lambda _: terminal.set(),
+        )
+        self.addCleanup(dispatcher.close)
+
+        started = dispatcher.start(
+            _workflow_payload(
+                source=source,
+                destination=destination,
+                artifact_root=self.root / "artifacts",
+                checkpoint_namespace="retry-failure-fixture",
+            )
+        )
+
+        self.assertTrue(terminal.wait(timeout=2))
+        job = dispatcher.get(started.id.value)
+        assert job is not None
+        self.assertEqual(job.lifecycle.value, "failed")
+        self.assertEqual(
+            provider.request_unit_ids,
+            [
+                ("chapter.text.1", "chapter.text.2"),
+                ("chapter.text.1", "chapter.text.2"),
+            ],
+        )
+        self.assertFalse(destination.exists())
+        diagnostic = dispatcher.failure_diagnostic(started.id.value)
+        assert diagnostic is not None
+        self.assertEqual(diagnostic.code, "epub.provider_response_malformed")
+        self.assertEqual(
+            diagnostic.message,
+            "The translation provider returned an unreadable response. Try again, "
+            "or choose a different model.",
+        )
+        self.assertTrue(diagnostic.retryable)
+        self.assertNotIn(secret_source_text, diagnostic.message)
+
 
 class _FakeLlmProvider(LlmProvider):
-    def __init__(self, *, context_window_tokens: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        context_window_tokens: int | None = None,
+        malformed_response_count: int = 0,
+    ) -> None:
         self._capabilities = LlmProviderCapabilities(
             model_ids=("offline-test-model",),
             context_window_tokens=context_window_tokens,
@@ -214,6 +316,7 @@ class _FakeLlmProvider(LlmProvider):
         )
         self.request_unit_ids: list[tuple[str, ...]] = []
         self.instructions: list[str] = []
+        self._malformed_response_count = malformed_response_count
 
     @property
     def capabilities(self) -> LlmProviderCapabilities:
@@ -232,6 +335,12 @@ class _FakeLlmProvider(LlmProvider):
         self.request_unit_ids.append(
             tuple(unit.unit_id for unit in request.artifact.units)
         )
+        if self._malformed_response_count:
+            self._malformed_response_count -= 1
+            raise LlmProviderResponseError(
+                LlmProviderResponseFailureCode.MALFORMED_RESPONSE,
+                retryable=True,
+            )
         return TranslationArtifact(
             target_language=request.target_language,
             units=tuple(

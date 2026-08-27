@@ -10,7 +10,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 
-from mint_lingo_engine.providers.translation.base import LlmProvider
+from mint_lingo_engine.providers.translation.base import (
+    LlmProvider,
+    LlmProviderResponseError,
+    LlmProviderResponseFailureCode,
+)
 from mint_lingo_engine.translation.models import (
     StructuredTextArtifact,
     StructuredTextUnit,
@@ -41,7 +45,8 @@ class TranslationServiceValidationError(RuntimeError):
 class TranslationService:
     """Translate source-neutral units without owning a concrete workflow.
 
-    Each batch has one immediate, granular validation retry at most. The
+    Each request has one immediate retry at most, whether triggered by a
+    retryable malformed provider response or granular validation failure. The
     service deliberately introduces no configurable retry policy, backoff,
     transport retry, persistence, or workflow policy.
     """
@@ -68,6 +73,7 @@ class TranslationService:
         *,
         on_request_translated: Callable[[TranslationRequest, TranslationArtifact], None]
         | None = None,
+        before_provider_attempt: Callable[[], None] | None = None,
     ) -> TranslationArtifact:
         """Translate every source unit and return results in source-unit order.
 
@@ -80,6 +86,8 @@ class TranslationService:
             raise TypeError("artifact must be a StructuredTextArtifact")
         if on_request_translated is not None and not callable(on_request_translated):
             raise TypeError("on_request_translated must be callable or None")
+        if before_provider_attempt is not None and not callable(before_provider_attempt):
+            raise TypeError("before_provider_attempt must be callable or None")
 
         translated_by_id: dict[str, TranslatedTextUnit] = {}
         requests = build_translation_context_windows(
@@ -89,7 +97,10 @@ class TranslationService:
             overlap_units=self._overlap_units,
         )
         for request in requests:
-            request_units = self._translate_request(request)
+            request_units = self._translate_request(
+                request,
+                before_provider_attempt=before_provider_attempt,
+            )
             request_translation = TranslationArtifact(
                 target_language=target_language,
                 units=tuple(
@@ -108,13 +119,26 @@ class TranslationService:
     def _translate_request(
         self,
         request: TranslationRequest,
+        *,
+        before_provider_attempt: Callable[[], None] | None,
     ) -> dict[str, TranslatedTextUnit]:
         successful_units: dict[str, TranslatedTextUnit] = {}
         pending_request = request
 
         for attempt in range(2):
+            if before_provider_attempt is not None:
+                before_provider_attempt()
             instructions = build_structured_translation_instructions(pending_request)
-            result = self._provider.translate(pending_request, instructions)
+            try:
+                result = self._provider.translate(pending_request, instructions)
+            except LlmProviderResponseError as error:
+                if (
+                    error.code is LlmProviderResponseFailureCode.MALFORMED_RESPONSE
+                    and error.retryable
+                    and attempt == 0
+                ):
+                    continue
+                raise
             validation_result = validate_translation_artifact(pending_request, result)
             if isinstance(validation_result, TranslationArtifact):
                 successful_units.update(_units_by_id(validation_result.units))

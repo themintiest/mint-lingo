@@ -11,6 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
+from enum import Enum
 
 from mint_lingo_engine.translation.models import TranslationArtifact, TranslationRequest
 
@@ -40,6 +41,30 @@ class LlmProviderCapabilities:
                 raise ValueError("context_window_tokens must be at least 1")
         _require_boolean(self.supports_structured_output, "supports_structured_output")
         _require_boolean(self.supports_streaming, "supports_streaming")
+
+
+class LlmProviderResponseFailureCode(str, Enum):
+    """Fixed categories for normalized provider responses that cannot be used."""
+
+    MALFORMED_RESPONSE = "malformed_response"
+
+
+class LlmProviderResponseError(RuntimeError):
+    """A provider-neutral response failure that deliberately retains no payload."""
+
+    def __init__(
+        self,
+        code: LlmProviderResponseFailureCode,
+        *,
+        retryable: bool,
+    ) -> None:
+        if not isinstance(code, LlmProviderResponseFailureCode):
+            raise TypeError("code must be an LlmProviderResponseFailureCode")
+        if not isinstance(retryable, bool):
+            raise TypeError("retryable must be a bool")
+        self.code = code
+        self.retryable = retryable
+        super().__init__(code.value)
 
 
 class LlmProvider(ABC):

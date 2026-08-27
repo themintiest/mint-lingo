@@ -192,6 +192,11 @@ class EpubTranslationWorkflow:
                     total_units=total_units,
                     on_translation_progress=on_translation_progress,
                 ),
+                before_provider_attempt=(
+                    cancellation.raise_if_cancelled
+                    if cancellation is not None
+                    else None
+                ),
             )
             translated_by_id.update(
                 {unit.unit_id: unit for unit in pending_translation.units}
