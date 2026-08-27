@@ -11,6 +11,7 @@ from mint_lingo_engine.translation.models import (
     StructuredTextUnit,
     TranslatedTextUnit,
     TranslationArtifact,
+    TranslationContext,
     TranslationRequest,
 )
 from mint_lingo_engine.translation.service import (
@@ -95,6 +96,47 @@ class TranslationServiceTest(unittest.TestCase):
         self.assertIn(
             'Required unit IDs, in order: ["unit.2"]',
             provider.calls[1][1],
+        )
+
+    def test_preserves_supplied_reference_context_when_retrying_a_request(self) -> None:
+        source = _source_artifact()
+        provider = _FakeLlmProvider(
+            responses=(
+                _artifact("vi", ("unit.1", "One")),
+                _artifact("vi", ("unexpected", "Unexpected")),
+                _artifact("vi", ("unit.2", "Two")),
+                _artifact("vi", ("unit.3", "Three")),
+            )
+        )
+        service = TranslationService(provider, max_units_per_window=3)
+        windows = (
+            TranslationRequest(
+                StructuredTextArtifact("en", (source.units[0],)),
+                "vi",
+            ),
+            TranslationRequest(
+                StructuredTextArtifact("en", (source.units[1],)),
+                "vi",
+                TranslationContext((source.units[0], source.units[2])),
+            ),
+            TranslationRequest(
+                StructuredTextArtifact("en", (source.units[2],)),
+                "vi",
+            ),
+        )
+
+        result = service.translate(source, "vi", request_windows=windows)
+
+        self.assertEqual(
+            [(unit.unit_id, unit.translated_text) for unit in result.units],
+            [("unit.1", "One"), ("unit.2", "Two"), ("unit.3", "Three")],
+        )
+        self.assertEqual(
+            [
+                [] if request.context is None else [unit.unit_id for unit in request.context.units]
+                for request, _instructions in provider.calls
+            ],
+            [[], ["unit.1", "unit.3"], ["unit.1", "unit.3"], []],
         )
 
     def test_notifies_only_after_each_request_has_a_valid_translation(self) -> None:

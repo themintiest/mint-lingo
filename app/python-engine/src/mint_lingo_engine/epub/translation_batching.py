@@ -49,3 +49,14 @@ class EpubTranslationBatchingPolicy:
         if context_limit < _LARGE_CONTEXT_LIMIT:
             return cls(max_units_per_window=2, overlap_units=1)
         return cls(max_units_per_window=4, overlap_units=1)
+
+    @property
+    def reference_context_unit_limit(self) -> int:
+        """Bound EPUB reference context to the existing overlap policy.
+
+        One configured overlap unit permits at most one preceding and one
+        following chapter-local reference unit. A safe no-overlap policy sends
+        no reference context.
+        """
+
+        return self.overlap_units * 2

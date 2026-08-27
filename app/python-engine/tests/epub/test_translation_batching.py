@@ -29,6 +29,24 @@ class EpubTranslationBatchingPolicyTest(unittest.TestCase):
             EpubTranslationBatchingPolicy.from_capabilities(_capabilities(32_768)),
             EpubTranslationBatchingPolicy(max_units_per_window=4, overlap_units=1),
         )
+        self.assertEqual(
+            EpubTranslationBatchingPolicy.from_capabilities(
+                _capabilities(8_192)
+            ).reference_context_unit_limit,
+            2,
+        )
+        self.assertEqual(
+            EpubTranslationBatchingPolicy.from_capabilities(
+                _capabilities(32_768)
+            ).reference_context_unit_limit,
+            2,
+        )
+        self.assertEqual(
+            EpubTranslationBatchingPolicy.from_capabilities(
+                _capabilities(None)
+            ).reference_context_unit_limit,
+            0,
+        )
 
     def test_uses_neighboring_context_without_duplicate_result_ownership(self) -> None:
         artifact = StructuredTextArtifact(

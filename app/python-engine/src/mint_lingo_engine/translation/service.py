@@ -72,6 +72,7 @@ class TranslationService:
         artifact: StructuredTextArtifact,
         target_language: str,
         *,
+        request_windows: tuple[TranslationRequest, ...] | None = None,
         on_request_translated: Callable[[TranslationRequest, TranslationArtifact], None]
         | None = None,
         before_provider_attempt: Callable[[], None] | None = None,
@@ -85,13 +86,19 @@ class TranslationService:
 
         if not isinstance(artifact, StructuredTextArtifact):
             raise TypeError("artifact must be a StructuredTextArtifact")
+        if request_windows is not None:
+            request_windows = _validated_request_windows(
+                artifact,
+                target_language,
+                request_windows,
+            )
         if on_request_translated is not None and not callable(on_request_translated):
             raise TypeError("on_request_translated must be callable or None")
         if before_provider_attempt is not None and not callable(before_provider_attempt):
             raise TypeError("before_provider_attempt must be callable or None")
 
         translated_by_id: dict[str, TranslatedTextUnit] = {}
-        requests = build_translation_context_windows(
+        requests = request_windows or build_translation_context_windows(
             artifact,
             target_language,
             max_units_per_window=self._max_units_per_window,
@@ -217,6 +224,37 @@ def _units_by_id(
     units: Iterable[TranslatedTextUnit],
 ) -> dict[str, TranslatedTextUnit]:
     return {unit.unit_id: unit for unit in units}
+
+
+def _validated_request_windows(
+    artifact: StructuredTextArtifact,
+    target_language: str,
+    request_windows: tuple[TranslationRequest, ...],
+) -> tuple[TranslationRequest, ...]:
+    if not isinstance(request_windows, tuple) or not request_windows:
+        raise ValueError("request_windows must be a non-empty tuple")
+    if any(not isinstance(request, TranslationRequest) for request in request_windows):
+        raise TypeError("request_windows must contain only TranslationRequest values")
+    requested_units = tuple(
+        unit
+        for request in request_windows
+        for unit in request.artifact.units
+    )
+    if (
+        any(request.target_language != target_language for request in request_windows)
+        or any(
+            request.artifact.source_language != artifact.source_language
+            for request in request_windows
+        )
+        or tuple(unit.unit_id for unit in requested_units)
+        != tuple(unit.unit_id for unit in artifact.units)
+        or any(
+            unit != expected
+            for unit, expected in zip(requested_units, artifact.units, strict=True)
+        )
+    ):
+        raise ValueError("request_windows must own every artifact unit exactly once in order")
+    return request_windows
 
 
 def _require_positive_integer(value: object, name: str) -> None:

@@ -33,6 +33,7 @@ from mint_lingo_engine.epub.source import EpubSourceAcquisition
 from mint_lingo_engine.epub.translation_checkpoint import (
     EpubTranslationCheckpointStore,
 )
+from mint_lingo_engine.epub.chapter_context import EpubChapterContextWindowBuilder
 from mint_lingo_engine.epub.translation_guard import (
     reject_oversized_epub_translation_units,
 )
@@ -103,6 +104,7 @@ class EpubTranslationWorkflow:
         text_projector: EpubStructuredTextProjector | None = None,
         document_restorer: EpubDocumentRestorer | None = None,
         package_builder: EpubPackageBuilder | None = None,
+        context_window_builder: EpubChapterContextWindowBuilder | None = None,
     ) -> None:
         if not isinstance(translation_service, TranslationService):
             raise TypeError("translation_service must be a TranslationService")
@@ -126,6 +128,11 @@ class EpubTranslationWorkflow:
             raise TypeError("document_restorer must be an EpubDocumentRestorer")
         if package_builder is not None and not isinstance(package_builder, EpubPackageBuilder):
             raise TypeError("package_builder must be an EpubPackageBuilder")
+        if context_window_builder is not None and not isinstance(
+            context_window_builder,
+            EpubChapterContextWindowBuilder,
+        ):
+            raise TypeError("context_window_builder must be an EpubChapterContextWindowBuilder")
 
         self._translation_service = translation_service
         self._checkpoint_store = checkpoint_store
@@ -134,6 +141,7 @@ class EpubTranslationWorkflow:
         self._text_projector = text_projector or EpubStructuredTextProjector()
         self._document_restorer = document_restorer or EpubDocumentRestorer()
         self._package_builder = package_builder or EpubPackageBuilder()
+        self._context_window_builder = context_window_builder
 
     def translate(
         self,
@@ -186,6 +194,15 @@ class EpubTranslationWorkflow:
             pending_translation = self._translation_service.translate(
                 pending_artifact,
                 target_language,
+                request_windows=(
+                    self._context_window_builder.build(
+                        projection,
+                        target_language,
+                        requested_unit_ids=frozenset(unit.unit_id for unit in pending_units),
+                    )
+                    if self._context_window_builder is not None
+                    else None
+                ),
                 on_request_translated=self._checkpoint_and_observe_cancellation(
                     cancellation,
                     completed_unit_ids=set(translated_by_id),

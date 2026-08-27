@@ -14,6 +14,7 @@ from mint_lingo_engine.epub.export import (
 )
 from mint_lingo_engine.epub.translation_checkpoint import EpubTranslationCheckpointStore
 from mint_lingo_engine.epub.translation_batching import EpubTranslationBatchingPolicy
+from mint_lingo_engine.epub.chapter_context import EpubChapterContextWindowBuilder
 from mint_lingo_engine.epub.translation_guard import EpubTranslationUnitTooLargeError
 from mint_lingo_engine.epub.translation_recovery import (
     EpubRecoveryCandidate,
@@ -161,6 +162,7 @@ class EpubJobExecutor:
                     overlap_units=batching.overlap_units,
                 ),
                 EpubTranslationCheckpointStore(invocation.artifact_root, checkpoint_namespace=invocation.checkpoint_namespace),
+                context_window_builder=EpubChapterContextWindowBuilder(batching),
             )
             result = workflow.translate(
                 {"sourcePath": str(invocation.source_path)}, source_language=invocation.source_language,
