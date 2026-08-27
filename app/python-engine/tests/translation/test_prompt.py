@@ -50,6 +50,55 @@ class StructuredTranslationInstructionsTest(unittest.TestCase):
         )
         self.assertIn("proper name, quotation, code", instructions)
 
+    def test_makes_complete_translation_and_source_copy_prohibition_unambiguous(
+        self,
+    ) -> None:
+        instructions = build_structured_translation_instructions(
+            _request(target_language="vi")
+        )
+
+        self.assertIn(
+            "Render every ordinary natural-language sentence in every requested "
+            "unit completely in Vietnamese, from beginning to end.",
+            instructions,
+        )
+        self.assertIn(
+            "Do not copy, retain, or leave a source-language sentence, clause, "
+            "or material span of ordinary source prose in a translated value.",
+            instructions,
+        )
+        self.assertIn(
+            "A target-language prefix followed by copied ordinary source prose "
+            "is invalid.",
+            instructions,
+        )
+        self.assertIn(
+            "Preserve source text only when it is genuinely non-translatable.",
+            instructions,
+        )
+
+    def test_includes_a_provider_neutral_complete_translation_example_for_known_and_fallback_languages(
+        self,
+    ) -> None:
+        for tag, name in (("vi", "Vietnamese"), ("x-user-language", "x-user-language")):
+            with self.subTest(tag=tag):
+                instructions = build_structured_translation_instructions(
+                    _request(target_language=tag)
+                )
+
+                self.assertIn(
+                    "Abstract structured example (illustrative only):", instructions
+                )
+                self.assertIn(
+                    (
+                        "(preserved unit ID: example.unit; complete translated value: "
+                        f"<complete {name} text>)"
+                    ),
+                    instructions,
+                )
+                self.assertNotIn("Ollama", instructions)
+                self.assertNotIn("EPUB", instructions)
+
     def test_resolves_supported_tags_and_safely_falls_back_to_an_unknown_tag(self) -> None:
         language_names = {
             "en": "English",

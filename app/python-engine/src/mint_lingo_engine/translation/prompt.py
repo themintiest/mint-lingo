@@ -82,12 +82,23 @@ def build_structured_translation_instructions(request: TranslationRequest) -> st
                 "non-translatable."
             ),
             (
-                "Translate the complete text of every requested unit from "
-                "beginning to end."
+                "Render every ordinary natural-language sentence in every "
+                "requested unit completely in "
+                f"{target_language_name}, from beginning to end."
             ),
             (
                 "A requested unit may contain multiple sentences. Translate "
-                "every sentence and every meaningful part of its text."
+                "every sentence, clause, and meaningful part of its text."
+            ),
+            (
+                "Do not copy, retain, or leave a source-language sentence, "
+                "clause, or material span of ordinary source prose in a "
+                "translated value."
+            ),
+            (
+                "A target-language prefix followed by copied ordinary source "
+                "prose is invalid. Preserve source text only when it is "
+                "genuinely non-translatable."
             ),
             (
                 "Do not omit any sentence, clause, dialogue, quotation, or "
@@ -114,6 +125,11 @@ def build_structured_translation_instructions(request: TranslationRequest) -> st
             "Do not omit, merge, split, duplicate, or invent units.",
             "Return no unit IDs other than the required unit IDs.",
             f"Required unit IDs, in order: {required_unit_ids}",
+            "Abstract structured example (illustrative only):",
+            (
+                "(preserved unit ID: example.unit; complete translated value: "
+                f"<complete {target_language_name} text>)"
+            ),
             context_instruction,
             (
                 "Return only the structured translation result required by "
